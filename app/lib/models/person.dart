@@ -9,6 +9,10 @@ class Person {
   List<String> parentIds;
   List<String> childIds;
   String? spouseId;
+  List<String> photoPaths;
+  List<String> sourceIds;
+  DateTime? marriageDate;
+  String? marriagePlace;
 
   Person({
     required this.id,
@@ -21,8 +25,12 @@ class Person {
     List<String>? parentIds,
     List<String>? childIds,
     this.spouseId,
+    List<String>? photoPaths,
+    List<String>? sourceIds,
   }) : parentIds = parentIds ?? [],
-       childIds = childIds ?? [];
+       childIds = childIds ?? [],
+       photoPaths = photoPaths ?? [],
+       sourceIds = sourceIds ?? [];
 
   Map<String, dynamic> toMap() {
     return {
@@ -36,6 +44,8 @@ class Person {
       'parentIds': parentIds.join(','),
       'childIds': childIds.join(','),
       'spouseId': spouseId,
+      'photoPaths': photoPaths.join(';'),
+      'sourceIds': sourceIds.join(','),
     };
   }
 
@@ -51,6 +61,8 @@ class Person {
       parentIds: (map['parentIds'] as String?)?.split(',') ?? [],
       childIds: (map['childIds'] as String?)?.split(',') ?? [],
       spouseId: map['spouseId'],
+      photoPaths: (map['photoPaths'] as String?)?.split(';') ?? [],
+      sourceIds: (map['sourceIds'] as String?)?.split(',') ?? [],
     );
   }
 }
