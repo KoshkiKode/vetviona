@@ -225,7 +225,7 @@ class _FamilyTableView extends StatelessWidget {
                 ),
                 DataCell(Text(p.birthDate != null
                     ? '${p.birthDate!.year}'
-                    : (p.birthPlace ?? '—'))),
+                    : '—')),
                 DataCell(Text(p.deathDate != null
                     ? '${p.deathDate!.year}'
                     : '—')),

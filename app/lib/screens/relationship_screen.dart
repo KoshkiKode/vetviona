@@ -189,9 +189,8 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     for (final oldParentId in p.parentIds) {
       if (!newParentIds.contains(oldParentId)) {
         final oldParent =
-            provider.persons.firstWhere((x) => x.id == oldParentId,
-                orElse: () => Person(id: '', name: ''));
-        if (oldParent.id.isNotEmpty) {
+            provider.persons.where((x) => x.id == oldParentId).firstOrNull;
+        if (oldParent != null) {
           oldParent.childIds.remove(p.id);
           await provider.updatePerson(oldParent);
         }
@@ -202,9 +201,8 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     final oldSpouseId = p.spouseId;
     if (oldSpouseId != null && oldSpouseId != _spouseId) {
       final oldSpouse =
-          provider.persons.firstWhere((x) => x.id == oldSpouseId,
-              orElse: () => Person(id: '', name: ''));
-      if (oldSpouse.id.isNotEmpty && oldSpouse.spouseId == p.id) {
+          provider.persons.where((x) => x.id == oldSpouseId).firstOrNull;
+      if (oldSpouse != null && oldSpouse.spouseId == p.id) {
         final updatedOldSpouse = Person(
           id: oldSpouse.id,
           name: oldSpouse.name,
@@ -252,9 +250,8 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     // Link new spouse bidirectionally
     if (_spouseId != null) {
       final spouse =
-          provider.persons.firstWhere((x) => x.id == _spouseId,
-              orElse: () => Person(id: '', name: ''));
-      if (spouse.id.isNotEmpty && spouse.spouseId != p.id) {
+          provider.persons.where((x) => x.id == _spouseId).firstOrNull;
+      if (spouse != null && spouse.spouseId != p.id) {
         final updatedSpouse = Person(
           id: spouse.id,
           name: spouse.name,
@@ -279,18 +276,16 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     // Add this person to new parents' childIds
     if (_fatherId != null) {
       final father =
-          provider.persons.firstWhere((x) => x.id == _fatherId,
-              orElse: () => Person(id: '', name: ''));
-      if (father.id.isNotEmpty && !father.childIds.contains(p.id)) {
+          provider.persons.where((x) => x.id == _fatherId).firstOrNull;
+      if (father != null && !father.childIds.contains(p.id)) {
         father.childIds.add(p.id);
         await provider.updatePerson(father);
       }
     }
     if (_motherId != null) {
       final mother =
-          provider.persons.firstWhere((x) => x.id == _motherId,
-              orElse: () => Person(id: '', name: ''));
-      if (mother.id.isNotEmpty && !mother.childIds.contains(p.id)) {
+          provider.persons.where((x) => x.id == _motherId).firstOrNull;
+      if (mother != null && !mother.childIds.contains(p.id)) {
         mother.childIds.add(p.id);
         await provider.updatePerson(mother);
       }
