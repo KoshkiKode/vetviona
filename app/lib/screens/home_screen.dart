@@ -7,6 +7,7 @@ import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import 'login_screen.dart';
 import 'person_detail_screen.dart';
+import 'relationship_finder_screen.dart';
 import 'settings_screen.dart';
 import 'tree_screen.dart';
 
@@ -199,6 +200,18 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.device_hub),
+            title: const Text('Relationship Finder'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const RelationshipFinderScreen()),
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.upload_file),
             title: const Text('Import GEDCOM'),

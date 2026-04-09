@@ -36,11 +36,6 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     _marriageDate = widget.person.marriageDate;
     _marriagePlaceController = TextEditingController(text: widget.person.marriagePlace ?? '');
   }
-    if (widget.person.parentIds.length >= 2) {
-      _motherId = widget.person.parentIds[1];
-    }
-    _spouseId = widget.person.spouseId;
-  }
 
   @override
   Widget build(BuildContext context) {
