@@ -189,6 +189,15 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('sources', source.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     sources.add(source);
+    // Keep person.sourceIds in sync
+    if (source.personId.isNotEmpty) {
+      final idx = persons.indexWhere((p) => p.id == source.personId);
+      if (idx != -1 && !persons[idx].sourceIds.contains(source.id)) {
+        persons[idx].sourceIds.add(source.id);
+        await db.update('persons', persons[idx].toMap(),
+            where: 'id = ?', whereArgs: [persons[idx].id]);
+      }
+    }
     notifyListeners();
   }
 
@@ -204,6 +213,17 @@ class TreeProvider extends ChangeNotifier {
   Future<void> deleteSource(String id) async {
     final db = await _database;
     await db.delete('sources', where: 'id = ?', whereArgs: [id]);
+    // Keep person.sourceIds in sync
+    final srcIdx = sources.indexWhere((s) => s.id == id);
+    if (srcIdx != -1) {
+      final personId = sources[srcIdx].personId;
+      final pIdx = persons.indexWhere((p) => p.id == personId);
+      if (pIdx != -1) {
+        persons[pIdx].sourceIds.remove(id);
+        await db.update('persons', persons[pIdx].toMap(),
+            where: 'id = ?', whereArgs: [persons[pIdx].id]);
+      }
+    }
     sources.removeWhere((s) => s.id == id);
     notifyListeners();
   }

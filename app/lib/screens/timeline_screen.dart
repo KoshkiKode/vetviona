@@ -41,7 +41,9 @@ class TimelineScreen extends StatelessWidget {
         icon: Icons.cake,
         color: Colors.green,
         sources: personSources
-            .where((s) => s.citedFacts.contains('birth'))
+            .where((s) =>
+                s.citedFacts.contains('Birth Date') ||
+                s.citedFacts.contains('Birth Place'))
             .toList(),
       ));
     }
@@ -54,7 +56,9 @@ class TimelineScreen extends StatelessWidget {
         icon: Icons.favorite,
         color: Colors.pink,
         sources: personSources
-            .where((s) => s.citedFacts.contains('marriage'))
+            .where((s) =>
+                s.citedFacts.contains('Marriage Date') ||
+                s.citedFacts.contains('Marriage Place'))
             .toList(),
       ));
     }
@@ -67,14 +71,20 @@ class TimelineScreen extends StatelessWidget {
         icon: Icons.star,
         color: Colors.grey,
         sources: personSources
-            .where((s) => s.citedFacts.contains('death'))
+            .where((s) =>
+                s.citedFacts.contains('Death Date') ||
+                s.citedFacts.contains('Death Place'))
             .toList(),
       ));
     }
 
     // Add other sources as generic events
+    final citedEventFacts = {
+      'Birth Date', 'Birth Place', 'Death Date', 'Death Place',
+      'Marriage Date', 'Marriage Place',
+    };
     for (final source in personSources) {
-      if (!source.citedFacts.any((f) => ['birth', 'marriage', 'death'].contains(f))) {
+      if (!source.citedFacts.any((f) => citedEventFacts.contains(f))) {
         events.add(_Event(
           title: source.title,
           date: null,

@@ -6,6 +6,18 @@ import '../models/person.dart';
 import '../models/source.dart';
 import 'source_detail_screen.dart';
 
+/// Canonical fact tags used for citations; keep in sync with TimelineScreen.
+const List<String> kCitableFacts = [
+  'Birth Date',
+  'Birth Place',
+  'Death Date',
+  'Death Place',
+  'Marriage Date',
+  'Marriage Place',
+  'Name',
+  'Gender',
+];
+
 class SourcesPage extends StatelessWidget {
   final Person person;
 
@@ -13,63 +25,60 @@ class SourcesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sources = context.watch<TreeProvider>().sources.where((s) => person.sourceIds.contains(s.id)).toList();
+    final provider = context.watch<TreeProvider>();
+    // Show sources that belong to this person (by personId or in sourceIds)
+    final sources = provider.sources
+        .where((s) =>
+            s.personId == person.id || person.sourceIds.contains(s.id))
+        .toList();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${person.name} - Sources'),
+        title: Text('${person.name} – Sources'),
       ),
       body: sources.isEmpty
-          ? const Center(child: Text('No sources added yet.'))
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.source_outlined,
+                      size: 64, color: colorScheme.primary.withOpacity(0.3)),
+                  const SizedBox(height: 16),
+                  Text('No sources added yet.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.grey,
+                          )),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Source'),
+                    onPressed: () => _addSource(context),
+                  ),
+                ],
+              ),
+            )
           : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
               itemCount: sources.length,
               itemBuilder: (context, index) {
                 final source = sources[index];
-                return Card(
-                  margin: const EdgeInsets.all(8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          source.title,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Text('Type: ${source.type}'),
-                        if (source.url.isNotEmpty) Text('URL: ${source.url}'),
-                        const SizedBox(height: 8),
-                        Text('Cites: ${source.citedFacts.isEmpty ? 'None' : source.citedFacts.join(', ')}'),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            ElevatedButton(
-                              onPressed: () => _editCitations(context, source),
-                              child: const Text('Edit Citations'),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () => _deleteSource(context, source),
-                              child: const Text('Delete'),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                return _SourceCard(
+                  source: source,
+                  onEditCitations: () => _editCitations(context, source),
+                  onDelete: () => _deleteSource(context, source),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _addSource(context),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Source'),
       ),
     );
   }
 
   Future<void> _editCitations(BuildContext context, Source source) async {
-    final facts = ['Name', 'Gender', 'Birth Date', 'Birth Place', 'Death Date', 'Death Place', 'Marriage Date', 'Marriage Place'];
     final selected = source.citedFacts.toSet();
 
     await showDialog(
@@ -79,19 +88,23 @@ class SourcesPage extends StatelessWidget {
           title: const Text('Edit Citations'),
           content: SingleChildScrollView(
             child: Column(
-              children: facts.map((fact) => CheckboxListTile(
-                title: Text(fact),
-                value: selected.contains(fact),
-                onChanged: (value) {
-                  setState(() {
-                    if (value!) {
-                      selected.add(fact);
-                    } else {
-                      selected.remove(fact);
-                    }
-                  });
-                },
-              )).toList(),
+              mainAxisSize: MainAxisSize.min,
+              children: kCitableFacts
+                  .map((fact) => CheckboxListTile(
+                        dense: true,
+                        title: Text(fact),
+                        value: selected.contains(fact),
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              selected.add(fact);
+                            } else {
+                              selected.remove(fact);
+                            }
+                          });
+                        },
+                      ))
+                  .toList(),
             ),
           ),
           actions: [
@@ -99,7 +112,7 @@ class SourcesPage extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            TextButton(
+            FilledButton(
               onPressed: () {
                 source.citedFacts = selected.toList();
                 context.read<TreeProvider>().updateSource(source);
@@ -118,28 +131,158 @@ class SourcesPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Source'),
-        content: const Text('Are you sure?'),
+        content: Text('Delete "${source.title}"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (confirm == true) {
-      await context.read<TreeProvider>().deleteSource(source);
+    if (confirm == true && context.mounted) {
+      await context.read<TreeProvider>().deleteSource(source.id);
     }
   }
 
-  Future<void> _addSource(BuildContext context) async {
+  void _addSource(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => SourceDetailScreen(person: person)),
+    );
+  }
+}
+
+class _SourceCard extends StatelessWidget {
+  final Source source;
+  final VoidCallback onEditCitations;
+  final VoidCallback onDelete;
+
+  const _SourceCard({
+    required this.source,
+    required this.onEditCitations,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.description_outlined,
+                    size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    source.title,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                _TypeBadge(type: source.type),
+              ],
+            ),
+            if (source.url.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.link, size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      source.url,
+                      style: const TextStyle(
+                          fontSize: 12, color: Colors.blueAccent),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (source.extractedInfo != null &&
+                source.extractedInfo!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(source.extractedInfo!,
+                  style: TextStyle(
+                      fontSize: 13, color: colorScheme.onSurfaceVariant)),
+            ],
+            const SizedBox(height: 8),
+            if (source.citedFacts.isNotEmpty) ...[
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: source.citedFacts
+                    .map((f) => Chip(
+                          label: Text(f,
+                              style: const TextStyle(fontSize: 11)),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.checklist, size: 16),
+                  label: const Text('Citations'),
+                  onPressed: onEditCitations,
+                ),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('Delete'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: onDelete,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeBadge extends StatelessWidget {
+  final String type;
+  const _TypeBadge({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        type,
+        style: TextStyle(
+          fontSize: 11,
+          color: colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/tree_provider.dart';
@@ -19,101 +20,241 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
   String? _spouseId;
   DateTime? _marriageDate;
   late TextEditingController _marriagePlaceController;
-  String? _marriagePlace;
 
   @override
   void initState() {
     super.initState();
-    // Pre-select if already linked
-    final provider = context.read<TreeProvider>();
-    if (widget.person.parentIds.length >= 1) {
-      _fatherId = widget.person.parentIds[0];
-    }
-    if (widget.person.parentIds.length >= 2) {
-      _motherId = widget.person.parentIds[1];
-    }
-    _spouseId = widget.person.spouseId;
-    _marriageDate = widget.person.marriageDate;
-    _marriagePlaceController = TextEditingController(text: widget.person.marriagePlace ?? '');
+    final person = widget.person;
+    _fatherId = person.parentIds.isNotEmpty ? person.parentIds[0] : null;
+    _motherId = person.parentIds.length >= 2 ? person.parentIds[1] : null;
+    _spouseId = person.spouseId;
+    _marriageDate = person.marriageDate;
+    _marriagePlaceController =
+        TextEditingController(text: person.marriagePlace ?? '');
+  }
+
+  @override
+  void dispose() {
+    _marriagePlaceController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final persons = context.watch<TreeProvider>().persons.where((p) => p.id != widget.person.id).toList();
+    final provider = context.watch<TreeProvider>();
+    final others =
+        provider.persons.where((p) => p.id != widget.person.id).toList();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    DropdownMenuItem<String?> noneItem() =>
+        const DropdownMenuItem<String?>(value: null, child: Text('— None —'));
+
+    List<DropdownMenuItem<String?>> personItems() => [
+          noneItem(),
+          ...others.map((p) =>
+              DropdownMenuItem<String?>(value: p.id, child: Text(p.name))),
+        ];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Link Relationships'),
+        actions: [
+          TextButton.icon(
+            icon: Icon(Icons.save, color: colorScheme.onPrimary),
+            label: Text('Save',
+                style: TextStyle(color: colorScheme.onPrimary)),
+            onPressed: _saveRelationships,
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _sectionCard(
+            context,
+            icon: Icons.family_restroom,
+            title: 'Parents',
+            children: [
+              DropdownButtonFormField<String?>(
+                value: _fatherId,
+                decoration: const InputDecoration(labelText: 'Father'),
+                items: personItems(),
+                onChanged: (v) => setState(() => _fatherId = v),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                value: _motherId,
+                decoration: const InputDecoration(labelText: 'Mother'),
+                items: personItems(),
+                onChanged: (v) => setState(() => _motherId = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _sectionCard(
+            context,
+            icon: Icons.favorite,
+            title: 'Spouse & Marriage',
+            children: [
+              DropdownButtonFormField<String?>(
+                value: _spouseId,
+                decoration: const InputDecoration(labelText: 'Spouse'),
+                items: personItems(),
+                onChanged: (v) => setState(() => _spouseId = v),
+              ),
+              const SizedBox(height: 12),
+              _DatePickerTile(
+                label: 'Marriage Date',
+                date: _marriageDate,
+                onPick: () => _selectMarriageDate(context),
+                onClear: _marriageDate != null
+                    ? () => setState(() => _marriageDate = null)
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _marriagePlaceController,
+                decoration:
+                    const InputDecoration(labelText: 'Marriage Place'),
+                textCapitalization: TextCapitalization.words,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            icon: const Icon(Icons.save),
+            label: const Text('Save Relationships'),
+            onPressed: _saveRelationships,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<String>(
-              value: _fatherId,
-              decoration: const InputDecoration(labelText: 'Father'),
-              items: persons.map((p) {
-                return DropdownMenuItem<String>(
-                  value: p.id,
-                  child: Text(p.name),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => _fatherId = value),
+            Row(
+              children: [
+                Icon(icon, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                ),
+              ],
             ),
-            DropdownButtonFormField<String>(
-              value: _motherId,
-              decoration: const InputDecoration(labelText: 'Mother'),
-              items: persons.map((p) {
-                return DropdownMenuItem<String>(
-                  value: p.id,
-                  child: Text(p.name),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => _motherId = value),
-            ),
-            DropdownButtonFormField<String>(
-              value: _spouseId,
-              decoration: const InputDecoration(labelText: 'Spouse'),
-              items: persons.map((p) {
-                return DropdownMenuItem<String>(
-                  value: p.id,
-                  child: Text(p.name),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => _spouseId = value),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _saveRelationships,
-              child: const Text('Save'),
-            ),
+            const SizedBox(height: 12),
+            ...children,
           ],
         ),
       ),
     );
   }
 
+  Future<void> _selectMarriageDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _marriageDate ?? DateTime.now(),
+      firstDate: DateTime(1700),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _marriageDate = picked);
+  }
+
   Future<void> _saveRelationships() async {
     final provider = context.read<TreeProvider>();
+    final p = widget.person;
+
+    // Build new parentIds list (preserve order: father first, mother second)
+    final newParentIds = [_fatherId, _motherId]
+        .where((id) => id != null)
+        .cast<String>()
+        .toList();
+
+    // Remove this person from old parents' childIds that are no longer parents
+    for (final oldParentId in p.parentIds) {
+      if (!newParentIds.contains(oldParentId)) {
+        final oldParent =
+            provider.persons.firstWhere((x) => x.id == oldParentId,
+                orElse: () => Person(id: '', name: ''));
+        if (oldParent.id.isNotEmpty) {
+          oldParent.childIds.remove(p.id);
+          await provider.updatePerson(oldParent);
+        }
+      }
+    }
+
+    // Unlink old spouse if changed
+    final oldSpouseId = p.spouseId;
+    if (oldSpouseId != null && oldSpouseId != _spouseId) {
+      final oldSpouse =
+          provider.persons.firstWhere((x) => x.id == oldSpouseId,
+              orElse: () => Person(id: '', name: ''));
+      if (oldSpouse.id.isNotEmpty && oldSpouse.spouseId == p.id) {
+        final updatedOldSpouse = Person(
+          id: oldSpouse.id,
+          name: oldSpouse.name,
+          birthDate: oldSpouse.birthDate,
+          birthPlace: oldSpouse.birthPlace,
+          deathDate: oldSpouse.deathDate,
+          deathPlace: oldSpouse.deathPlace,
+          gender: oldSpouse.gender,
+          parentIds: oldSpouse.parentIds,
+          childIds: oldSpouse.childIds,
+          spouseId: null,
+          photoPaths: oldSpouse.photoPaths,
+          sourceIds: oldSpouse.sourceIds,
+          marriageDate: oldSpouse.marriageDate,
+          marriagePlace: oldSpouse.marriagePlace,
+          notes: oldSpouse.notes,
+        );
+        await provider.updatePerson(updatedOldSpouse);
+      }
+    }
+
+    final marriagePlaceText = _marriagePlaceController.text.trim();
+
+    // Save updated person
     final updatedPerson = Person(
-      id: widget.person.id,
-      name: widget.person.name,
-      birthDate: widget.person.birthDate,
-      birthPlace: widget.person.birthPlace,
-      deathDate: widget.person.deathDate,
-      deathPlace: widget.person.deathPlace,
-      gender: widget.person.gender,
-      parentIds: [_fatherId, _motherId].where((id) => id != null).cast<String>().toList(),
-      childIds: widget.person.childIds,
+      id: p.id,
+      name: p.name,
+      birthDate: p.birthDate,
+      birthPlace: p.birthPlace,
+      deathDate: p.deathDate,
+      deathPlace: p.deathPlace,
+      gender: p.gender,
+      parentIds: newParentIds,
+      childIds: p.childIds,
       spouseId: _spouseId,
-      photoPaths: widget.person.photoPaths,
-      sourceIds: widget.person.sourceIds,
+      photoPaths: p.photoPaths,
+      sourceIds: p.sourceIds,
+      marriageDate: _marriageDate,
+      marriagePlace:
+          marriagePlaceText.isEmpty ? null : marriagePlaceText,
+      notes: p.notes,
     );
     await provider.updatePerson(updatedPerson);
-    // Update spouse
+
+    // Link new spouse bidirectionally
     if (_spouseId != null) {
-      final spouse = provider.persons.firstWhere((p) => p.id == _spouseId);
-      if (spouse.spouseId != widget.person.id) {
+      final spouse =
+          provider.persons.firstWhere((x) => x.id == _spouseId,
+              orElse: () => Person(id: '', name: ''));
+      if (spouse.id.isNotEmpty && spouse.spouseId != p.id) {
         final updatedSpouse = Person(
           id: spouse.id,
           name: spouse.name,
@@ -124,28 +265,109 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
           gender: spouse.gender,
           parentIds: spouse.parentIds,
           childIds: spouse.childIds,
-          spouseId: widget.person.id,
+          spouseId: p.id,
           photoPaths: spouse.photoPaths,
           sourceIds: spouse.sourceIds,
+          marriageDate: _marriageDate,
+          marriagePlace: marriagePlaceText.isEmpty ? null : marriagePlaceText,
+          notes: spouse.notes,
         );
         await provider.updatePerson(updatedSpouse);
       }
     }
-    // Update parents' childIds
+
+    // Add this person to new parents' childIds
     if (_fatherId != null) {
-      final father = provider.persons.firstWhere((p) => p.id == _fatherId);
-      if (!father.childIds.contains(widget.person.id)) {
-        father.childIds.add(widget.person.id);
+      final father =
+          provider.persons.firstWhere((x) => x.id == _fatherId,
+              orElse: () => Person(id: '', name: ''));
+      if (father.id.isNotEmpty && !father.childIds.contains(p.id)) {
+        father.childIds.add(p.id);
         await provider.updatePerson(father);
       }
     }
     if (_motherId != null) {
-      final mother = provider.persons.firstWhere((p) => p.id == _motherId);
-      if (!mother.childIds.contains(widget.person.id)) {
-        mother.childIds.add(widget.person.id);
+      final mother =
+          provider.persons.firstWhere((x) => x.id == _motherId,
+              orElse: () => Person(id: '', name: ''));
+      if (mother.id.isNotEmpty && !mother.childIds.contains(p.id)) {
+        mother.childIds.add(p.id);
         await provider.updatePerson(mother);
       }
     }
-    Navigator.pop(context);
+
+    if (mounted) Navigator.pop(context);
+  }
+}
+
+class _DatePickerTile extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final VoidCallback onPick;
+  final VoidCallback? onClear;
+
+  const _DatePickerTile({
+    required this.label,
+    required this.date,
+    required this.onPick,
+    this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onPick,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border:
+              Border.all(color: colorScheme.outline.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today,
+                size: 18, color: colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style:
+                        Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                  ),
+                  Text(
+                    date != null
+                        ? DateFormat('d MMMM yyyy').format(date!)
+                        : 'Tap to set date',
+                    style:
+                        Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: date != null
+                                  ? null
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                  ),
+                ],
+              ),
+            ),
+            if (onClear != null)
+              IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: onClear,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
