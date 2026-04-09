@@ -46,8 +46,10 @@ On-demand sync you trigger inside the app, over Bluetooth or any local connectio
 
 | Tier | Transport | Trigger | Included In |
 |------|-----------|---------|-------------|
-| RootLoop™ Auto | WiFi | Automatic | Mobile Free + Desktop Pro |
-| RootLoop™ Manual | Bluetooth | On-demand | Desktop Pro only |
+| RootLoop™ Auto | WiFi | Automatic | Mobile Paid + Desktop Pro |
+| RootLoop™ Manual | Bluetooth | On-demand | Mobile Free + Mobile Paid + Desktop Pro |
+
+> On **Desktop Pro**, if a connected mobile device is on the free tier, sync falls back to manual-only and is capped at 100 people per sync session.
 
 > RootLoop™ is versioned independently from the app. Current version: **1.0.0**
 
@@ -55,12 +57,15 @@ On-demand sync you trigger inside the app, over Bluetooth or any local connectio
 
 ## Pricing
 
-| Tier | Price | Platforms |
-|------|-------|-----------|
-| **Mobile Free** | Free, always | Android & iOS |
-| **Desktop Pro** | One-time purchase | Windows · macOS · Linux |
+| Tier | Price | Platforms | Person Limit | Sync |
+|------|-------|-----------|--------------|------|
+| **Mobile Free** | Free, always | Android & iOS | 100 per tree | RootLoop™ Manual only |
+| **Mobile Paid** | One-time purchase | Android & iOS | Unlimited | RootLoop™ Auto + Manual |
+| **Desktop Pro** | One-time purchase | Windows · macOS · Linux | Unlimited | Both tiers; respects connected device's tier |
 
-No subscriptions. No recurring fees. Desktop Pro unlocks GEDCOM import/export, Bluetooth sync (RootLoop™ Manual), and unlimited trees.
+No subscriptions. No recurring fees. Desktop Pro unlocks GEDCOM import/export, WiFi auto-sync (RootLoop™ Auto), multiple family trees, and unlimited people. Separate family tree management is coming soon.
+
+> **Note:** There is no desktop free version. Desktop always requires a Pro purchase (`--dart-define=PAID=true`).
 
 ---
 
@@ -122,11 +127,20 @@ flutter run
 # Android APK (free tier)
 flutter build apk --release
 
-# Android App Bundle (for Play Store)
+# Android APK (paid tier — RootLoop™ Auto enabled)
+flutter build apk --release --dart-define=MOBILE_PAID=true
+
+# Android App Bundle for Play Store (free)
 flutter build appbundle --release
 
-# iOS (requires macOS + Xcode)
+# Android App Bundle for Play Store (paid)
+flutter build appbundle --release --dart-define=MOBILE_PAID=true
+
+# iOS (requires macOS + Xcode) — free tier
 flutter build ios --release --no-codesign
+
+# iOS — paid tier
+flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
 ```
 
 ### Build — Desktop
@@ -145,7 +159,8 @@ flutter build linux --release
 ### Build — Desktop Pro (paid flag)
 
 ```bash
-# The PAID compile-time flag unlocks the desktop version
+# The PAID compile-time flag unlocks the desktop version.
+# Desktop is always Pro — there is no free desktop build.
 flutter build windows --release --dart-define=PAID=true
 flutter build macos  --release --dart-define=PAID=true
 flutter build linux  --release --dart-define=PAID=true

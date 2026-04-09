@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../config/app_config.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import 'login_screen.dart';
@@ -121,19 +122,37 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PersonDetailScreen()),
-        ),
-        tooltip: 'Add Person',
-        icon: const Icon(Icons.person_add),
-        label: const Text('Add Person'),
+        onPressed: provider.isAtPersonLimit
+            ? () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Free tier limit: $freeMobilePersonLimit people reached. Upgrade to add more.',
+                    ),
+                    backgroundColor: Colors.orange,
+                  ),
+                )
+            : () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PersonDetailScreen()),
+                ),
+        tooltip: provider.isAtPersonLimit
+            ? 'Person limit reached'
+            : 'Add Person',
+        icon: Icon(
+            provider.isAtPersonLimit ? Icons.lock_outline : Icons.person_add),
+        label: Text(
+            provider.isAtPersonLimit ? 'Limit Reached' : 'Add Person'),
       ),
     );
   }
 
   Widget _buildStatsBar(BuildContext context, TreeProvider provider) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isFree = currentAppTier == AppTier.mobileFree;
+    final personLabel = isFree
+        ? '${provider.persons.length} / $freeMobilePersonLimit people'
+        : '${provider.persons.length} people';
     return Container(
       color: colorScheme.primaryContainer.withOpacity(0.3),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -141,15 +160,20 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _StatChip(
             icon: Icons.people,
-            label: '${provider.persons.length} people',
-            color: colorScheme.primary,
+            label: personLabel,
+            color: isFree && provider.isAtPersonLimit
+                ? Colors.orange
+                : colorScheme.primary,
           ),
-          const SizedBox(width: 8),
-          _StatChip(
-            icon: Icons.park,
-            label: '${provider.treeNames.length} tree${provider.treeNames.length == 1 ? '' : 's'}',
-            color: colorScheme.tertiary,
-          ),
+          if (!isFree) ...[
+            const SizedBox(width: 8),
+            _StatChip(
+              icon: Icons.park,
+              label:
+                  '${provider.treeNames.length} tree${provider.treeNames.length == 1 ? '' : 's'}',
+              color: colorScheme.tertiary,
+            ),
+          ],
         ],
       ),
     );
@@ -326,31 +350,34 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           const Divider(),
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Trees',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: Colors.grey)),
-                IconButton(
-                  icon: const Icon(Icons.add, size: 20),
-                  tooltip: 'New tree',
-                  onPressed: () => _addTreeDialog(context, provider),
-                ),
-              ],
+          // Multiple family trees are desktop-only for now.
+          if (currentAppTier == AppTier.desktopPro) ...[
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Trees',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(color: Colors.grey)),
+                  IconButton(
+                    icon: const Icon(Icons.add, size: 20),
+                    tooltip: 'New tree',
+                    onPressed: () => _addTreeDialog(context, provider),
+                  ),
+                ],
+              ),
             ),
-          ),
-          ...provider.treeNames.map((name) => ListTile(
-                leading: const Icon(Icons.park_outlined),
-                title: Text(name),
-                dense: true,
-              )),
-          const Divider(),
+            ...provider.treeNames.map((name) => ListTile(
+                  leading: const Icon(Icons.park_outlined),
+                  title: Text(name),
+                  dense: true,
+                )),
+            const Divider(),
+          ],
           ListTile(
             leading: const Icon(Icons.upload_file_outlined),
             title: const Text('Import GEDCOM'),

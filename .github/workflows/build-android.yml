@@ -40,6 +40,7 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      # ── Free tier ──────────────────────────────────────────────────────────
       - name: Build APK (free — mobile)
         working-directory: app
         run: flutter build apk --release
@@ -48,14 +49,35 @@ jobs:
         working-directory: app
         run: flutter build appbundle --release
 
-      - name: Upload APK
+      - name: Upload Free APK
         uses: actions/upload-artifact@v4
         with:
-          name: vetviona-android-apk
+          name: vetviona-android-free-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
 
-      - name: Upload AAB
+      - name: Upload Free AAB
         uses: actions/upload-artifact@v4
         with:
-          name: vetviona-android-aab
+          name: vetviona-android-free-aab
+          path: app/build/app/outputs/bundle/release/app-release.aab
+
+      # ── Paid tier ──────────────────────────────────────────────────────────
+      - name: Build APK (paid — mobile)
+        working-directory: app
+        run: flutter build apk --release --dart-define=MOBILE_PAID=true
+
+      - name: Build App Bundle (paid — Play Store)
+        working-directory: app
+        run: flutter build appbundle --release --dart-define=MOBILE_PAID=true
+
+      - name: Upload Paid APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-android-paid-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Paid AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-android-paid-aab
           path: app/build/app/outputs/bundle/release/app-release.aab

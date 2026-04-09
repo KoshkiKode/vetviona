@@ -3,6 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
 import '../config/build_metadata.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
@@ -176,67 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionCard(
             icon: Icons.sync_outlined,
             title: 'RootLoop\u2122 Sync',
-            children: [
-              // Tier 1 — RootLoop Auto
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  'RootLoop Auto',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              Text(
-                'Automatically syncs when your devices are on the same WiFi network — no button press needed.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.grey),
-              ),
-              SwitchListTile(
-                title: const Text('WiFi Auto-Sync'),
-                subtitle:
-                    const Text('Sync automatically on home network'),
-                value: _wifiSync,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (v) {
-                  setState(() => _wifiSync = v);
-                  _saveBool('wifiSync', v);
-                },
-              ),
-              const Divider(height: 24),
-              // Tier 2 — RootLoop Manual
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  'RootLoop Manual',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              Text(
-                'Tap to sync on demand — works over Bluetooth or any local connection you initiate.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.grey),
-              ),
-              SwitchListTile(
-                title: const Text('Bluetooth Sync'),
-                subtitle:
-                    const Text('Sync nearby via Bluetooth'),
-                value: _bluetoothSync,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (v) {
-                  setState(() => _bluetoothSync = v);
-                  _saveBool('bluetoothSync', v);
-                },
-              ),
-            ],
+            children: _buildSyncChildren(context),
           ),
 
           const SizedBox(height: 12),
@@ -265,13 +206,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.devices),
                     title: Text(d.id),
-                    subtitle: Text('\u2022' * 16),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('\u2022' * 16),
+                        const SizedBox(height: 2),
+                        _DeviceTierBadge(tier: d.tier),
+                      ],
+                    ),
+                    isThreeLine: true,
                     trailing: IconButton(
                       icon: const Icon(Icons.delete_outline,
                           color: Colors.red),
                       onPressed: () =>
                           treeProvider.removeDevice(d.id),
                     ),
+                  ),
+                ),
+              if (currentAppTier == AppTier.desktopPro &&
+                  treeProvider.pairedDevices
+                      .any((d) => d.tier == 'mobileFree'))
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 14, color: Colors.amber),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Free-tier mobile devices sync manually only, up to 100 people per sync.',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -339,6 +309,128 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  List<Widget> _buildSyncChildren(BuildContext context) {
+    switch (currentAppTier) {
+      case AppTier.mobileFree:
+        return [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              'RootLoop\u2122 Manual',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(
+            'Tap to sync when you are right in front of your computer — works over WiFi or Bluetooth on demand.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey),
+          ),
+          SwitchListTile(
+            title: const Text('Bluetooth Sync'),
+            subtitle: const Text('Sync nearby via Bluetooth'),
+            value: _bluetoothSync,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (v) {
+              setState(() => _bluetoothSync = v);
+              _saveBool('bluetoothSync', v);
+            },
+          ),
+          const Divider(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.people_outline, size: 14, color: Colors.grey),
+              const SizedBox(width: 6),
+              Text(
+                'Free tier: up to $freeMobilePersonLimit people per tree.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey),
+              ),
+            ],
+          ),
+        ];
+
+      case AppTier.mobilePaid:
+      case AppTier.desktopPro:
+        return [
+          // RootLoop Auto
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              'RootLoop\u2122 Auto',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(
+            'Automatically syncs when your devices are on the same WiFi network — no button press needed.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey),
+          ),
+          SwitchListTile(
+            title: const Text('WiFi Auto-Sync'),
+            subtitle: const Text('Sync automatically on home network'),
+            value: _wifiSync,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (v) {
+              setState(() => _wifiSync = v);
+              _saveBool('wifiSync', v);
+            },
+          ),
+          const Divider(height: 24),
+          // RootLoop Manual
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              'RootLoop\u2122 Manual',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(
+            'Tap to sync on demand — works over Bluetooth or any local connection you initiate.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey),
+          ),
+          SwitchListTile(
+            title: const Text('Bluetooth Sync'),
+            subtitle: const Text('Sync nearby via Bluetooth'),
+            value: _bluetoothSync,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (v) {
+              setState(() => _bluetoothSync = v);
+              _saveBool('bluetoothSync', v);
+            },
+          ),
+          if (currentAppTier == AppTier.desktopPro) ...[
+            const Divider(height: 16),
+            Text(
+              'Desktop Pro supports both free and paid mobile devices. '
+              'Free-tier mobile devices sync manually only (up to $freeMobilePersonLimit people per sync).',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.grey),
+            ),
+          ],
+        ];
+    }
+  }
+
   Future<void> _confirmClear(
       BuildContext context, TreeProvider provider) async {
     final confirmed = await showDialog<bool>(
@@ -370,7 +462,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class _SectionCard extends StatelessWidget {
+class _DeviceTierBadge extends StatelessWidget {
+  final String tier;
+  const _DeviceTierBadge({required this.tier});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (tier) {
+      'mobilePaid' => 'Mobile Paid',
+      'desktopPro' => 'Desktop Pro',
+      _ => 'Mobile Free',
+    };
+    final color = switch (tier) {
+      'mobilePaid' => Colors.blue,
+      'desktopPro' => Colors.purple,
+      _ => Colors.orange,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+            fontSize: 11, color: color, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+
   final IconData icon;
   final String title;
   final List<Widget> children;

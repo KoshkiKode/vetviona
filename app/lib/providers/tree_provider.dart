@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
+import '../config/app_config.dart';
 import '../models/device.dart';
 import '../models/person.dart';
 import '../models/source.dart';
@@ -32,6 +33,11 @@ class TreeProvider extends ChangeNotifier {
   static const _uuid = Uuid();
   static const _dbName = 'vetviona.db';
 
+  /// Returns the maximum number of people allowed per tree for this build.
+  /// [freeMobilePersonLimit] on the free mobile tier; null means unlimited.
+  int? get personLimit =>
+      currentAppTier == AppTier.mobileFree ? freeMobilePersonLimit : null;
+
   // Places are provided by PlaceService (see lib/services/place_service.dart).
 
   // ── Database ───────────────────────────────────────────────────────────────
@@ -46,7 +52,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -89,11 +95,19 @@ class TreeProvider extends ChangeNotifier {
         await db.execute('''
           CREATE TABLE devices (
             id TEXT PRIMARY KEY,
-            sharedSecret TEXT NOT NULL
+            sharedSecret TEXT NOT NULL,
+            tier TEXT NOT NULL DEFAULT 'mobileFree'
           )
         ''');
         // Insert default tree
         await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            "ALTER TABLE devices ADD COLUMN tier TEXT NOT NULL DEFAULT 'mobileFree'",
+          );
+        }
       },
     );
   }
@@ -129,7 +143,20 @@ class TreeProvider extends ChangeNotifier {
   }
 
   // ── Persons ────────────────────────────────────────────────────────────────
+  /// Returns `true` if adding another person would exceed this tier's limit.
+  bool get isAtPersonLimit {
+    final limit = personLimit;
+    if (limit == null) return false;
+    return persons.length >= limit;
+  }
+
   Future<void> addPerson(Person person) async {
+    if (isAtPersonLimit) {
+      throw StateError(
+        'Free tier limit reached: this tree already has $freeMobilePersonLimit people. '
+        'Upgrade to Mobile Paid or Desktop Pro to add more.',
+      );
+    }
     person.id = person.id.isEmpty ? _uuid.v4() : person.id;
     person.treeId = currentTreeId;
     final db = await _database;
