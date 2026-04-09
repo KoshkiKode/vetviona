@@ -478,8 +478,8 @@ class _DeviceTierBadge extends StatelessWidget {
     };
     final color = switch (tier) {
       'mobilePaid' => colorScheme.tertiary,
-      'desktopPro' => colorScheme.outlineVariant,
-      _ => colorScheme.outline,
+      'desktopPro' => colorScheme.primary,
+      _ => colorScheme.secondary,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

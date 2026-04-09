@@ -152,7 +152,7 @@ enum _EventKind { birth, union, endedUnion, death, source }
 extension _EventKindStyle on _EventKind {
   Color colorOf(ColorScheme cs) => switch (this) {
         _EventKind.birth => cs.tertiary,
-        _EventKind.union => cs.outlineVariant,
+        _EventKind.union => cs.secondary,
         _EventKind.endedUnion => cs.outline,
         _EventKind.death => cs.error,
         _EventKind.source => cs.primary,
