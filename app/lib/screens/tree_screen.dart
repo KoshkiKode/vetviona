@@ -9,8 +9,15 @@ import 'sources_page.dart';
 import 'timeline_screen.dart';
 import 'tree_diagram_screen.dart';
 
-class TreeScreen extends StatelessWidget {
+class TreeScreen extends StatefulWidget {
   const TreeScreen({super.key});
+
+  @override
+  State<TreeScreen> createState() => _TreeScreenState();
+}
+
+class _TreeScreenState extends State<TreeScreen> {
+  bool _tableView = false;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +29,12 @@ class TreeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Family Tree'),
         actions: [
+          if (persons.isNotEmpty)
+            IconButton(
+              icon: Icon(_tableView ? Icons.list : Icons.table_rows_outlined),
+              tooltip: _tableView ? 'List view' : 'Table view',
+              onPressed: () => setState(() => _tableView = !_tableView),
+            ),
           IconButton(
             icon: const Icon(Icons.account_tree),
             tooltip: 'View Diagram',
@@ -126,12 +139,14 @@ class TreeScreen extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 80),
-                    itemCount: persons.length,
-                    itemBuilder: (context, i) =>
-                        _PersonCard(person: persons[i]),
-                  ),
+                  child: _tableView
+                      ? _FamilyTableView(persons: persons, provider: provider)
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 80),
+                          itemCount: persons.length,
+                          itemBuilder: (context, i) =>
+                              _PersonCard(person: persons[i]),
+                        ),
                 ),
               ],
             ),
@@ -143,6 +158,111 @@ class TreeScreen extends StatelessWidget {
         ),
         tooltip: 'Add Person',
         child: const Icon(Icons.person_add),
+      ),
+    );
+  }
+}
+
+class _FamilyTableView extends StatelessWidget {
+  final List<Person> persons;
+  final TreeProvider provider;
+
+  const _FamilyTableView({required this.persons, required this.provider});
+
+  String _personName(String? id) {
+    if (id == null || id.isEmpty) return '—';
+    try {
+      return persons.firstWhere((p) => p.id == id).name;
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  String _parentNames(Person p) {
+    if (p.parentIds.isEmpty) return '—';
+    return p.parentIds.map(_personName).join(', ');
+  }
+
+  String _childNames(Person p) {
+    if (p.childIds.isEmpty) return '—';
+    return p.childIds.map(_personName).join(', ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(12),
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(
+              colorScheme.primaryContainer.withOpacity(0.5)),
+          columnSpacing: 20,
+          columns: const [
+            DataColumn(label: Text('Name')),
+            DataColumn(label: Text('Born')),
+            DataColumn(label: Text('Died')),
+            DataColumn(label: Text('Parents')),
+            DataColumn(label: Text('Partners')),
+            DataColumn(label: Text('Children')),
+          ],
+          rows: persons.map((p) {
+            return DataRow(
+              cells: [
+                DataCell(
+                  Text(p.name,
+                      style: textTheme.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => PersonDetailScreen(person: p)),
+                  ),
+                ),
+                DataCell(Text(p.birthDate != null
+                    ? '${p.birthDate!.year}'
+                    : '—')),
+                DataCell(Text(p.deathDate != null
+                    ? '${p.deathDate!.year}'
+                    : '—')),
+                DataCell(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Text(_parentNames(p),
+                        overflow: TextOverflow.ellipsis, maxLines: 2),
+                  ),
+                ),
+                DataCell(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Text(
+                      () {
+                        final names = provider
+                            .partnerIdsFor(p.id)
+                            .map(_personName)
+                            .toList();
+                        return names.isEmpty ? '—' : names.join(', ');
+                      }(),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                ),
+                DataCell(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Text(_childNames(p),
+                        overflow: TextOverflow.ellipsis, maxLines: 2),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }

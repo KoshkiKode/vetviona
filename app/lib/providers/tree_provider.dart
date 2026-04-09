@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
 import '../models/device.dart';
+import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
 import '../services/gedcom_parser.dart';
@@ -17,6 +18,7 @@ class TreeProvider extends ChangeNotifier {
   // ── State ──────────────────────────────────────────────────────────────────
   List<Person> persons = [];
   List<Source> sources = [];
+  List<Partnership> partnerships = [];
   List<String> treeNames = [];
   String currentTreeId = 'default';
   List<Device> pairedDevices = [];
@@ -34,11 +36,8 @@ class TreeProvider extends ChangeNotifier {
   static const _dbName = 'vetviona.db';
 
   /// Returns the maximum number of people allowed per tree for this build.
-  /// [freeMobilePersonLimit] on the free mobile tier; null means unlimited.
   int? get personLimit =>
       currentAppTier == AppTier.mobileFree ? freeMobilePersonLimit : null;
-
-  // Places are provided by PlaceService (see lib/services/place_service.dart).
 
   // ── Database ───────────────────────────────────────────────────────────────
   Future<Database> get _database async {
@@ -52,7 +51,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -71,11 +70,9 @@ class TreeProvider extends ChangeNotifier {
             gender TEXT,
             parentIds TEXT,
             childIds TEXT,
-            spouseId TEXT,
             photoPaths TEXT,
             sourceIds TEXT,
-            marriageDate TEXT,
-            marriagePlace TEXT,
+            parentRelTypes TEXT,
             notes TEXT,
             treeId TEXT
           )
@@ -99,7 +96,19 @@ class TreeProvider extends ChangeNotifier {
             tier TEXT NOT NULL DEFAULT 'mobileFree'
           )
         ''');
-        // Insert default tree
+        await db.execute('''
+          CREATE TABLE partnerships (
+            id TEXT PRIMARY KEY,
+            person1Id TEXT NOT NULL,
+            person2Id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'married',
+            startDate TEXT,
+            startPlace TEXT,
+            endDate TEXT,
+            endPlace TEXT,
+            treeId TEXT
+          )
+        ''');
         await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
       },
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -107,6 +116,52 @@ class TreeProvider extends ChangeNotifier {
           await db.execute(
             "ALTER TABLE devices ADD COLUMN tier TEXT NOT NULL DEFAULT 'mobileFree'",
           );
+        }
+        if (oldVersion < 3) {
+          // Add new persons columns (old spouseId / marriageDate / marriagePlace
+          // columns are kept in place — SQLite cannot drop them — but are no
+          // longer read by the app.)
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN parentRelTypes TEXT',
+          );
+          // Create partnerships table
+          await db.execute('''
+            CREATE TABLE partnerships (
+              id TEXT PRIMARY KEY,
+              person1Id TEXT NOT NULL,
+              person2Id TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'married',
+              startDate TEXT,
+              startPlace TEXT,
+              endDate TEXT,
+              endPlace TEXT,
+              treeId TEXT
+            )
+          ''');
+          // Migrate existing spouseId + marriageDate + marriagePlace → partnerships
+          final personMaps = await db.query('persons');
+          // Track processed pairs to avoid duplicate partnership records
+          final processed = <Set<String>>{};
+          for (final row in personMaps) {
+            final personId = row['id'] as String;
+            final spouseId = row['spouseId'] as String?;
+            if (spouseId == null || spouseId.isEmpty) continue;
+            final pair = {personId, spouseId};
+            if (processed.any((p) => p.containsAll(pair))) continue;
+            processed.add(pair);
+            final sortedIds = [personId, spouseId]..sort();
+            await db.insert('partnerships', {
+              'id': 'mig_${sortedIds[0]}_${sortedIds[1]}',
+              'person1Id': personId,
+              'person2Id': spouseId,
+              'status': 'married',
+              'startDate': row['marriageDate'],
+              'startPlace': row['marriagePlace'],
+              'endDate': null,
+              'endPlace': null,
+              'treeId': row['treeId'],
+            });
+          }
         }
       },
     );
@@ -132,6 +187,13 @@ class TreeProvider extends ChangeNotifier {
     final sourceMaps = await db.query('sources');
     sources = sourceMaps.map(Source.fromMap).toList();
 
+    final partnershipMaps = await db.query(
+      'partnerships',
+      where: 'treeId = ?',
+      whereArgs: [currentTreeId],
+    );
+    partnerships = partnershipMaps.map(Partnership.fromMap).toList();
+
     final deviceMaps = await db.query('devices');
     pairedDevices = deviceMaps.map(Device.fromMap).toList();
 
@@ -143,7 +205,6 @@ class TreeProvider extends ChangeNotifier {
   }
 
   // ── Persons ────────────────────────────────────────────────────────────────
-  /// Returns `true` if adding another person would exceed this tier's limit.
   bool get isAtPersonLimit {
     final limit = personLimit;
     if (limit == null) return false;
@@ -178,6 +239,11 @@ class TreeProvider extends ChangeNotifier {
   Future<void> deletePerson(String id) async {
     final db = await _database;
     await db.delete('persons', where: 'id = ?', whereArgs: [id]);
+    // Remove all partnerships involving this person
+    await db.delete('partnerships',
+        where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
+    partnerships.removeWhere(
+        (pt) => pt.person1Id == id || pt.person2Id == id);
     persons.removeWhere((p) => p.id == id);
     notifyListeners();
   }
@@ -189,6 +255,14 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('sources', source.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     sources.add(source);
+    if (source.personId.isNotEmpty) {
+      final idx = persons.indexWhere((p) => p.id == source.personId);
+      if (idx != -1 && !persons[idx].sourceIds.contains(source.id)) {
+        persons[idx].sourceIds.add(source.id);
+        await db.update('persons', persons[idx].toMap(),
+            where: 'id = ?', whereArgs: [persons[idx].id]);
+      }
+    }
     notifyListeners();
   }
 
@@ -204,9 +278,64 @@ class TreeProvider extends ChangeNotifier {
   Future<void> deleteSource(String id) async {
     final db = await _database;
     await db.delete('sources', where: 'id = ?', whereArgs: [id]);
+    final srcIdx = sources.indexWhere((s) => s.id == id);
+    if (srcIdx != -1) {
+      final personId = sources[srcIdx].personId;
+      final pIdx = persons.indexWhere((p) => p.id == personId);
+      if (pIdx != -1) {
+        persons[pIdx].sourceIds.remove(id);
+        await db.update('persons', persons[pIdx].toMap(),
+            where: 'id = ?', whereArgs: [persons[pIdx].id]);
+      }
+    }
     sources.removeWhere((s) => s.id == id);
     notifyListeners();
   }
+
+  // ── Partnerships ───────────────────────────────────────────────────────────
+  Future<void> addPartnership(Partnership partnership) async {
+    partnership.id = partnership.id.isEmpty ? _uuid.v4() : partnership.id;
+    partnership.treeId = currentTreeId;
+    final db = await _database;
+    await db.insert('partnerships', partnership.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    partnerships.add(partnership);
+    notifyListeners();
+  }
+
+  Future<void> updatePartnership(Partnership partnership) async {
+    final db = await _database;
+    await db.update('partnerships', partnership.toMap(),
+        where: 'id = ?', whereArgs: [partnership.id]);
+    final idx = partnerships.indexWhere((p) => p.id == partnership.id);
+    if (idx != -1) partnerships[idx] = partnership;
+    notifyListeners();
+  }
+
+  Future<void> deletePartnership(String id) async {
+    final db = await _database;
+    await db.delete('partnerships', where: 'id = ?', whereArgs: [id]);
+    partnerships.removeWhere((p) => p.id == id);
+    notifyListeners();
+  }
+
+  /// Returns all partnerships that include [personId] as either partner.
+  List<Partnership> partnershipsFor(String personId) => partnerships
+      .where((p) => p.person1Id == personId || p.person2Id == personId)
+      .toList();
+
+  /// Returns the IDs of all partners of [personId].
+  List<String> partnerIdsFor(String personId) => partnershipsFor(personId)
+      .map((p) => p.person1Id == personId ? p.person2Id : p.person1Id)
+      .toList();
+
+  /// Returns the persons whose [parentIds] contains BOTH partners in [p],
+  /// i.e. the children born/adopted into this specific union.
+  List<Person> childrenOfPartnership(Partnership p) => persons
+      .where((child) =>
+          child.parentIds.contains(p.person1Id) &&
+          child.parentIds.contains(p.person2Id))
+      .toList();
 
   // ── Trees ──────────────────────────────────────────────────────────────────
   Future<void> addTree(String name) async {
@@ -227,6 +356,8 @@ class TreeProvider extends ChangeNotifier {
     final db = await _database;
     await db.delete('trees', where: 'id = ?', whereArgs: [treeId]);
     await db.delete('persons', where: 'treeId = ?', whereArgs: [treeId]);
+    await db.delete('partnerships',
+        where: 'treeId = ?', whereArgs: [treeId]);
     if (currentTreeId == treeId) {
       currentTreeId = 'default';
     }
@@ -289,16 +420,20 @@ class TreeProvider extends ChangeNotifier {
   // ── GEDCOM ─────────────────────────────────────────────────────────────────
   Future<void> importGEDCOM(String path) async {
     final parser = GEDCOMParser();
-    final imported = await parser.parse(path);
-    for (final person in imported) {
+    final result = await parser.parse(path);
+    for (final person in result.persons) {
       person.treeId = currentTreeId;
       await addPerson(person);
+    }
+    for (final partnership in result.partnerships) {
+      partnership.treeId = currentTreeId;
+      await addPartnership(partnership);
     }
   }
 
   Future<void> exportGEDCOM(String path) async {
     final parser = GEDCOMParser();
-    await parser.export(persons, path);
+    await parser.export(persons, partnerships, path);
   }
 
   // ── Relationship BFS ───────────────────────────────────────────────────────
@@ -319,7 +454,8 @@ class TreeProvider extends ChangeNotifier {
       final neighbors = <String>[
         ...current.parentIds,
         ...current.childIds,
-        if (current.spouseId != null) current.spouseId!,
+        // Traverse all partnerships (supports multiple partners)
+        ...partnerIdsFor(currentId),
       ];
 
       for (final neighborId in neighbors) {
@@ -354,9 +490,11 @@ class TreeProvider extends ChangeNotifier {
     final db = await _database;
     await db.delete('persons');
     await db.delete('sources');
+    await db.delete('partnerships');
     await db.delete('devices');
     persons.clear();
     sources.clear();
+    partnerships.clear();
     pairedDevices.clear();
     notifyListeners();
   }

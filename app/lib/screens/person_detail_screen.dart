@@ -232,7 +232,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(1800),
+      firstDate: DateTime(1700),
       lastDate: DateTime(2100),
     );
     if (picked != null) {
@@ -267,7 +267,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       sourceIds: widget.person?.sourceIds ?? [],
       parentIds: widget.person?.parentIds ?? [],
       childIds: widget.person?.childIds ?? [],
-      spouseId: widget.person?.spouseId,
+      parentRelTypes: widget.person?.parentRelTypes ?? {},
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
@@ -293,6 +293,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     if (mounted) Navigator.pop(context);
   }
 }
+
+enum _DateField { birth, death }
 
 class _DatePickerTile extends StatelessWidget {
   final String label;

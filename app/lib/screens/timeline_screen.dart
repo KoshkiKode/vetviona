@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
 import '../providers/tree_provider.dart';
@@ -12,10 +13,12 @@ class TimelineScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sources = context.watch<TreeProvider>().sources
+    final provider = context.watch<TreeProvider>();
+    final sources = provider.sources
         .where((s) => s.personId == person.id)
         .toList();
-    final events = _buildEvents(sources);
+    final myPartnerships = provider.partnershipsFor(person.id);
+    final events = _buildEvents(sources, myPartnerships, provider);
 
     return Scaffold(
       appBar: AppBar(title: Text('${person.name} \u2013 Timeline')),
@@ -30,7 +33,11 @@ class TimelineScreen extends StatelessWidget {
     );
   }
 
-  List<_Event> _buildEvents(List<Source> personSources) {
+  List<_Event> _buildEvents(
+    List<Source> personSources,
+    List<Partnership> myPartnerships,
+    TreeProvider provider,
+  ) {
     final events = <_Event>[];
 
     if (person.birthDate != null || person.birthPlace != null) {
@@ -41,22 +48,48 @@ class TimelineScreen extends StatelessWidget {
         icon: Icons.cake,
         color: Colors.green,
         sources: personSources
-            .where((s) => s.citedFacts.contains('birth'))
+            .where((s) =>
+                s.citedFacts.contains('Birth Date') ||
+                s.citedFacts.contains('Birth Place'))
             .toList(),
       ));
     }
 
-    if (person.marriageDate != null || person.marriagePlace != null) {
-      events.add(_Event(
-        title: 'Marriage',
-        date: person.marriageDate,
-        place: person.marriagePlace,
-        icon: Icons.favorite,
-        color: Colors.pink,
-        sources: personSources
-            .where((s) => s.citedFacts.contains('marriage'))
-            .toList(),
-      ));
+    // One event per partnership (marriage / union start and optional end)
+    for (final pt in myPartnerships) {
+      final otherPersonName = provider.persons
+              .where((p) =>
+                  p.id ==
+                  (pt.person1Id == person.id ? pt.person2Id : pt.person1Id))
+              .firstOrNull
+              ?.name ??
+          'Unknown';
+
+      if (pt.startDate != null || pt.startPlace != null) {
+        events.add(_Event(
+          title: '${pt.statusLabel} with $otherPersonName',
+          date: pt.startDate,
+          place: pt.startPlace,
+          icon: Icons.favorite,
+          color: pt.isEnded ? Colors.grey : Colors.pink,
+          sources: personSources
+              .where((s) =>
+                  s.citedFacts.contains('Marriage Date') ||
+                  s.citedFacts.contains('Marriage Place'))
+              .toList(),
+        ));
+      }
+
+      if (pt.isEnded && (pt.endDate != null || pt.endPlace != null)) {
+        events.add(_Event(
+          title: _endedEventTitle(pt.status, otherPersonName),
+          date: pt.endDate,
+          place: pt.endPlace,
+          icon: Icons.heart_broken,
+          color: Colors.grey,
+          sources: const [],
+        ));
+      }
     }
 
     if (person.deathDate != null || person.deathPlace != null) {
@@ -67,14 +100,20 @@ class TimelineScreen extends StatelessWidget {
         icon: Icons.star,
         color: Colors.grey,
         sources: personSources
-            .where((s) => s.citedFacts.contains('death'))
+            .where((s) =>
+                s.citedFacts.contains('Death Date') ||
+                s.citedFacts.contains('Death Place'))
             .toList(),
       ));
     }
 
     // Add other sources as generic events
+    final citedEventFacts = {
+      'Birth Date', 'Birth Place', 'Death Date', 'Death Place',
+      'Marriage Date', 'Marriage Place',
+    };
     for (final source in personSources) {
-      if (!source.citedFacts.any((f) => ['birth', 'marriage', 'death'].contains(f))) {
+      if (!source.citedFacts.any((f) => citedEventFacts.contains(f))) {
         events.add(_Event(
           title: source.title,
           date: null,
@@ -94,6 +133,17 @@ class TimelineScreen extends StatelessWidget {
     });
 
     return events;
+  }
+
+  static String _endedEventTitle(String status, String partnerName) {
+    switch (status) {
+      case 'divorced':
+        return 'Divorced from $partnerName';
+      case 'annulled':
+        return 'Annulled with $partnerName';
+      default:
+        return 'Separated from $partnerName';
+    }
   }
 }
 
