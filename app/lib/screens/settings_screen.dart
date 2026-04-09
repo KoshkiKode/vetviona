@@ -206,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.devices),
                     title: Text(d.id),
-                    subtitle: const Text('\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'),
+                    subtitle: Text('\u2022' * 16),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete_outline,
                           color: Colors.red),

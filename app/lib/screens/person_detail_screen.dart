@@ -100,6 +100,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     ..._genderOptions.map(
                       (g) => DropdownMenuItem(value: g, child: Text(g)),
                     ),
+                    // Preserve legacy/custom values that aren't in the standard list
+                    if (_gender != null && !_genderOptions.contains(_gender))
+                      DropdownMenuItem(value: _gender, child: Text(_gender!)),
                   ],
                   onChanged: (v) => setState(() => _gender = v),
                 ),
