@@ -100,7 +100,13 @@
         <File Id="FlutterDll" Name="flutter_windows.dll" Source="flutter_windows.dll" />
       </Component>
       <Component Id="DataFolder">
-        <File Id="AppData" Name="data" Source="data" />
+        <!--
+          Flutter places a 'data/' directory alongside the EXE.
+          Enumerate its contents explicitly here (or use a heat.exe harvest)
+          once you have a real build output to reference.
+          Example:
+          <File Id="IcudtlDat" Name="icudtl.dat" Source="data\icudtl.dat" />
+        -->
       </Component>
     </ComponentGroup>
 

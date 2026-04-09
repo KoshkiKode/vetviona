@@ -12,6 +12,8 @@ jobs:
   build:
     name: Build macOS DMG
     runs-on: macos-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout

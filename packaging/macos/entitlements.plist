@@ -33,10 +33,10 @@
   <key>com.apple.security.files.downloads.read-write</key>
   <true/>
 
-  <!-- Read/write to app-specific directories -->
+  <!-- Read/write to app-specific shared containers -->
   <key>com.apple.security.application-groups</key>
   <array>
-    <string>com.koshkikode.vetviona</string>
+    <string>group.com.koshkikode.vetviona</string>
   </array>
 </dict>
 </plist>
