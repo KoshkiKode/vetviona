@@ -1,0 +1,59 @@
+name: vetviona
+version: '1.0.0'
+summary: Vetviona — private, local-first genealogy app
+description: |
+  Build interactive family trees, attach sources, and sync across
+  devices without a server you need to maintain. Features include
+  GEDCOM import/export, historical place matching, RootLoop™ WiFi
+  and Bluetooth sync, source citations, and life timelines.
+
+grade: stable
+confinement: strict
+base: core22
+
+architectures:
+  - build-on: amd64
+
+apps:
+  vetviona:
+    command: vetviona
+    extensions: [gnome]
+    plugs:
+      - network
+      - network-bind
+      - bluetooth
+      - bluez
+      - home
+      - removable-media
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - opengl
+
+parts:
+  vetviona:
+    plugin: nil
+    source: .
+    override-build: |
+      # Install Flutter
+      git clone --depth 1 -b stable https://github.com/flutter/flutter.git /tmp/flutter
+      export PATH="/tmp/flutter/bin:$PATH"
+      flutter config --enable-linux-desktop
+      flutter pub get
+      flutter build linux --release --dart-define=PAID=true
+      # Install into snap
+      mkdir -p "$SNAPCRAFT_PART_INSTALL"
+      cp -r build/linux/x64/release/bundle/* "$SNAPCRAFT_PART_INSTALL/"
+    build-packages:
+      - clang
+      - cmake
+      - ninja-build
+      - pkg-config
+      - libgtk-3-dev
+      - liblzma-dev
+      - git
+    stage-packages:
+      - libgtk-3-0
+      - libblkid1
+      - liblzma5

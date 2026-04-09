@@ -1,0 +1,52 @@
+app-id: com.koshkikode.Vetviona
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+
+command: vetviona
+
+finish-args:
+  # Display
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  # Network (RootLoop™ Auto WiFi sync)
+  - --share=network
+  # Bluetooth (RootLoop™ Manual sync)
+  - --allow=bluetooth
+  # Local file access (GEDCOM import/export, local database)
+  - --filesystem=home
+  # OpenGL
+  - --device=dri
+
+modules:
+  - name: vetviona
+    buildsystem: simple
+    build-commands:
+      # Install Flutter
+      - git clone --depth 1 -b stable https://github.com/flutter/flutter.git /tmp/flutter
+      - export PATH="/tmp/flutter/bin:$PATH" && flutter config --enable-linux-desktop
+      - export PATH="/tmp/flutter/bin:$PATH" && flutter pub get
+      - export PATH="/tmp/flutter/bin:$PATH" && flutter build linux --release --dart-define=PAID=true
+      # Install files
+      - mkdir -p /app/bin
+      - cp -r build/linux/x64/release/bundle/* /app/bin/
+    build-options:
+      env:
+        - HOME=/root
+    sources:
+      - type: dir
+        path: .
+    build-packages:
+      - clang
+      - cmake
+      - ninja-build
+      - pkg-config
+      - libgtk-3-dev
+      - liblzma-dev
+      - git
+    modules:
+      - name: gtk3
+        buildsystem: simple
+        build-commands: []
+        sources: []

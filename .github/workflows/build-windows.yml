@@ -1,0 +1,72 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows EXE + MSI
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Scaffold Windows platform
+        working-directory: app
+        run: flutter create --platforms=windows --org com.koshkikode .
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build Windows (free tier)
+        working-directory: app
+        run: flutter build windows --release
+
+      - name: Build Windows (Desktop Pro — paid)
+        working-directory: app
+        run: flutter build windows --release --dart-define=PAID=true
+
+      # ── WiX MSI packaging ─────────────────────────────────────────────────
+      - name: Install WiX Toolset
+        run: dotnet tool install --global wix
+
+      - name: Copy WiX source
+        run: cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
+
+      - name: Build MSI
+        working-directory: app/build/windows/x64/runner/Release
+        run: |
+          wix build vetviona.wxs -o vetviona-setup.msi
+
+      - name: Upload EXE artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-windows-exe
+          path: |
+            app/build/windows/x64/runner/Release/vetviona.exe
+            app/build/windows/x64/runner/Release/*.dll
+
+      - name: Upload MSI installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-windows-msi
+          path: app/build/windows/x64/runner/Release/vetviona-setup.msi

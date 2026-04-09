@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Vetviona macOS entitlements
+  Place at: app/macos/Runner/Release.entitlements
+            app/macos/Runner/DebugProfile.entitlements
+
+  Required for:
+  - Local file access (GEDCOM import/export)
+  - Bluetooth (RootLoop™ Manual sync)
+  - Network (RootLoop™ Auto WiFi sync)
+-->
+<plist version="1.0">
+<dict>
+  <!-- App Sandbox — required for Mac App Store distribution -->
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+
+  <!-- Network access for RootLoop™ Auto (WiFi sync) -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <key>com.apple.security.network.server</key>
+  <true/>
+
+  <!-- Bluetooth for RootLoop™ Manual sync -->
+  <key>com.apple.security.device.bluetooth</key>
+  <true/>
+
+  <!-- File access for GEDCOM import/export and local database -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+  <key>com.apple.security.files.downloads.read-write</key>
+  <true/>
+
+  <!-- Read/write to app-specific shared containers -->
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>group.com.koshkikode.vetviona</string>
+  </array>
+</dict>
+</plist>

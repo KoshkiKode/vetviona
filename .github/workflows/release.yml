@@ -1,0 +1,189 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+
+jobs:
+  # ── Android ────────────────────────────────────────────────────────────────
+  android:
+    name: Android APK + AAB
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter create --platforms=android --org com.koshkikode .
+          flutter pub get
+          flutter build apk --release
+          flutter build appbundle --release
+
+  # ── iOS ────────────────────────────────────────────────────────────────────
+  ios:
+    name: iOS IPA
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter create --platforms=ios --org com.koshkikode .
+          flutter pub get
+          flutter build ios --release --no-codesign
+
+  # ── Windows ────────────────────────────────────────────────────────────────
+  windows:
+    name: Windows EXE + MSI
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter config --enable-windows-desktop
+          flutter create --platforms=windows --org com.koshkikode .
+          flutter pub get
+          flutter build windows --release --dart-define=PAID=true
+      - run: dotnet tool install --global wix
+      - run: cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
+      - working-directory: app/build/windows/x64/runner/Release
+        run: wix build vetviona.wxs -o vetviona-setup.msi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: |
+            app/build/windows/x64/runner/Release/vetviona.exe
+            app/build/windows/x64/runner/Release/vetviona-setup.msi
+
+  # ── macOS ──────────────────────────────────────────────────────────────────
+  macos:
+    name: macOS DMG
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter config --enable-macos-desktop
+          flutter create --platforms=macos --org com.koshkikode .
+          flutter pub get
+          flutter build macos --release --dart-define=PAID=true
+      - run: |
+          hdiutil create -volname "Vetviona" \
+            -srcfolder "app/build/macos/Build/Products/Release/vetviona.app" \
+            -ov -format UDZO vetviona-macos.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: vetviona-macos.dmg
+
+  # ── Linux ──────────────────────────────────────────────────────────────────
+  linux:
+    name: Linux DEB
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev dpkg-dev
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux --org com.koshkikode .
+          flutter pub get
+          flutter build linux --release --dart-define=PAID=true
+      - run: |
+          VERSION=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          PKGDIR="vetviona_${VERSION}_amd64"
+          mkdir -p "$PKGDIR/usr/bin" "$PKGDIR/usr/share/applications" "$PKGDIR/DEBIAN"
+          cp -r app/build/linux/x64/release/bundle/* "$PKGDIR/usr/bin/"
+          cat > "$PKGDIR/DEBIAN/control" <<EOF
+          Package: vetviona
+          Version: $VERSION
+          Architecture: amd64
+          Maintainer: KoshkiKode <support@koshkikode.com>
+          Description: Vetviona — private, local-first genealogy app
+          EOF
+          cat > "$PKGDIR/usr/share/applications/vetviona.desktop" <<EOF
+          [Desktop Entry]
+          Name=Vetviona
+          Exec=/usr/bin/vetviona
+          Icon=vetviona
+          Terminal=false
+          Type=Application
+          Categories=Education;
+          EOF
+          dpkg-deb --build "$PKGDIR"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-deb
+          path: vetviona_*.deb
+
+  # ── Publish GitHub Release ─────────────────────────────────────────────────
+  publish:
+    name: Publish GitHub Release
+    needs: [android, ios, windows, macos, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Vetviona ${{ github.ref_name }}"
+          body: |
+            ## Vetviona ${{ github.ref_name }}
+
+            ### Downloads
+
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | Windows  | `vetviona-setup.msi` | Recommended Windows installer |
+            | Windows  | `vetviona.exe` | Standalone executable |
+            | macOS    | `vetviona-macos.dmg` | Disk image |
+            | Linux    | `vetviona_*_amd64.deb` | Debian/Ubuntu package |
+            | Android  | `app-release.apk` | Direct APK install |
+            | Android  | `app-release.aab` | Play Store bundle |
+
+            ### RootLoop™
+            - **RootLoop™ Auto** (WiFi) — included in all builds
+            - **RootLoop™ Manual** (Bluetooth) — Desktop Pro only
+
+            See [vetviona.koshkikode.com](https://vetviona.koshkikode.com) for full release notes.
+          files: release-artifacts/**/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
