@@ -19,97 +19,216 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   late TextEditingController _nameController;
   late TextEditingController _birthPlaceController;
   late TextEditingController _deathPlaceController;
-  late TextEditingController _genderController;
+  late TextEditingController _notesController;
+  String? _gender;
   DateTime? _birthDate;
   DateTime? _deathDate;
   bool _isLiving = true;
 
+  static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
+
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.person?.name ?? '');
-    _birthPlaceController = TextEditingController(text: widget.person?.birthPlace ?? '');
-    _deathPlaceController = TextEditingController(text: widget.person?.deathPlace ?? '');
-    _genderController = TextEditingController(text: widget.person?.gender ?? '');
+    _nameController =
+        TextEditingController(text: widget.person?.name ?? '');
+    _birthPlaceController =
+        TextEditingController(text: widget.person?.birthPlace ?? '');
+    _deathPlaceController =
+        TextEditingController(text: widget.person?.deathPlace ?? '');
+    _notesController =
+        TextEditingController(text: widget.person?.notes ?? '');
+    _gender = widget.person?.gender;
     _birthDate = widget.person?.birthDate;
     _deathDate = widget.person?.deathDate;
-    _isLiving = widget.person == null || widget.person!.deathDate == null;
+    _isLiving =
+        widget.person == null || widget.person!.deathDate == null;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _birthPlaceController.dispose();
+    _deathPlaceController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isEditing = widget.person != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.person == null ? 'Add Person' : 'Edit Person'),
+        title: Text(isEditing ? 'Edit Person' : 'Add Person'),
+        actions: [
+          TextButton.icon(
+            icon: Icon(Icons.save, color: colorScheme.onPrimary),
+            label: Text('Save',
+                style: TextStyle(color: colorScheme.onPrimary)),
+            onPressed: _savePerson,
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (value) => value!.isEmpty ? 'Please enter a name' : null,
-              ),
-              Row(
-                children: [
-                  const Text('Living: '),
-                  Radio<bool>(
-                    value: true,
-                    groupValue: _isLiving,
-                    onChanged: (value) => setState(() => _isLiving = value!),
-                  ),
-                  const Text('Yes'),
-                  Radio<bool>(
-                    value: false,
-                    groupValue: _isLiving,
-                    onChanged: (value) => setState(() => _isLiving = value!),
-                  ),
-                  const Text('No'),
-                ],
-              ),
-              TextFormField(
-                controller: _genderController,
-                decoration: const InputDecoration(labelText: 'Gender (Male, Female, or custom)'),
-              ),
-              ListTile(
-                title: Text('Birth Date: ${_birthDate != null ? DateFormat.yMd().format(_birthDate!) : 'Not set'}'),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () => _selectDate(context, true),
-              ),
-              TextFormField(
-                controller: _birthPlaceController,
-                decoration: const InputDecoration(labelText: 'Birth Place'),
-              ),
-              if (!_isLiving) ...[
-                ListTile(
-                  title: Text('Death Date: ${_deathDate != null ? DateFormat.yMd().format(_deathDate!) : 'Not set'}'),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () => _selectDate(context, false),
-                ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildSection(
+              context,
+              icon: Icons.person,
+              title: 'Basic Information',
+              children: [
                 TextFormField(
-                  controller: _deathPlaceController,
-                  decoration: const InputDecoration(labelText: 'Death Place'),
+                  controller: _nameController,
+                  decoration:
+                      const InputDecoration(labelText: 'Full Name'),
+                  textCapitalization: TextCapitalization.words,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty
+                          ? 'Name is required'
+                          : null,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _genderOptions.contains(_gender) ? _gender : null,
+                  decoration: const InputDecoration(labelText: 'Gender'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Not specified')),
+                    ..._genderOptions.map(
+                      (g) => DropdownMenuItem(value: g, child: Text(g)),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _gender = v),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  value: _isLiving,
+                  onChanged: (v) => setState(() => _isLiving = v),
+                  title: const Text('Currently living'),
+                  contentPadding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ],
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _savePerson,
-                child: const Text('Save'),
+            ),
+            const SizedBox(height: 16),
+            _buildSection(
+              context,
+              icon: Icons.cake,
+              title: 'Birth',
+              children: [
+                _DatePickerTile(
+                  label: 'Birth Date',
+                  date: _birthDate,
+                  onPick: () => _selectDate(context, true),
+                  onClear: _birthDate != null
+                      ? () => setState(() => _birthDate = null)
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _birthPlaceController,
+                  decoration:
+                      const InputDecoration(labelText: 'Birth Place'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+              ],
+            ),
+            if (!_isLiving) ...[
+              const SizedBox(height: 16),
+              _buildSection(
+                context,
+                icon: Icons.star_border,
+                title: 'Death',
+                children: [
+                  _DatePickerTile(
+                    label: 'Death Date',
+                    date: _deathDate,
+                    onPick: () => _selectDate(context, false),
+                    onClear: _deathDate != null
+                        ? () => setState(() => _deathDate = null)
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _deathPlaceController,
+                    decoration:
+                        const InputDecoration(labelText: 'Death Place'),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                ],
               ),
             ],
-          ),
+            const SizedBox(height: 16),
+            _buildSection(
+              context,
+              icon: Icons.notes,
+              title: 'Notes',
+              children: [
+                TextFormField(
+                  controller: _notesController,
+                  decoration:
+                      const InputDecoration(labelText: 'Notes (optional)'),
+                  minLines: 3,
+                  maxLines: 6,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              icon: const Icon(Icons.save),
+              label: const Text('Save Person'),
+              onPressed: _savePerson,
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
         ),
       ),
     );
   }
 
   Future<void> _selectDate(BuildContext context, bool isBirth) async {
+    final initial = (isBirth ? _birthDate : _deathDate) ?? DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: initial,
       firstDate: DateTime(1800),
       lastDate: DateTime(2100),
     );
@@ -125,24 +244,107 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   }
 
   Future<void> _savePerson() async {
-    if (_formKey.currentState!.validate()) {
-      final person = Person(
-        id: widget.person?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text,
-        birthDate: _birthDate,
-        birthPlace: _birthPlaceController.text.isEmpty ? null : _birthPlaceController.text,
-        deathDate: _isLiving ? null : _deathDate,
-        deathPlace: _isLiving ? null : (_deathPlaceController.text.isEmpty ? null : _deathPlaceController.text),
-        gender: _genderController.text.isEmpty ? null : _genderController.text,
-        photoPaths: widget.person?.photoPaths ?? [],
-        sourceIds: widget.person?.sourceIds ?? [],
-      );
-      if (widget.person == null) {
-        await context.read<TreeProvider>().addPerson(person);
-      } else {
-        await context.read<TreeProvider>().updatePerson(person);
-      }
-      Navigator.pop(context);
+    if (!_formKey.currentState!.validate()) return;
+    final person = Person(
+      id: widget.person?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
+      name: _nameController.text.trim(),
+      birthDate: _birthDate,
+      birthPlace: _birthPlaceController.text.trim().isEmpty
+          ? null
+          : _birthPlaceController.text.trim(),
+      deathDate: _isLiving ? null : _deathDate,
+      deathPlace: _isLiving
+          ? null
+          : (_deathPlaceController.text.trim().isEmpty
+              ? null
+              : _deathPlaceController.text.trim()),
+      gender: _gender,
+      photoPaths: widget.person?.photoPaths ?? [],
+      sourceIds: widget.person?.sourceIds ?? [],
+      parentIds: widget.person?.parentIds ?? [],
+      childIds: widget.person?.childIds ?? [],
+      spouseId: widget.person?.spouseId,
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+    );
+    final provider = context.read<TreeProvider>();
+    if (widget.person == null) {
+      await provider.addPerson(person);
+    } else {
+      await provider.updatePerson(person);
     }
+    if (mounted) Navigator.pop(context);
+  }
+}
+
+class _DatePickerTile extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final VoidCallback onPick;
+  final VoidCallback? onClear;
+
+  const _DatePickerTile({
+    required this.label,
+    required this.date,
+    required this.onPick,
+    this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onPick,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: colorScheme.outline.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today,
+                size: 18, color: colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  Text(
+                    date != null
+                        ? DateFormat('d MMMM yyyy').format(date!)
+                        : 'Tap to set date',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: date != null
+                              ? null
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            if (onClear != null)
+              IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: onClear,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

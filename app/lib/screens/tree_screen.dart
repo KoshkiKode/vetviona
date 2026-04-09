@@ -7,6 +7,7 @@ import 'person_detail_screen.dart';
 import 'relationship_screen.dart';
 import 'sources_page.dart';
 import 'timeline_screen.dart';
+import 'tree_diagram_screen.dart';
 
 class TreeScreen extends StatelessWidget {
   const TreeScreen({super.key});
@@ -15,55 +16,130 @@ class TreeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<TreeProvider>();
     final persons = provider.persons;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Family Tree'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.account_tree),
+            tooltip: 'View Diagram',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const TreeDiagramScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.person_add),
             tooltip: 'Add Person',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const PersonDetailScreen()),
+              MaterialPageRoute(
+                  builder: (_) => const PersonDetailScreen()),
             ),
           ),
         ],
       ),
       body: persons.isEmpty
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.people_outline, size: 80, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No people in this tree yet.',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.person_add),
-                    label: const Text('Add First Person'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const PersonDetailScreen()),
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.people_outline,
+                        size: 52,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    Text(
+                      'No people in this tree yet',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add your first family member to get started.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 28),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.person_add),
+                      label: const Text('Add First Person'),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const PersonDetailScreen()),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: persons.length,
-              itemBuilder: (context, i) =>
-                  _PersonCard(person: persons[i]),
+          : Column(
+              children: [
+                // Diagram shortcut banner
+                InkWell(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const TreeDiagramScreen()),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    color: colorScheme.primaryContainer.withOpacity(0.5),
+                    child: Row(
+                      children: [
+                        Icon(Icons.account_tree,
+                            size: 18, color: colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'View interactive tree diagram',
+                          style: TextStyle(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w500),
+                        ),
+                        const Spacer(),
+                        Icon(Icons.arrow_forward_ios,
+                            size: 14, color: colorScheme.primary),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
+                    itemCount: persons.length,
+                    itemBuilder: (context, i) =>
+                        _PersonCard(person: persons[i]),
+                  ),
+                ),
+              ],
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const PersonDetailScreen()),
+          MaterialPageRoute(
+              builder: (_) => const PersonDetailScreen()),
         ),
         tooltip: 'Add Person',
         child: const Icon(Icons.person_add),
@@ -76,107 +152,140 @@ class _PersonCard extends StatelessWidget {
   final Person person;
   const _PersonCard({required this.person});
 
+  Color _avatarColor(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (person.gender?.toLowerCase() == 'male') {
+      return const Color(0xFF1565C0);
+    } else if (person.gender?.toLowerCase() == 'female') {
+      return const Color(0xFFAD1457);
+    }
+    return colorScheme.primary;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final avatarColor = _avatarColor(context);
+
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                child: Text(
-                  person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            leading: CircleAvatar(
+              radius: 24,
+              backgroundColor: avatarColor,
+              child: Text(
+                person.name.isNotEmpty
+                    ? person.name[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
                 ),
               ),
-              title: Text(
-                person.name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: _buildSubtitle(),
             ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
+            title: Text(
+              person.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: _buildSubtitle(),
+          ),
+          Padding(
+            padding:
+                const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
               children: [
-                _ActionButton(
-                  icon: Icons.source,
+                _ActionChip(
+                  icon: Icons.source_outlined,
                   label: 'Sources',
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => SourcesPage(person: person)),
+                        builder: (_) =>
+                            SourcesPage(person: person)),
                   ),
                 ),
-                _ActionButton(
+                _ActionChip(
                   icon: Icons.timeline,
                   label: 'Timeline',
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => TimelineScreen(person: person)),
+                        builder: (_) =>
+                            TimelineScreen(person: person)),
                   ),
                 ),
-                _ActionButton(
+                _ActionChip(
                   icon: Icons.link,
                   label: 'Relationships',
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => RelationshipScreen(person: person)),
+                        builder: (_) =>
+                            RelationshipScreen(person: person)),
                   ),
                 ),
-                _ActionButton(
-                  icon: Icons.edit,
+                _ActionChip(
+                  icon: Icons.edit_outlined,
                   label: 'Edit',
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => PersonDetailScreen(person: person)),
+                        builder: (_) =>
+                            PersonDetailScreen(person: person)),
                   ),
                 ),
-                _ActionButton(
-                  icon: Icons.delete,
+                _ActionChip(
+                  icon: Icons.delete_outline,
                   label: 'Delete',
                   color: Colors.red,
-                  onPressed: () => _confirmDelete(context, person),
+                  onPressed: () =>
+                      _confirmDelete(context, person),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget? _buildSubtitle() {
     final parts = <String>[];
-    if (person.birthDate != null) parts.add('b. ${person.birthDate!.year}');
-    if (person.birthPlace != null && person.birthPlace!.isNotEmpty) {
+    if (person.birthDate != null) {
+      parts.add('b. ${person.birthDate!.year}');
+    }
+    if (person.birthPlace != null &&
+        person.birthPlace!.isNotEmpty) {
       parts.add(person.birthPlace!);
     }
-    if (person.deathDate != null) parts.add('d. ${person.deathDate!.year}');
+    if (person.deathDate != null) {
+      parts.add('d. ${person.deathDate!.year}');
+    }
     if (parts.isEmpty) return null;
-    return Text(parts.join(' \u00b7 '), maxLines: 1, overflow: TextOverflow.ellipsis);
+    return Text(parts.join(' \u00b7 '),
+        maxLines: 1, overflow: TextOverflow.ellipsis);
   }
 
-  Future<void> _confirmDelete(BuildContext context, Person person) async {
+  Future<void> _confirmDelete(
+      BuildContext context, Person person) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Person'),
-        content: Text('Delete ${person.name}? This cannot be undone.'),
+        content:
+            Text('Delete ${person.name}? This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -189,13 +298,13 @@ class _PersonCard extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
+class _ActionChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
   final Color? color;
 
-  const _ActionButton({
+  const _ActionChip({
     required this.icon,
     required this.label,
     required this.onPressed,
@@ -204,15 +313,37 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
-      icon: Icon(icon, size: 16, color: color),
-      label: Text(label, style: TextStyle(fontSize: 12, color: color)),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    final colorScheme = Theme.of(context).colorScheme;
+    final chipColor = color ?? colorScheme.primary;
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: chipColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border:
+              Border.all(color: chipColor.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: chipColor),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: chipColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
-      onPressed: onPressed,
     );
   }
 }
+
