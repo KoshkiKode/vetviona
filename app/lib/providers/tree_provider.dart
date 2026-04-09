@@ -31,6 +31,7 @@ class TreeProvider extends ChangeNotifier {
 
   Database? _db;
   static const _uuid = Uuid();
+  static const _dbName = 'vetviona.db';
 
   // ── Places ─────────────────────────────────────────────────────────────────
   static final List<Place> places = [
@@ -43,7 +44,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Roman Empire, Franks',
       nativeTribes: 'Parisii (Gauls)',
       romanizedNative: 'Parisii',
-      validFrom: DateTime.utc(-52, 1, 1),
+      validFrom: DateTime.utc(1, 1, 1), // founded c. 52 BCE
     ),
     Place(
       name: 'London',
@@ -73,7 +74,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Roman Republic/Empire',
       nativeTribes: 'Latins, Sabines, Etruscans',
       romanizedNative: 'Latini',
-      validFrom: DateTime.utc(-753, 1, 1),
+      validFrom: DateTime.utc(1, 1, 1), // founded c. 753 BCE
     ),
     Place(
       name: 'Moscow',
@@ -301,7 +302,7 @@ class TreeProvider extends ChangeNotifier {
 
   Future<Database> _initDb() async {
     final dir = await getApplicationDocumentsDirectory();
-    final path = p.join(dir.path, 'vetviona.db');
+    final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
       version: 1,

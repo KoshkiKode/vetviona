@@ -293,7 +293,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _exportGEDCOM(BuildContext context, TreeProvider provider) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final path = '${dir.path}/vetviona_export.ged';
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final path = '${dir.path}/vetviona_export_$timestamp.ged';
       await provider.exportGEDCOM(path);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

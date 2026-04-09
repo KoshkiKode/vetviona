@@ -88,11 +88,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 labelText: 'Historical / Colonization Info'),
             value: treeProvider.colonizationLevel,
             items: const [
-              DropdownMenuItem(value: 0, child: Text('None \u2013 show modern names only')),
+              DropdownMenuItem(value: 0, child: Text('None \u2013 modern names only')),
               DropdownMenuItem(
-                  value: 1, child: Text('Show colonizer names')),
+                  value: 1, child: Text('Level 1 \u2013 also show colonizer names')),
               DropdownMenuItem(
-                  value: 2, child: Text('Show indigenous / native names')),
+                  value: 2, child: Text('Level 2 \u2013 also show indigenous / native names')),
             ],
             onChanged: (v) {
               if (v != null) context.read<TreeProvider>().setColonizationLevel(v);
