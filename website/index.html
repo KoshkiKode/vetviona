@@ -422,8 +422,8 @@
 
     <!-- Stats -->
     <div class="stats">
-      <div class="stat"><div class="num">∞</div><div class="lbl">People per tree</div></div>
-      <div class="stat"><div class="num">100%</div><div class="lbl">Local-first data</div></div>
+      <div class="stat"><div class="num">100</div><div class="lbl">Free tier people per tree</div></div>
+      <div class="stat"><div class="num">∞</div><div class="lbl">Paid tier people per tree</div></div>
       <div class="stat"><div class="num">5</div><div class="lbl">Platforms</div></div>
       <div class="stat"><div class="num">0</div><div class="lbl">Servers required</div></div>
     </div>
@@ -486,35 +486,54 @@
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:14px;">
         <div style="background:var(--green-light);border-radius:12px;padding:18px;">
           <strong style="color:var(--green);">RootLoop Auto</strong>
-          <p style="margin:6px 0 0;font-size:0.9rem;color:var(--text-muted);">Full WiFi sync that runs automatically whenever your devices join the same home network — like a client-server pair that just works.</p>
+          <p style="margin:6px 0 4px;font-size:0.9rem;color:var(--text-muted);">Full WiFi sync that runs automatically whenever your devices join the same home network — like a client-server pair that just works.</p>
+          <span style="font-size:0.8rem;color:var(--text-muted);">Mobile Paid &amp; Desktop Pro</span>
         </div>
         <div style="background:var(--green-light);border-radius:12px;padding:18px;">
           <strong style="color:var(--green);">RootLoop Manual</strong>
-          <p style="margin:6px 0 0;font-size:0.9rem;color:var(--text-muted);">On-demand sync you trigger inside the app — over Bluetooth or any local connection you initiate.</p>
+          <p style="margin:6px 0 4px;font-size:0.9rem;color:var(--text-muted);">On-demand sync you trigger inside the app when you're right in front of your computer — over Bluetooth or any local connection you initiate.</p>
+          <span style="font-size:0.8rem;color:var(--text-muted);">All tiers (including Mobile Free)</span>
         </div>
       </div>
-      <p style="margin-top:10px;color:var(--text-muted);font-size:0.9rem;">Version: <code>1.0.0</code> &nbsp;·&nbsp; Versioned independently from the app &nbsp;·&nbsp; Zero-knowledge encryption</p>
+      <p style="margin-top:10px;color:var(--text-muted);font-size:0.9rem;">Desktop Pro supports both free and paid mobile devices. When a free-tier mobile is connected, sync falls back to manual-only and is capped at 100 people per session.</p>
+      <p style="margin-top:6px;color:var(--text-muted);font-size:0.9rem;">Version: <code>1.0.0</code> &nbsp;·&nbsp; Versioned independently from the app &nbsp;·&nbsp; Zero-knowledge encryption</p>
     </div>
 
     <!-- Pricing -->
     <div id="pricing" class="section-spacer"></div>
     <h2 class="section-title">Simple, honest pricing</h2>
-    <p class="section-sub">Mobile is always free. Desktop is a one-time purchase — no subscriptions.</p>
+    <p class="section-sub">Mobile free is always free. Paid tiers are one-time purchases — no subscriptions, ever.</p>
     <div class="pricing-grid">
       <div class="plan">
         <h3>Mobile Free</h3>
-        <p style="color:var(--text-muted);font-size:0.9rem;">Android &amp; iOS</p>
+        <p style="color:var(--text-muted);font-size:0.9rem;">Android &amp; iOS · Separate APK + IPA</p>
         <div class="price">Free</div>
         <div class="price-note">Always free</div>
         <ul>
           <li>Tree building &amp; editing</li>
           <li>Source citations</li>
-          <li>WiFi auto-sync (RootLoop™ Auto)</li>
-          <li>Timeline &amp; relationships</li>
-          <li class="no">GEDCOM import</li>
-          <li class="no">Bluetooth manual sync</li>
+          <li>Manual sync (RootLoop™ Manual)</li>
+          <li>Timeline &amp; relationship finder</li>
+          <li class="no">WiFi auto-sync (RootLoop™ Auto)</li>
+          <li class="no">GEDCOM import / export</li>
+          <li class="no">Separate family trees</li>
+          <li class="no">More than 100 people per tree</li>
         </ul>
         <a href="#" class="plan-btn secondary">Download Free</a>
+      </div>
+      <div class="plan">
+        <h3>Mobile Paid</h3>
+        <p style="color:var(--text-muted);font-size:0.9rem;">Android &amp; iOS</p>
+        <div class="price">One-time</div>
+        <div class="price-note">No subscription ever</div>
+        <ul>
+          <li>Everything in Mobile Free</li>
+          <li>WiFi auto-sync (RootLoop™ Auto)</li>
+          <li>Unlimited people per tree</li>
+          <li class="no">GEDCOM import / export</li>
+          <li class="no">Separate family trees</li>
+        </ul>
+        <a href="#" class="plan-btn secondary">Buy Mobile Access</a>
       </div>
       <div class="plan featured">
         <h3>Desktop Pro</h3>
@@ -522,10 +541,10 @@
         <div class="price">One-time</div>
         <div class="price-note">No subscription ever</div>
         <ul>
-          <li>Everything in Mobile</li>
+          <li>Everything in Mobile Paid</li>
           <li>GEDCOM import &amp; export</li>
-          <li>Bluetooth + WiFi sync (both RootLoop™ tiers)</li>
-          <li>Unlimited trees</li>
+          <li>Supports both free &amp; paid mobile devices</li>
+          <li>Unlimited people per tree</li>
           <li>Priority support</li>
         </ul>
         <a href="#" class="plan-btn primary">Buy Desktop Access</a>

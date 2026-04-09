@@ -274,7 +274,19 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
-      await provider.addPerson(person);
+      try {
+        await provider.addPerson(person);
+      } on StateError catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
     } else {
       await provider.updatePerson(person);
     }

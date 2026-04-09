@@ -1,10 +1,7 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
-
-const bool isPaidVersion = bool.fromEnvironment('PAID', defaultValue: false);
+import 'config/app_config.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,10 +13,9 @@ class _RootWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDesktop = !kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-
-    if (isDesktop && !isPaidVersion) {
+    // Desktop is always a paid product. Show a lock screen if the build was
+    // not compiled with --dart-define=PAID=true.
+    if (currentAppTier == AppTier.desktopPro && !isPaidDesktop) {
       return const MaterialApp(
         title: 'Vetviona',
         home: Scaffold(

@@ -29,6 +29,22 @@ jobs:
           flutter pub get
           flutter build apk --release
           flutter build appbundle --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android-free
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/bundle/release/app-release.aab
+      - working-directory: app
+        run: |
+          flutter build apk --release --dart-define=MOBILE_PAID=true
+          flutter build appbundle --release --dart-define=MOBILE_PAID=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android-paid
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/bundle/release/app-release.aab
 
   # ── iOS ────────────────────────────────────────────────────────────────────
   ios:
@@ -45,6 +61,16 @@ jobs:
           flutter create --platforms=ios --org com.koshkikode .
           flutter pub get
           flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-ios-free
+          path: app/build/ios/iphoneos/Runner.app
+      - working-directory: app
+        run: flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-ios-paid
+          path: app/build/ios/iphoneos/Runner.app
 
   # ── Windows ────────────────────────────────────────────────────────────────
   windows:
@@ -170,18 +196,23 @@ jobs:
 
             ### Downloads
 
-            | Platform | File | Notes |
-            |----------|------|-------|
-            | Windows  | `vetviona-setup.msi` | Recommended Windows installer |
-            | Windows  | `vetviona.exe` | Standalone executable |
-            | macOS    | `vetviona-macos.dmg` | Disk image |
-            | Linux    | `vetviona_*_amd64.deb` | Debian/Ubuntu package |
-            | Android  | `app-release.apk` | Direct APK install |
-            | Android  | `app-release.aab` | Play Store bundle |
+            | Platform | File | Tier | Notes |
+            |----------|------|------|-------|
+            | Windows  | `vetviona-setup.msi` | Desktop Pro | Recommended Windows installer |
+            | Windows  | `vetviona.exe` | Desktop Pro | Standalone executable |
+            | macOS    | `vetviona-macos.dmg` | Desktop Pro | Disk image |
+            | Linux    | `vetviona_*_amd64.deb` | Desktop Pro | Debian/Ubuntu package |
+            | Android  | `release-android-free/app-release.apk` | Mobile Free | Manual sync · 100 person limit |
+            | Android  | `release-android-free/app-release.aab` | Mobile Free | Play Store bundle |
+            | Android  | `release-android-paid/app-release.apk` | Mobile Paid | WiFi auto-sync · unlimited |
+            | Android  | `release-android-paid/app-release.aab` | Mobile Paid | Play Store bundle |
+            | iOS      | `release-ios-free/Runner.app` | Mobile Free | Manual sync · 100 person limit |
+            | iOS      | `release-ios-paid/Runner.app` | Mobile Paid | WiFi auto-sync · unlimited |
 
-            ### RootLoop™
-            - **RootLoop™ Auto** (WiFi) — included in all builds
-            - **RootLoop™ Manual** (Bluetooth) — Desktop Pro only
+            ### RootLoop™ Sync Tiers
+            - **RootLoop™ Auto** (WiFi, automatic) — Mobile Paid & Desktop Pro
+            - **RootLoop™ Manual** (Bluetooth / local, on-demand) — All tiers including Mobile Free
+            - Desktop Pro respects connected device tier: free-tier mobile syncs manually, capped at 100 people per session.
 
             See [vetviona.koshkikode.com](https://vetviona.koshkikode.com) for full release notes.
           files: release-artifacts/**/*
