@@ -236,7 +236,22 @@ class _FamilyTableView extends StatelessWidget {
                         overflow: TextOverflow.ellipsis, maxLines: 2),
                   ),
                 ),
-                DataCell(Text(_personName(p.spouseId))),
+                DataCell(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Text(
+                      () {
+                        final names = provider
+                            .partnerIdsFor(p.id)
+                            .map(_personName)
+                            .toList();
+                        return names.isEmpty ? '—' : names.join(', ');
+                      }(),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                ),
                 DataCell(
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 140),

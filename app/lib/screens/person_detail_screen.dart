@@ -19,12 +19,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   late TextEditingController _nameController;
   late TextEditingController _birthPlaceController;
   late TextEditingController _deathPlaceController;
-  late TextEditingController _marriagePlaceController;
   late TextEditingController _notesController;
   String? _gender;
   DateTime? _birthDate;
   DateTime? _deathDate;
-  DateTime? _marriageDate;
   bool _isLiving = true;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
@@ -38,14 +36,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         TextEditingController(text: widget.person?.birthPlace ?? '');
     _deathPlaceController =
         TextEditingController(text: widget.person?.deathPlace ?? '');
-    _marriagePlaceController =
-        TextEditingController(text: widget.person?.marriagePlace ?? '');
     _notesController =
         TextEditingController(text: widget.person?.notes ?? '');
     _gender = widget.person?.gender;
     _birthDate = widget.person?.birthDate;
     _deathDate = widget.person?.deathDate;
-    _marriageDate = widget.person?.marriageDate;
     _isLiving =
         widget.person == null || widget.person!.deathDate == null;
   }
@@ -55,7 +50,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _nameController.dispose();
     _birthPlaceController.dispose();
     _deathPlaceController.dispose();
-    _marriagePlaceController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -132,7 +126,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 _DatePickerTile(
                   label: 'Birth Date',
                   date: _birthDate,
-                  onPick: () => _selectDate(context, _DateField.birth),
+                  onPick: () => _selectDate(context, true),
                   onClear: _birthDate != null
                       ? () => setState(() => _birthDate = null)
                       : null,
@@ -156,7 +150,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   _DatePickerTile(
                     label: 'Death Date',
                     date: _deathDate,
-                    onPick: () => _selectDate(context, _DateField.death),
+                    onPick: () => _selectDate(context, false),
                     onClear: _deathDate != null
                         ? () => setState(() => _deathDate = null)
                         : null,
@@ -171,29 +165,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ],
               ),
             ],
-            const SizedBox(height: 16),
-            _buildSection(
-              context,
-              icon: Icons.favorite,
-              title: 'Marriage',
-              children: [
-                _DatePickerTile(
-                  label: 'Marriage Date',
-                  date: _marriageDate,
-                  onPick: () => _selectDate(context, _DateField.marriage),
-                  onClear: _marriageDate != null
-                      ? () => setState(() => _marriageDate = null)
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _marriagePlaceController,
-                  decoration:
-                      const InputDecoration(labelText: 'Marriage Place'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-              ],
-            ),
             const SizedBox(height: 16),
             _buildSection(
               context,
@@ -256,37 +227,20 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     );
   }
 
-  Future<void> _selectDate(BuildContext context, _DateField field) async {
-    DateTime? current;
-    switch (field) {
-      case _DateField.birth:
-        current = _birthDate;
-        break;
-      case _DateField.death:
-        current = _deathDate;
-        break;
-      case _DateField.marriage:
-        current = _marriageDate;
-        break;
-    }
+  Future<void> _selectDate(BuildContext context, bool isBirth) async {
+    final initial = (isBirth ? _birthDate : _deathDate) ?? DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: current ?? DateTime.now(),
+      initialDate: initial,
       firstDate: DateTime(1700),
       lastDate: DateTime(2100),
     );
     if (picked != null) {
       setState(() {
-        switch (field) {
-          case _DateField.birth:
-            _birthDate = picked;
-            break;
-          case _DateField.death:
-            _deathDate = picked;
-            break;
-          case _DateField.marriage:
-            _marriageDate = picked;
-            break;
+        if (isBirth) {
+          _birthDate = picked;
+        } else {
+          _deathDate = picked;
         }
       });
     }
@@ -294,7 +248,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   Future<void> _savePerson() async {
     if (!_formKey.currentState!.validate()) return;
-    final marriagePlaceText = _marriagePlaceController.text.trim();
     final person = Person(
       id: widget.person?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
@@ -314,9 +267,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       sourceIds: widget.person?.sourceIds ?? [],
       parentIds: widget.person?.parentIds ?? [],
       childIds: widget.person?.childIds ?? [],
-      spouseId: widget.person?.spouseId,
-      marriageDate: _marriageDate,
-      marriagePlace: marriagePlaceText.isEmpty ? null : marriagePlaceText,
+      parentRelTypes: widget.person?.parentRelTypes ?? {},
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
@@ -343,7 +294,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   }
 }
 
-enum _DateField { birth, death, marriage }
+enum _DateField { birth, death }
 
 class _DatePickerTile extends StatelessWidget {
   final String label;
