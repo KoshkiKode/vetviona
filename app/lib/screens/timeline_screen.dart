@@ -1,0 +1,213 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../models/person.dart';
+import '../models/source.dart';
+import '../providers/tree_provider.dart';
+
+class TimelineScreen extends StatelessWidget {
+  final Person person;
+  const TimelineScreen({super.key, required this.person});
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = context.watch<TreeProvider>().sources
+        .where((s) => s.personId == person.id)
+        .toList();
+    final events = _buildEvents(sources);
+
+    return Scaffold(
+      appBar: AppBar(title: Text('${person.name} \u2013 Timeline')),
+      body: events.isEmpty
+          ? const Center(child: Text('No events recorded for this person.'))
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              itemCount: events.length,
+              itemBuilder: (context, i) =>
+                  _TimelineEvent(event: events[i], isLast: i == events.length - 1),
+            ),
+    );
+  }
+
+  List<_Event> _buildEvents(List<Source> personSources) {
+    final events = <_Event>[];
+
+    if (person.birthDate != null || person.birthPlace != null) {
+      events.add(_Event(
+        title: 'Birth',
+        date: person.birthDate,
+        place: person.birthPlace,
+        icon: Icons.cake,
+        color: Colors.green,
+        sources: personSources
+            .where((s) => s.citedFacts.contains('birth'))
+            .toList(),
+      ));
+    }
+
+    if (person.marriageDate != null || person.marriagePlace != null) {
+      events.add(_Event(
+        title: 'Marriage',
+        date: person.marriageDate,
+        place: person.marriagePlace,
+        icon: Icons.favorite,
+        color: Colors.pink,
+        sources: personSources
+            .where((s) => s.citedFacts.contains('marriage'))
+            .toList(),
+      ));
+    }
+
+    if (person.deathDate != null || person.deathPlace != null) {
+      events.add(_Event(
+        title: 'Death',
+        date: person.deathDate,
+        place: person.deathPlace,
+        icon: Icons.star,
+        color: Colors.grey,
+        sources: personSources
+            .where((s) => s.citedFacts.contains('death'))
+            .toList(),
+      ));
+    }
+
+    // Add other sources as generic events
+    for (final source in personSources) {
+      if (!source.citedFacts.any((f) => ['birth', 'marriage', 'death'].contains(f))) {
+        events.add(_Event(
+          title: source.title,
+          date: null,
+          place: null,
+          icon: Icons.description,
+          color: Colors.blue,
+          sources: [source],
+        ));
+      }
+    }
+
+    events.sort((a, b) {
+      if (a.date == null && b.date == null) return 0;
+      if (a.date == null) return 1;
+      if (b.date == null) return -1;
+      return a.date!.compareTo(b.date!);
+    });
+
+    return events;
+  }
+}
+
+class _Event {
+  final String title;
+  final DateTime? date;
+  final String? place;
+  final IconData icon;
+  final Color color;
+  final List<Source> sources;
+
+  _Event({
+    required this.title,
+    required this.date,
+    required this.place,
+    required this.icon,
+    required this.color,
+    required this.sources,
+  });
+}
+
+class _TimelineEvent extends StatelessWidget {
+  final _Event event;
+  final bool isLast;
+  const _TimelineEvent({required this.event, required this.isLast});
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Timeline column
+          SizedBox(
+            width: 56,
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: event.color.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: event.color, width: 2),
+                  ),
+                  child: Icon(event.icon, color: event.color, size: 20),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Content
+          Expanded(
+            child: Padding(
+              padding:
+                  const EdgeInsets.only(left: 8, right: 16, bottom: 20),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      if (event.date != null)
+                        Text(
+                          DateFormat('d MMMM yyyy').format(event.date!),
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      if (event.place != null && event.place!.isNotEmpty)
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on,
+                                size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                event.place!,
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      if (event.sources.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 4,
+                          children: event.sources
+                              .map((s) => Chip(
+                                    label: Text(s.title,
+                                        style: const TextStyle(fontSize: 11)),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ))
+                              .toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
