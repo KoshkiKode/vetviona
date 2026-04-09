@@ -50,7 +50,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
               const SizedBox(height: 16),
               Text(
                 'No people in the tree yet.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -175,18 +175,20 @@ class _PersonNode extends StatelessWidget {
 
   Color _nodeColor() {
     if (person.gender?.toLowerCase() == 'male') {
-      return const Color(0xFF1565C0);
+      return colorScheme.primary;
     } else if (person.gender?.toLowerCase() == 'female') {
-      return const Color(0xFFAD1457);
+      return colorScheme.error;
     }
-    return colorScheme.primary;
+    return colorScheme.secondary;
   }
 
   @override
   Widget build(BuildContext context) {
     final color = _nodeColor();
-    final isDark = ThemeData.estimateBrightnessForColor(color) == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
+    // Choose text that's legible on top of the node background color
+    final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+        ? colorScheme.onPrimary
+        : colorScheme.onSurface;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -220,7 +222,7 @@ class _PersonNode extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: Colors.white.withOpacity(0.25),
+              backgroundColor: colorScheme.onPrimary.withOpacity(0.2),
               child: Text(
                 person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
                 style: TextStyle(
@@ -309,17 +311,22 @@ class _ZoomIndicatorState extends State<_ZoomIndicator> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final scale = widget.controller.value.getMaxScaleOnAxis();
     final percent = (scale * 100).round();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black54,
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.9),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
       ),
       child: Text(
         '$percent%',
-        style: const TextStyle(color: Colors.white, fontSize: 12),
+        style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 12,
+            fontWeight: FontWeight.w500),
       ),
     );
   }

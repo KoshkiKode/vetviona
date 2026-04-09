@@ -46,7 +46,7 @@ class TimelineScreen extends StatelessWidget {
         date: person.birthDate,
         place: person.birthPlace,
         icon: Icons.cake,
-        color: Colors.green,
+        kind: _EventKind.birth,
         sources: personSources
             .where((s) =>
                 s.citedFacts.contains('Birth Date') ||
@@ -71,7 +71,7 @@ class TimelineScreen extends StatelessWidget {
           date: pt.startDate,
           place: pt.startPlace,
           icon: Icons.favorite,
-          color: pt.isEnded ? Colors.grey : Colors.pink,
+          kind: pt.isEnded ? _EventKind.endedUnion : _EventKind.union,
           sources: personSources
               .where((s) =>
                   s.citedFacts.contains('Marriage Date') ||
@@ -86,7 +86,7 @@ class TimelineScreen extends StatelessWidget {
           date: pt.endDate,
           place: pt.endPlace,
           icon: Icons.heart_broken,
-          color: Colors.grey,
+          kind: _EventKind.endedUnion,
           sources: const [],
         ));
       }
@@ -98,7 +98,7 @@ class TimelineScreen extends StatelessWidget {
         date: person.deathDate,
         place: person.deathPlace,
         icon: Icons.star,
-        color: Colors.grey,
+        kind: _EventKind.death,
         sources: personSources
             .where((s) =>
                 s.citedFacts.contains('Death Date') ||
@@ -119,7 +119,7 @@ class TimelineScreen extends StatelessWidget {
           date: null,
           place: null,
           icon: Icons.description,
-          color: Colors.blue,
+          kind: _EventKind.source,
           sources: [source],
         ));
       }
@@ -147,12 +147,24 @@ class TimelineScreen extends StatelessWidget {
   }
 }
 
+enum _EventKind { birth, union, endedUnion, death, source }
+
+extension _EventKindStyle on _EventKind {
+  Color colorOf(ColorScheme cs) => switch (this) {
+        _EventKind.birth => cs.tertiary,
+        _EventKind.union => cs.outlineVariant,
+        _EventKind.endedUnion => cs.outline,
+        _EventKind.death => cs.error,
+        _EventKind.source => cs.primary,
+      };
+}
+
 class _Event {
   final String title;
   final DateTime? date;
   final String? place;
   final IconData icon;
-  final Color color;
+  final _EventKind kind;
   final List<Source> sources;
 
   _Event({
@@ -160,7 +172,7 @@ class _Event {
     required this.date,
     required this.place,
     required this.icon,
-    required this.color,
+    required this.kind,
     required this.sources,
   });
 }
@@ -172,6 +184,9 @@ class _TimelineEvent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = event.kind.colorOf(colorScheme);
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -185,17 +200,17 @@ class _TimelineEvent extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: event.color.withOpacity(0.2),
+                    color: color.withOpacity(0.15),
                     shape: BoxShape.circle,
-                    border: Border.all(color: event.color, width: 2),
+                    border: Border.all(color: color, width: 2),
                   ),
-                  child: Icon(event.icon, color: event.color, size: 20),
+                  child: Icon(event.icon, color: color, size: 20),
                 ),
                 if (!isLast)
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: Colors.grey.shade300,
+                      color: colorScheme.outlineVariant.withOpacity(0.4),
                     ),
                   ),
               ],
@@ -220,18 +235,21 @@ class _TimelineEvent extends StatelessWidget {
                       if (event.date != null)
                         Text(
                           DateFormat('d MMMM yyyy').format(event.date!),
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(
+                              color: colorScheme.onSurfaceVariant),
                         ),
                       if (event.place != null && event.place!.isNotEmpty)
                         Row(
                           children: [
-                            const Icon(Icons.location_on,
-                                size: 14, color: Colors.grey),
+                            Icon(Icons.location_on,
+                                size: 14,
+                                color: colorScheme.onSurfaceVariant),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 event.place!,
-                                style: TextStyle(color: Colors.grey.shade600),
+                                style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant),
                               ),
                             ),
                           ],

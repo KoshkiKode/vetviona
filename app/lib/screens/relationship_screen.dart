@@ -68,10 +68,13 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
             ),
             children: [
               if (_parents.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text('No parents recorded.',
-                      style: TextStyle(color: Colors.grey)),
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
                 ),
               ..._parents.map((entry) => _ParentRow(
                     key: ObjectKey(entry),
@@ -96,10 +99,13 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
             title: 'Partners & Unions',
             children: [
               if (myPartnerships.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text('No partnerships recorded.',
-                      style: TextStyle(color: Colors.grey)),
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
                 ),
               ...myPartnerships.map((pt) => _PartnershipTile(
                     key: ValueKey(pt.id),
@@ -130,7 +136,7 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: Colors.grey),
+                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],
@@ -245,7 +251,7 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Remove'),
           ),
@@ -403,7 +409,7 @@ class _PartnershipTile extends StatelessWidget {
       case 'divorced':
       case 'separated':
       case 'annulled':
-        statusColor = Colors.grey;
+        statusColor = colorScheme.outline;
         break;
       default:
         statusColor = colorScheme.primary;
@@ -446,18 +452,21 @@ class _PartnershipTile extends StatelessWidget {
                             const SizedBox(width: 6),
                             Text(
                               df.format(partnership.startDate!),
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.onSurfaceVariant),
                             ),
                           ],
                           if (partnership.endDate != null) ...[
-                            const Text(' – ',
+                            Text(' – ',
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey)),
+                                    fontSize: 12,
+                                    color: colorScheme.onSurfaceVariant)),
                             Text(
                               df.format(partnership.endDate!),
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.onSurfaceVariant),
                             ),
                           ],
                         ],
@@ -471,8 +480,8 @@ class _PartnershipTile extends StatelessWidget {
                   onPressed: onEdit,
                 ),
                 IconButton(
-                  icon:
-                      const Icon(Icons.link_off, size: 18, color: Colors.red),
+                  icon: Icon(Icons.link_off,
+                      size: 18, color: colorScheme.error),
                   tooltip: 'Remove',
                   onPressed: onDelete,
                 ),

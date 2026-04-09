@@ -188,15 +188,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Paired Devices',
             children: [
               if (treeProvider.pairedDevices.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
                     children: [
                       Icon(Icons.info_outline,
-                          size: 16, color: Colors.grey),
-                      SizedBox(width: 8),
+                          size: 16, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 8),
                       Text('No paired devices.',
-                          style: TextStyle(color: Colors.grey)),
+                          style: TextStyle(color: colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 )
@@ -216,8 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     isThreeLine: true,
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.red),
+                      icon: Icon(Icons.delete_outline,
+                          color: colorScheme.error),
                       onPressed: () =>
                           treeProvider.removeDevice(d.id),
                     ),
@@ -226,19 +226,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (currentAppTier == AppTier.desktopPro &&
                   treeProvider.pairedDevices
                       .any((d) => d.tier == 'mobileFree'))
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.info_outline,
-                          size: 14, color: Colors.amber),
-                      SizedBox(width: 6),
+                          size: 14, color: colorScheme.outlineVariant),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Free-tier mobile devices sync manually only, up to 100 people per sync.',
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey),
+                              fontSize: 12, color: colorScheme.onSurfaceVariant),
                         ),
                       ),
                     ],
@@ -253,24 +253,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionCard(
             icon: Icons.warning_amber_outlined,
             title: 'Danger Zone',
-            iconColor: Colors.red,
-            titleColor: Colors.red,
+            iconColor: colorScheme.error,
+            titleColor: colorScheme.error,
             children: [
               Text(
                 'Permanently delete all people, sources, and settings.',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: Colors.grey),
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                icon: const Icon(Icons.delete_forever,
-                    color: Colors.red),
-                label: const Text('Clear All Data',
-                    style: TextStyle(color: Colors.red)),
+                icon: Icon(Icons.delete_forever,
+                    color: colorScheme.error),
+                label: Text('Clear All Data',
+                    style: TextStyle(color: colorScheme.error)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
+                  side: BorderSide(color: colorScheme.error),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
@@ -291,14 +291,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(color: Colors.grey),
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 Text(
                   '${BuildMetadata.syncTechName}\u2122 ${BuildMetadata.syncTechVersion}',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(color: Colors.grey),
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -310,6 +310,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   List<Widget> _buildSyncChildren(BuildContext context) {
+    final onSurfaceVariant = Theme.of(context).colorScheme.onSurfaceVariant;
     switch (currentAppTier) {
       case AppTier.mobileFree:
         return [
@@ -328,7 +329,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: Colors.grey),
+                ?.copyWith(color: onSurfaceVariant),
           ),
           SwitchListTile(
             title: const Text('Bluetooth Sync'),
@@ -343,14 +344,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(height: 16),
           Row(
             children: [
-              const Icon(Icons.people_outline, size: 14, color: Colors.grey),
+              Icon(Icons.people_outline, size: 14, color: onSurfaceVariant),
               const SizedBox(width: 6),
               Text(
                 'Free tier: up to $freeMobilePersonLimit people per tree.',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: Colors.grey),
+                    ?.copyWith(color: onSurfaceVariant),
               ),
             ],
           ),
@@ -375,7 +376,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: Colors.grey),
+                ?.copyWith(color: onSurfaceVariant),
           ),
           SwitchListTile(
             title: const Text('WiFi Auto-Sync'),
@@ -404,7 +405,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: Colors.grey),
+                ?.copyWith(color: onSurfaceVariant),
           ),
           SwitchListTile(
             title: const Text('Bluetooth Sync'),
@@ -424,7 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
-                  ?.copyWith(color: Colors.grey),
+                  ?.copyWith(color: onSurfaceVariant),
             ),
           ],
         ];
@@ -433,6 +434,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _confirmClear(
       BuildContext context, TreeProvider provider) async {
+    final errorColor = Theme.of(context).colorScheme.error;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -445,7 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text('Cancel')),
           FilledButton(
             style:
-                FilledButton.styleFrom(backgroundColor: Colors.red),
+                FilledButton.styleFrom(backgroundColor: errorColor),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Clear'),
           ),
@@ -468,15 +470,16 @@ class _DeviceTierBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final label = switch (tier) {
       'mobilePaid' => 'Mobile Paid',
       'desktopPro' => 'Desktop Pro',
       _ => 'Mobile Free',
     };
     final color = switch (tier) {
-      'mobilePaid' => Colors.blue,
-      'desktopPro' => Colors.purple,
-      _ => Colors.orange,
+      'mobilePaid' => colorScheme.tertiary,
+      'desktopPro' => colorScheme.outlineVariant,
+      _ => colorScheme.outline,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -495,6 +498,7 @@ class _DeviceTierBadge extends StatelessWidget {
 }
 
 
+class _SectionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final List<Widget> children;

@@ -128,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     content: Text(
                       'Free tier limit: $freeMobilePersonLimit people reached. Upgrade to add more.',
                     ),
-                    backgroundColor: Colors.orange,
+                    backgroundColor: Theme.of(context).colorScheme.outlineVariant,
                   ),
                 )
             : () => Navigator.push(
@@ -162,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.people,
             label: personLabel,
             color: isFree && provider.isAtPersonLimit
-                ? Colors.orange
+                ? colorScheme.outlineVariant
                 : colorScheme.primary,
           ),
           if (!isFree) ...[
@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
-                  ?.copyWith(color: Colors.grey),
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             if (provider.persons.isEmpty) ...[
@@ -282,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: colorScheme.onPrimary.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(Icons.account_tree,
@@ -362,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: Theme.of(context)
                           .textTheme
                           .labelLarge
-                          ?.copyWith(color: Colors.grey)),
+                          ?.copyWith(color: colorScheme.onSurfaceVariant)),
                   IconButton(
                     icon: const Icon(Icons.add, size: 20),
                     tooltip: 'New tree',
@@ -516,20 +516,21 @@ class _PersonCard extends StatelessWidget {
   final Person person;
   const _PersonCard({required this.person});
 
-  Color _avatarColor(BuildContext context) {
+  /// Returns `(backgroundColor, foregroundColor)` based on gender.
+  (Color, Color) _avatarColors(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     if (person.gender?.toLowerCase() == 'male') {
-      return const Color(0xFF1565C0);
+      return (colorScheme.primary, colorScheme.onPrimary);
     } else if (person.gender?.toLowerCase() == 'female') {
-      return const Color(0xFFAD1457);
+      return (colorScheme.error, colorScheme.onError);
     }
-    return colorScheme.primary;
+    return (colorScheme.secondary, colorScheme.onSecondary);
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final avatarColor = _avatarColor(context);
+    final (avatarBg, avatarFg) = _avatarColors(context);
 
     return Card(
       child: InkWell(
@@ -546,13 +547,13 @@ class _PersonCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 26,
-                backgroundColor: avatarColor,
+                backgroundColor: avatarBg,
                 child: Text(
                   person.name.isNotEmpty
                       ? person.name[0].toUpperCase()
                       : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: avatarFg,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -578,7 +579,7 @@ class _PersonCard extends StatelessWidget {
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
-                              ?.copyWith(color: Colors.grey.shade600),
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -591,14 +592,14 @@ class _PersonCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: avatarColor.withOpacity(0.1),
+                            color: avatarBg.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             person.gender!,
                             style: TextStyle(
                                 fontSize: 11,
-                                color: avatarColor,
+                                color: avatarBg,
                                 fontWeight: FontWeight.w500),
                           ),
                         ),
