@@ -137,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               (d) => ListTile(
                 leading: const Icon(Icons.devices),
                 title: Text(d.id),
-                subtitle: Text(d.sharedSecret),
+                subtitle: const Text('••••••••••••••••'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () => treeProvider.removeDevice(d.id),

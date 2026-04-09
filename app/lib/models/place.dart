@@ -43,8 +43,8 @@ class Place {
         if (date.year < 1776) countryName = 'British America';
         else if (date.year < 1788) countryName = 'New York State';
       } else if (name == 'Istanbul' || name == 'Constantinople') {
-        if (date.year < 1923) countryName = 'Ottoman Empire';
-        else if (date.year < 330) countryName = 'Roman Empire';
+        if (date.year < 330) countryName = 'Roman Empire';
+        else if (date.year < 1923) countryName = 'Ottoman Empire';
       } else if (name == 'Saint Petersburg') {
         if (date.year >= 1914 && date.year < 1924) countryName = 'Petrograd, Russia';
         else if (date.year >= 1924 && date.year < 1991) countryName = 'Leningrad, Soviet Union';

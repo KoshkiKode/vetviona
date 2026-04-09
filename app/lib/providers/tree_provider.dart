@@ -43,7 +43,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Roman Empire, Franks',
       nativeTribes: 'Parisii (Gauls)',
       romanizedNative: 'Parisii',
-      validFrom: DateTime(-52),
+      validFrom: DateTime.utc(-52, 1, 1),
     ),
     Place(
       name: 'London',
@@ -53,7 +53,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Roman Empire, Anglo-Saxons, Normans',
       nativeTribes: 'Celtic Britons',
       romanizedNative: 'Britanni',
-      validFrom: DateTime(43),
+      validFrom: DateTime.utc(43, 1, 1),
     ),
     Place(
       name: 'Berlin',
@@ -63,7 +63,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Holy Roman Empire, Prussia',
       nativeTribes: 'Germanic tribes (Slavic Hevelli)',
       romanizedNative: 'Hevelli',
-      validFrom: DateTime(1237),
+      validFrom: DateTime.utc(1237, 1, 1),
     ),
     Place(
       name: 'Rome',
@@ -73,7 +73,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Roman Republic/Empire',
       nativeTribes: 'Latins, Sabines, Etruscans',
       romanizedNative: 'Latini',
-      validFrom: DateTime(-753),
+      validFrom: DateTime.utc(-753, 1, 1),
     ),
     Place(
       name: 'Moscow',
@@ -83,7 +83,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Mongol Empire (briefly)',
       nativeTribes: 'Eastern Slavs',
       romanizedNative: 'Moskva',
-      validFrom: DateTime(1147),
+      validFrom: DateTime.utc(1147, 1, 1),
     ),
     Place(
       name: 'Madrid',
@@ -93,7 +93,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Moorish Caliphate, Castile',
       nativeTribes: 'Carpetani (Iberian)',
       romanizedNative: 'Carpetani',
-      validFrom: DateTime(865),
+      validFrom: DateTime.utc(865, 1, 1),
     ),
     Place(
       name: 'Vienna',
@@ -103,7 +103,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Roman Empire, Habsburg Dynasty',
       nativeTribes: 'Celtic Boii',
       romanizedNative: 'Boii',
-      validFrom: DateTime(15),
+      validFrom: DateTime.utc(15, 1, 1),
     ),
     Place(
       name: 'Warsaw',
@@ -113,7 +113,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Prussia, Russia, Nazi Germany',
       nativeTribes: 'Mazovian Poles',
       romanizedNative: 'Mazovia',
-      validFrom: DateTime(1300),
+      validFrom: DateTime.utc(1300, 1, 1),
     ),
     Place(
       name: 'Istanbul',
@@ -123,7 +123,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Roman/Byzantine Empire, Ottoman Empire',
       nativeTribes: 'Thracians',
       romanizedNative: 'Thraces',
-      validFrom: DateTime(330),
+      validFrom: DateTime.utc(330, 1, 1),
     ),
     Place(
       name: 'Belgrade',
@@ -133,7 +133,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Ottoman Empire, Austro-Hungarian Empire',
       nativeTribes: 'Scordisci (Celtic-Illyrian)',
       romanizedNative: 'Singidunum',
-      validFrom: DateTime(279),
+      validFrom: DateTime.utc(279, 1, 1),
     ),
     // Asia
     Place(
@@ -144,7 +144,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'N/A',
       nativeTribes: 'Ainu (historical northern Japan)',
       romanizedNative: 'Ainu',
-      validFrom: DateTime(1603),
+      validFrom: DateTime.utc(1603, 1, 1),
     ),
     Place(
       name: 'Delhi',
@@ -154,7 +154,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Mughal Empire, British East India Company',
       nativeTribes: 'Indigenous North Indian peoples',
       romanizedNative: 'Dilli',
-      validFrom: DateTime(1000),
+      validFrom: DateTime.utc(1000, 1, 1),
     ),
     Place(
       name: 'Beijing',
@@ -164,7 +164,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Mongol Yuan Dynasty, Manchu Qing Dynasty',
       nativeTribes: 'Han Chinese, Khitan',
       romanizedNative: 'Běijīng',
-      validFrom: DateTime(1045),
+      validFrom: DateTime.utc(1045, 1, 1),
     ),
     Place(
       name: 'Mumbai',
@@ -174,7 +174,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Portuguese Empire, British East India Company',
       nativeTribes: 'Koli fishermen, Aagri',
       romanizedNative: 'Mumbadevi',
-      validFrom: DateTime(1534),
+      validFrom: DateTime.utc(1534, 1, 1),
     ),
     Place(
       name: 'Tehran',
@@ -184,7 +184,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'N/A (briefly occupied by Soviets and British)',
       nativeTribes: 'Medes, Persians',
       romanizedNative: 'Tehrān',
-      validFrom: DateTime(1796),
+      validFrom: DateTime.utc(1796, 1, 1),
     ),
     // Africa
     Place(
@@ -195,7 +195,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Ottoman Empire, British Empire',
       nativeTribes: 'Ancient Egyptians',
       romanizedNative: 'Al-Qāhira',
-      validFrom: DateTime(969),
+      validFrom: DateTime.utc(969, 1, 1),
     ),
     Place(
       name: 'Johannesburg',
@@ -205,7 +205,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'British Empire, Boer Republic',
       nativeTribes: 'Sotho-Tswana peoples',
       romanizedNative: 'eGoli',
-      validFrom: DateTime(1886),
+      validFrom: DateTime.utc(1886, 1, 1),
     ),
     Place(
       name: 'Lagos',
@@ -215,7 +215,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Portuguese, British Empire',
       nativeTribes: 'Awori Yoruba',
       romanizedNative: 'Eko',
-      validFrom: DateTime(1400),
+      validFrom: DateTime.utc(1400, 1, 1),
     ),
     // Americas
     Place(
@@ -226,7 +226,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Dutch West India Company, British Empire',
       nativeTribes: 'Lenape',
       romanizedNative: 'Mannahatta',
-      validFrom: DateTime(1626),
+      validFrom: DateTime.utc(1626, 1, 1),
     ),
     Place(
       name: 'Mexico City',
@@ -236,7 +236,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Spanish Empire',
       nativeTribes: 'Mexica (Aztec)',
       romanizedNative: 'Tenochtitlan',
-      validFrom: DateTime(1325),
+      validFrom: DateTime.utc(1325, 1, 1),
     ),
     Place(
       name: 'Buenos Aires',
@@ -246,7 +246,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Spanish Empire',
       nativeTribes: 'Querandí',
       romanizedNative: 'Querandí',
-      validFrom: DateTime(1536),
+      validFrom: DateTime.utc(1536, 1, 1),
     ),
     Place(
       name: 'Rio de Janeiro',
@@ -256,7 +256,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Portuguese Empire',
       nativeTribes: 'Tamoio (Tupi)',
       romanizedNative: 'Guanabara',
-      validFrom: DateTime(1565),
+      validFrom: DateTime.utc(1565, 1, 1),
     ),
     Place(
       name: 'Lima',
@@ -266,7 +266,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'Spanish Empire',
       nativeTribes: 'Ichma (Inca confederation)',
       romanizedNative: 'Limaq',
-      validFrom: DateTime(1535),
+      validFrom: DateTime.utc(1535, 1, 1),
     ),
     // Oceania
     Place(
@@ -277,7 +277,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'British Empire',
       nativeTribes: 'Eora Nation',
       romanizedNative: 'Cadi',
-      validFrom: DateTime(1788),
+      validFrom: DateTime.utc(1788, 1, 1),
     ),
     Place(
       name: 'Saint Petersburg',
@@ -288,7 +288,7 @@ class TreeProvider extends ChangeNotifier {
       colonizer: 'N/A',
       nativeTribes: 'Ingrian Finns',
       romanizedNative: 'Inkeri',
-      validFrom: DateTime(1703),
+      validFrom: DateTime.utc(1703, 1, 1),
     ),
   ];
 
