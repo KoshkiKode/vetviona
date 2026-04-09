@@ -1,0 +1,83 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build iOS IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: stable
+          cache: true
+
+      - name: Scaffold iOS platform
+        working-directory: app
+        run: flutter create --platforms=ios --org com.koshkikode .
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build iOS (no code sign)
+        working-directory: app
+        run: flutter build ios --release --no-codesign
+
+      # ── Signed IPA (requires repository secrets) ──────────────────────────
+      # To produce a distributable .ipa you must add the following secrets:
+      #   IOS_CERTIFICATE_BASE64   — p12 certificate (base64)
+      #   IOS_CERTIFICATE_PASSWORD — p12 password
+      #   IOS_PROVISION_PROFILE    — .mobileprovision (base64)
+      #   IOS_KEYCHAIN_PASSWORD    — ephemeral keychain password
+      #
+      # Uncomment the steps below once secrets are configured.
+      # ─────────────────────────────────────────────────────────────────────
+      # - name: Import certificate & provisioning profile
+      #   env:
+      #     CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+      #     P12_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      #     PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE }}
+      #     KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+      #   run: |
+      #     echo "$CERTIFICATE_BASE64" | base64 --decode > /tmp/cert.p12
+      #     echo "$PROVISION_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
+      #     security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+      #     security default-keychain -s build.keychain
+      #     security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+      #     security import /tmp/cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+      #     security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+      #     mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+      #     cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+      #
+      # - name: Archive & export IPA
+      #   working-directory: app/ios
+      #   run: |
+      #     xcodebuild -workspace Runner.xcworkspace \
+      #       -scheme Runner \
+      #       -sdk iphoneos \
+      #       -configuration Release \
+      #       -archivePath /tmp/Runner.xcarchive \
+      #       archive
+      #     xcodebuild -exportArchive \
+      #       -archivePath /tmp/Runner.xcarchive \
+      #       -exportOptionsPlist ExportOptions.plist \
+      #       -exportPath /tmp/ipa
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-ios-build
+          path: app/build/ios/iphoneos/Runner.app

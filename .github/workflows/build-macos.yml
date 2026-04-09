@@ -1,0 +1,69 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build macOS DMG
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: stable
+          cache: true
+
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Scaffold macOS platform
+        working-directory: app
+        run: flutter create --platforms=macos --org com.koshkikode .
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Copy entitlements
+        run: |
+          cp packaging/macos/entitlements.plist app/macos/Runner/Release.entitlements
+          cp packaging/macos/entitlements.plist app/macos/Runner/DebugProfile.entitlements
+
+      - name: Build macOS (Desktop Pro — paid)
+        working-directory: app
+        run: flutter build macos --release --dart-define=PAID=true
+
+      # ── Code signing & notarization (requires secrets) ────────────────────
+      # Add these secrets to enable notarized distribution:
+      #   MACOS_CERTIFICATE_BASE64  — Developer ID p12 (base64)
+      #   MACOS_CERTIFICATE_PASSWORD
+      #   MACOS_NOTARIZE_APPLE_ID
+      #   MACOS_NOTARIZE_TEAM_ID
+      #   MACOS_NOTARIZE_PASSWORD   — app-specific password
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Create DMG
+        run: |
+          APP_PATH="app/build/macos/Build/Products/Release/vetviona.app"
+          DMG_PATH="vetviona-macos.dmg"
+          hdiutil create -volname "Vetviona" \
+            -srcfolder "$APP_PATH" \
+            -ov -format UDZO \
+            "$DMG_PATH"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-macos-dmg
+          path: vetviona-macos.dmg

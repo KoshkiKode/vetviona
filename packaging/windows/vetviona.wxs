@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Vetviona Windows Installer
+  WiX v4 / dotnet tool "wix"
+  Build: wix build vetviona.wxs -o vetviona-setup.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package
+    Name="Vetviona"
+    Manufacturer="KoshkiKode"
+    Version="1.0.0"
+    UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+    InstallerVersion="500"
+    Compressed="yes"
+    Scope="perMachine">
+
+    <SummaryInformation Description="Vetviona — Private, local-first genealogy app by KoshkiKode" />
+
+    <!-- ── Upgrade handling ─────────────────────────────────────────── -->
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of Vetviona is already installed."
+      Schedule="afterInstallInitialize" />
+
+    <!-- ── Media / cabinet ─────────────────────────────────────────── -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ── Feature tree ────────────────────────────────────────────── -->
+    <Feature Id="ProductFeature" Title="Vetviona" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ApplicationShortcutDesktop" />
+    </Feature>
+
+    <!-- ── UI ──────────────────────────────────────────────────────── -->
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
+
+    <!-- ── Directory structure ─────────────────────────────────────── -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Vetviona" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Vetviona" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- ── Start-menu shortcut ─────────────────────────────────────── -->
+    <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder">
+      <Shortcut
+        Id="ApplicationStartMenuShortcut"
+        Name="Vetviona"
+        Description="Private, local-first genealogy app"
+        Target="[INSTALLFOLDER]vetviona.exe"
+        WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\KoshkiKode\Vetviona"
+        Name="installed"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <!-- ── Desktop shortcut ────────────────────────────────────────── -->
+    <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolder">
+      <Shortcut
+        Id="ApplicationDesktopShortcut"
+        Name="Vetviona"
+        Description="Private, local-first genealogy app"
+        Target="[INSTALLFOLDER]vetviona.exe"
+        WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\KoshkiKode\Vetviona"
+        Name="desktopShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <!-- ── Application files ───────────────────────────────────────── -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!--
+        Add all files from the Flutter Windows build output here.
+        Flutter's release output lives in:
+          build/windows/x64/runner/Release/
+
+        The CI workflow copies this .wxs alongside the release output,
+        so relative paths below resolve correctly at build time.
+      -->
+      <Component Id="MainExecutable">
+        <File Id="VetvionaExe" Name="vetviona.exe" Source="vetviona.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="FlutterEngine">
+        <File Id="FlutterDll" Name="flutter_windows.dll" Source="flutter_windows.dll" />
+      </Component>
+      <Component Id="DataFolder">
+        <File Id="AppData" Name="data" Source="data" />
+      </Component>
+    </ComponentGroup>
+
+  </Package>
+</Wix>

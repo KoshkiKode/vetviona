@@ -1,0 +1,150 @@
+name: Build Linux
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    name: Build Linux DEB
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            dpkg-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: stable
+          cache: true
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Scaffold Linux platform
+        working-directory: app
+        run: flutter create --platforms=linux --org com.koshkikode .
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build Linux (Desktop Pro — paid)
+        working-directory: app
+        run: flutter build linux --release --dart-define=PAID=true
+
+      - name: Package as DEB
+        run: |
+          VERSION=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          PKGDIR="vetviona_${VERSION}_amd64"
+          mkdir -p "$PKGDIR/usr/bin"
+          mkdir -p "$PKGDIR/usr/share/applications"
+          mkdir -p "$PKGDIR/usr/share/icons/hicolor/256x256/apps"
+          mkdir -p "$PKGDIR/DEBIAN"
+
+          cp -r app/build/linux/x64/release/bundle/* "$PKGDIR/usr/bin/"
+
+          cat > "$PKGDIR/DEBIAN/control" <<EOF
+          Package: vetviona
+          Version: $VERSION
+          Architecture: amd64
+          Maintainer: KoshkiKode <support@koshkikode.com>
+          Description: Vetviona — private, local-first genealogy app
+           Build interactive family trees, attach sources, and sync across
+           devices without a server you need to maintain.
+          EOF
+
+          cat > "$PKGDIR/usr/share/applications/vetviona.desktop" <<EOF
+          [Desktop Entry]
+          Name=Vetviona
+          Comment=Private, local-first genealogy app
+          Exec=/usr/bin/vetviona
+          Icon=vetviona
+          Terminal=false
+          Type=Application
+          Categories=Education;Genealogy;
+          EOF
+
+          dpkg-deb --build "$PKGDIR"
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-linux-deb
+          path: vetviona_*.deb
+
+  build-snap:
+    name: Build Snap
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Set up Flutter (for snapcraft)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: stable
+          cache: true
+
+      - name: Scaffold Linux platform
+        working-directory: app
+        run: flutter create --platforms=linux --org com.koshkikode .
+
+      - name: Copy snapcraft.yaml
+        run: cp packaging/linux/snap/snapcraft.yaml app/snap/snapcraft.yaml
+
+      - name: Build Snap
+        working-directory: app
+        run: snapcraft --use-lxd
+
+      - name: Upload Snap
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-linux-snap
+          path: app/*.snap
+
+  build-flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Flatpak & flatpak-builder
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
+
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --repo=flatpak-repo --force-clean flatpak-build \
+            packaging/linux/flatpak/com.koshkikode.Vetviona.yml
+          flatpak build-bundle flatpak-repo vetviona.flatpak com.koshkikode.Vetviona
+
+      - name: Upload Flatpak
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetviona-linux-flatpak
+          path: vetviona.flatpak
