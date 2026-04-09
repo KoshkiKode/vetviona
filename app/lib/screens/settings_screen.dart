@@ -53,6 +53,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.palette_outlined,
             title: 'Appearance',
             children: [
+              SwitchListTile(
+                title: const Text('Dark Mode'),
+                subtitle: Text(
+                  themeProvider.isDarkMode
+                      ? 'Forest green adapts for dark UI'
+                      : 'Slavic bookish light palette',
+                ),
+                secondary: Icon(
+                  themeProvider.isDarkMode
+                      ? Icons.dark_mode
+                      : Icons.light_mode,
+                ),
+                value: themeProvider.isDarkMode,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (v) =>
+                    context.read<ThemeProvider>().setDarkMode(v),
+              ),
+              const Divider(height: 24),
               const Text(
                 'Primary Color',
                 style: TextStyle(fontWeight: FontWeight.w500),
@@ -88,7 +106,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   TextButton(
                     onPressed: () => context
                         .read<ThemeProvider>()
-                        .setPrimaryColor(const Color(0xFF1F6F50)),
+                        .setPrimaryColor(
+                          themeProvider.isDarkMode
+                              ? VetvionaPalette.darkPrimary
+                              : VetvionaPalette.lightPrimary,
+                        ),
                     child: const Text('Reset to default'),
                   ),
                 ],
@@ -155,16 +177,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.sync_outlined,
             title: 'RootLoop\u2122 Sync',
             children: [
+              // Tier 1 — RootLoop Auto
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'RootLoop Auto',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                'Automatically syncs when your devices are on the same WiFi network — no button press needed.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey),
+              ),
               SwitchListTile(
-                title: const Text('WiFi Sync'),
+                title: const Text('WiFi Auto-Sync'),
                 subtitle:
-                    const Text('Sync over local WiFi network'),
+                    const Text('Sync automatically on home network'),
                 value: _wifiSync,
                 contentPadding: EdgeInsets.zero,
                 onChanged: (v) {
                   setState(() => _wifiSync = v);
                   _saveBool('wifiSync', v);
                 },
+              ),
+              const Divider(height: 24),
+              // Tier 2 — RootLoop Manual
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'RootLoop Manual',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                'Tap to sync on demand — works over Bluetooth or any local connection you initiate.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey),
               ),
               SwitchListTile(
                 title: const Text('Bluetooth Sync'),

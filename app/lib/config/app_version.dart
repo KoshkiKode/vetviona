@@ -5,4 +5,8 @@ class AppVersion {
   static const String companyName = 'KoshkiKode';
   static const String syncTechName = 'RootLoop';
   static const String websiteDomain = 'vetviona.koshkikode.com';
+
+  // RootLoop tiers
+  static const String rootLoopAutoTier = 'RootLoop Auto';
+  static const String rootLoopManualTier = 'RootLoop Manual';
 }

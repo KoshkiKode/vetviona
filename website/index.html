@@ -8,17 +8,55 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --green: #1f6f50;
-      --green-dark: #185a41;
-      --green-light: #eaf6f1;
-      --green-mid: #2e8c68;
-      --text: #1a1a1a;
-      --text-muted: #5a5a5a;
+      --primary: #1a3c34;
+      --secondary: #2d5a4f;
+      --accent: #5a9a87;
+      --paper: #f8f7f3;
+      --ink: #1f1f1f;
+      --dust: #8b8b7f;
+      --brass: #c9a86e;
+      --burgundy: #5c2d2e;
+      --slate: #4a5568;
+      --linen: #f5f3ee;
+
+      /* mapped aliases */
+      --green: var(--primary);
+      --green-dark: var(--secondary);
+      --green-light: var(--linen);
+      --green-mid: var(--accent);
+      --text: var(--ink);
+      --text-muted: var(--dust);
       --border: #e3e3e3;
-      --surface: #ffffff;
-      --bg: #f5f7f5;
+      --surface: var(--paper);
+      --bg: var(--linen);
       --radius: 16px;
       --shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary: #2d5a4f;
+        --secondary: #1a3c34;
+        --accent: #5a9a87;
+        --paper: #1f1f1f;
+        --ink: #f8f7f3;
+        --dust: #8b8b7f;
+        --brass: #c9a86e;
+        --burgundy: #8b3e40;
+        --slate: #6b7280;
+        --linen: #2d2d2d;
+
+        --green: var(--primary);
+        --green-dark: var(--secondary);
+        --green-light: var(--linen);
+        --green-mid: var(--accent);
+        --text: var(--ink);
+        --text-muted: var(--dust);
+        --border: #3a3a3a;
+        --surface: var(--paper);
+        --bg: var(--paper);
+        --shadow: 0 4px 24px rgba(0,0,0,0.25);
+      }
     }
 
     body {
@@ -339,11 +377,11 @@
     <div class="nav-inner">
       <a href="#" class="nav-logo">
         <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="14" cy="5" r="4" fill="#1f6f50"/>
-          <circle cx="5" cy="19" r="4" fill="#1f6f50"/>
-          <circle cx="23" cy="19" r="4" fill="#1f6f50"/>
-          <line x1="14" y1="9" x2="5" y2="15" stroke="#1f6f50" stroke-width="2"/>
-          <line x1="14" y1="9" x2="23" y2="15" stroke="#1f6f50" stroke-width="2"/>
+          <circle cx="14" cy="5" r="4" fill="currentColor"/>
+          <circle cx="5" cy="19" r="4" fill="currentColor"/>
+          <circle cx="23" cy="19" r="4" fill="currentColor"/>
+          <line x1="14" y1="9" x2="5" y2="15" stroke="currentColor" stroke-width="2"/>
+          <line x1="14" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2"/>
         </svg>
         Vetviona
       </a>
@@ -413,7 +451,7 @@
       <div class="feature-card">
         <div class="feature-icon">🔄</div>
         <h3>RootLoop™ Sync</h3>
-        <p>Encrypted peer-to-peer sync over WiFi and Bluetooth. No cloud required — your data stays on your devices.</p>
+        <p>Two tiers: <em>Auto</em> syncs over WiFi the moment your devices hit the same network; <em>Manual</em> lets you push via Bluetooth on demand.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">📤</div>
@@ -444,7 +482,17 @@
         <div style="width:44px;height:44px;background:var(--green-light);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🔄</div>
         <h2 style="margin:0">RootLoop™</h2>
       </div>
-      <p><strong>RootLoop™</strong> is Vetviona's proprietary sync layer that lets your devices exchange encrypted family-tree data directly — over local WiFi or Bluetooth — without relying on any external server.</p>
+      <p><strong>RootLoop™</strong> is Vetviona's proprietary sync layer that lets your devices exchange encrypted family-tree data directly — without relying on any external server. It comes in two tiers:</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:14px;">
+        <div style="background:var(--green-light);border-radius:12px;padding:18px;">
+          <strong style="color:var(--green);">RootLoop Auto</strong>
+          <p style="margin:6px 0 0;font-size:0.9rem;color:var(--text-muted);">Full WiFi sync that runs automatically whenever your devices join the same home network — like a client-server pair that just works.</p>
+        </div>
+        <div style="background:var(--green-light);border-radius:12px;padding:18px;">
+          <strong style="color:var(--green);">RootLoop Manual</strong>
+          <p style="margin:6px 0 0;font-size:0.9rem;color:var(--text-muted);">On-demand sync you trigger inside the app — over Bluetooth or any local connection you initiate.</p>
+        </div>
+      </div>
       <p style="margin-top:10px;color:var(--text-muted);font-size:0.9rem;">Version: <code>1.0.0</code> &nbsp;·&nbsp; Versioned independently from the app &nbsp;·&nbsp; Zero-knowledge encryption</p>
     </div>
 
@@ -461,10 +509,10 @@
         <ul>
           <li>Tree building &amp; editing</li>
           <li>Source citations</li>
-          <li>WiFi sync (RootLoop™)</li>
+          <li>WiFi auto-sync (RootLoop™ Auto)</li>
           <li>Timeline &amp; relationships</li>
           <li class="no">GEDCOM import</li>
-          <li class="no">Bluetooth sync</li>
+          <li class="no">Bluetooth manual sync</li>
         </ul>
         <a href="#" class="plan-btn secondary">Download Free</a>
       </div>
@@ -476,7 +524,7 @@
         <ul>
           <li>Everything in Mobile</li>
           <li>GEDCOM import &amp; export</li>
-          <li>Bluetooth + WiFi sync</li>
+          <li>Bluetooth + WiFi sync (both RootLoop™ tiers)</li>
           <li>Unlimited trees</li>
           <li>Priority support</li>
         </ul>

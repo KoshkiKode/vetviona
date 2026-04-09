@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/place.dart';
 import '../providers/tree_provider.dart';
+import '../services/place_service.dart';
 
 class PlacePickerScreen extends StatefulWidget {
   final DateTime? eventDate;
@@ -15,14 +16,17 @@ class PlacePickerScreen extends StatefulWidget {
 
 class _PlacePickerScreenState extends State<PlacePickerScreen> {
   String _query = '';
+  late Future<List<Place>> _placesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _placesFuture = PlaceService.instance.loadPlaces();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colonizationLevel = context.watch<TreeProvider>().colonizationLevel;
-    final filtered = TreeProvider.places
-        .where((p) => p.name.toLowerCase().contains(_query.toLowerCase()) ||
-            p.modernCountry.toLowerCase().contains(_query.toLowerCase()))
-        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -50,27 +54,38 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
           ),
         ),
       ),
-      body: filtered.isEmpty
-          ? const Center(child: Text('No places match your search.'))
-          : ListView.builder(
-              itemCount: filtered.length,
-              itemBuilder: (context, i) {
-                final place = filtered[i];
-                final fullName = place.getFullName(widget.eventDate);
-                final info = place.getHistoricalInfo(
-                    widget.eventDate, colonizationLevel, fullName);
-                return ListTile(
-                  leading: const Icon(Icons.location_on),
-                  title: Text(fullName),
-                  subtitle: Text(
-                    info,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => Navigator.pop(context, place),
-                );
-              },
-            ),
+      body: FutureBuilder<List<Place>>(
+        future: _placesFuture,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final filtered = PlaceService.instance
+              .search(_query, eventDate: widget.eventDate);
+          if (filtered.isEmpty) {
+            return const Center(child: Text('No places match your search.'));
+          }
+          return ListView.builder(
+            itemCount: filtered.length,
+            itemBuilder: (context, i) {
+              final place = filtered[i];
+              final fullName = place.getFullName(widget.eventDate);
+              final info = place.getHistoricalInfo(
+                  widget.eventDate, colonizationLevel, fullName);
+              return ListTile(
+                leading: const Icon(Icons.location_on),
+                title: Text(fullName),
+                subtitle: Text(
+                  info,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => Navigator.pop(context, place),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

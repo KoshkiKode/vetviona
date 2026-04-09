@@ -45,6 +45,6 @@ class _RootWidget extends StatelessWidget {
       );
     }
 
-    return const AncestryApp();
+    return const VetvionaApp();
   }
 }

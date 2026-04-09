@@ -1,5 +1,5 @@
-name: ancestry_app
-description: A genealogy app for managing family trees and genetic genealogy.
+name: vetviona_app
+description: Vetviona — a private, local-first genealogy app by KoshkiKode.
 
 publish_to: 'none'
 
@@ -39,3 +39,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/

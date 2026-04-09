@@ -6,14 +6,14 @@ import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'config/build_metadata.dart';
 
-class AncestryApp extends StatefulWidget {
-  const AncestryApp({super.key});
+class VetvionaApp extends StatefulWidget {
+  const VetvionaApp({super.key});
 
   @override
-  State<AncestryApp> createState() => _AncestryAppState();
+  State<VetvionaApp> createState() => _VetvionaAppState();
 }
 
-class _AncestryAppState extends State<AncestryApp> {
+class _VetvionaAppState extends State<VetvionaApp> {
   @override
   void initState() {
     super.initState();
