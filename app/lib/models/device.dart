@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
-import 'package:encrypt/encrypt.dart';
 import 'package:uuid/uuid.dart';
 
 class Device {
@@ -9,11 +6,13 @@ class Device {
 
   Device({required this.id, required this.sharedSecret});
 
-  Map<String, dynamic> toMap() {
-    return {'id': id, 'sharedSecret': sharedSecret};
+  factory Device.create() {
+    const uuid = Uuid();
+    return Device(id: uuid.v4(), sharedSecret: uuid.v4());
   }
 
-  factory Device.fromMap(Map<String, dynamic> map) {
-    return Device(id: map['id'], sharedSecret: map['sharedSecret']);
-  }
+  Map<String, dynamic> toMap() => {'id': id, 'sharedSecret': sharedSecret};
+
+  factory Device.fromMap(Map<String, dynamic> map) =>
+      Device(id: map['id'] as String, sharedSecret: map['sharedSecret'] as String);
 }

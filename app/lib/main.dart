@@ -1,8 +1,27 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import 'app.dart';
+
+const bool isPaidVersion = bool.fromEnvironment('PAID', defaultValue: false);
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const _RootWidget());
+}
+
+class _RootWidget extends StatelessWidget {
+  const _RootWidget();
+
   @override
   Widget build(BuildContext context) {
-    if ((Platform.isWindows || Platform.isMacOS || Platform.isLinux) && !isPaidVersion) {
+    final bool isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+    if (isDesktop && !isPaidVersion) {
       return const MaterialApp(
-        title: 'Ancestry App',
+        title: 'Vetviona',
         home: Scaffold(
           body: Center(
             child: Column(
@@ -16,7 +35,7 @@
                 ),
                 SizedBox(height: 10),
                 Text(
-                  'Upgrade to the paid version to use Ancestry App on desktop.',
+                  'Upgrade to Vetviona Pro to use the app on desktop.',
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -26,37 +45,6 @@
       );
     }
 
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => TreeProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-      ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) => MaterialApp(
-          title: 'Ancestry App',
-          theme: themeProvider.theme,
-          home: Stack(
-            children: [
-              const HomeScreen(),
-              if (!isPaidVersion) const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Material(
-                  color: Colors.orange,
-                  child: Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text(
-                      'Free Version - Upgrade to Pro for full features',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return const AncestryApp();
   }
+}

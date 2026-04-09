@@ -16,7 +16,8 @@ class Source {
     required this.url,
     this.imagePath,
     this.extractedInfo,
-  });
+    List<String>? citedFacts,
+  }) : citedFacts = citedFacts ?? [];
 
   Map<String, dynamic> toMap() {
     return {
@@ -27,18 +28,24 @@ class Source {
       'url': url,
       'imagePath': imagePath,
       'extractedInfo': extractedInfo,
+      'citedFacts': citedFacts.join(','),
     };
   }
 
   factory Source.fromMap(Map<String, dynamic> map) {
     return Source(
-      id: map['id'],
-      personId: map['personId'],
-      title: map['title'],
-      type: map['type'],
-      url: map['url'],
-      imagePath: map['imagePath'],
-      extractedInfo: map['extractedInfo'],
+      id: map['id'] as String,
+      personId: map['personId'] as String,
+      title: map['title'] as String,
+      type: map['type'] as String,
+      url: map['url'] as String,
+      imagePath: map['imagePath'] as String?,
+      extractedInfo: map['extractedInfo'] as String?,
+      citedFacts: (map['citedFacts'] as String?)
+              ?.split(',')
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [],
     );
   }
 }
