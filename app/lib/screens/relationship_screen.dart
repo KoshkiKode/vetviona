@@ -389,6 +389,9 @@ class _PartnershipTile extends StatelessWidget {
         'Unknown';
   }
 
+  static String _childrenLabel(int count) =>
+      '$count ${count == 1 ? 'child' : 'children'} together';
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -480,7 +483,7 @@ class _PartnershipTile extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 46),
                 child: Text(
-                  '${children.length} child${children.length == 1 ? '' : 'ren'} together: '
+                  '${_childrenLabel(children.length)}: '
                   '${children.map((c) => c.name).join(', ')}',
                   style: TextStyle(
                       fontSize: 12,

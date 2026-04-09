@@ -207,7 +207,7 @@ class _FamilyTableView extends StatelessWidget {
             DataColumn(label: Text('Born')),
             DataColumn(label: Text('Died')),
             DataColumn(label: Text('Parents')),
-            DataColumn(label: Text('Spouse')),
+            DataColumn(label: Text('Partners')),
             DataColumn(label: Text('Children')),
           ],
           rows: persons.map((p) {

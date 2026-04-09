@@ -140,17 +140,18 @@ class TreeProvider extends ChangeNotifier {
           ''');
           // Migrate existing spouseId + marriageDate + marriagePlace → partnerships
           final personMaps = await db.query('persons');
-          final processed = <String>{};
+          // Track processed pairs to avoid duplicate partnership records
+          final processed = <Set<String>>{};
           for (final row in personMaps) {
             final personId = row['id'] as String;
             final spouseId = row['spouseId'] as String?;
             if (spouseId == null || spouseId.isEmpty) continue;
-            final pairKey =
-                ([personId, spouseId]..sort()).join('|');
-            if (processed.contains(pairKey)) continue;
-            processed.add(pairKey);
+            final pair = {personId, spouseId};
+            if (processed.any((p) => p.containsAll(pair))) continue;
+            processed.add(pair);
+            final sortedIds = [personId, spouseId]..sort();
             await db.insert('partnerships', {
-              'id': 'mig_${pairKey.replaceAll('|', '_')}',
+              'id': 'mig_${sortedIds[0]}_${sortedIds[1]}',
               'person1Id': personId,
               'person2Id': spouseId,
               'status': 'married',

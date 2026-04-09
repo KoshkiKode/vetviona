@@ -103,8 +103,10 @@ class GEDCOMParser {
       final children = fam['children'] as List<String>;
 
       if (husbId != null && wifeId != null) {
+        final famId = 'gedcom_${entry.key}_$famCounter';
+        famCounter++;
         final partnership = Partnership(
-          id: 'gedcom_${entry.key}_${famCounter++}',
+          id: famId,
           person1Id: husbId,
           person2Id: wifeId,
           status: fam['status'] as String? ?? 'married',

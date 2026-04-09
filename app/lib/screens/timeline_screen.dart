@@ -81,13 +81,8 @@ class TimelineScreen extends StatelessWidget {
       }
 
       if (pt.isEnded && (pt.endDate != null || pt.endPlace != null)) {
-        final endLabel = pt.status == 'divorced'
-            ? 'Divorced from $otherPersonName'
-            : pt.status == 'annulled'
-                ? 'Annulled with $otherPersonName'
-                : 'Separated from $otherPersonName';
         events.add(_Event(
-          title: endLabel,
+          title: _endedEventTitle(pt.status, otherPersonName),
           date: pt.endDate,
           place: pt.endPlace,
           icon: Icons.heart_broken,
@@ -138,6 +133,17 @@ class TimelineScreen extends StatelessWidget {
     });
 
     return events;
+  }
+
+  static String _endedEventTitle(String status, String partnerName) {
+    switch (status) {
+      case 'divorced':
+        return 'Divorced from $partnerName';
+      case 'annulled':
+        return 'Annulled with $partnerName';
+      default:
+        return 'Separated from $partnerName';
+    }
   }
 }
 
