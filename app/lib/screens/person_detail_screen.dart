@@ -281,7 +281,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(e.message),
-              backgroundColor: Colors.orange,
+              backgroundColor:
+                  Theme.of(context).colorScheme.outlineVariant,
             ),
           );
         }

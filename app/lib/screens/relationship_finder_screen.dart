@@ -42,7 +42,7 @@ class _RelationshipFinderScreenState
           children: [
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
-                  labelText: 'From Person', border: OutlineInputBorder()),
+                  labelText: 'From Person'),
               value: _fromId,
               items: persons
                   .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
@@ -55,7 +55,7 @@ class _RelationshipFinderScreenState
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
-                  labelText: 'To Person', border: OutlineInputBorder()),
+                  labelText: 'To Person'),
               value: _toId,
               items: persons
                   .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
@@ -83,16 +83,17 @@ class _RelationshipFinderScreenState
 
   Widget _buildResult(TreeProvider provider, List<Person> persons) {
     final personMap = {for (final p in persons) p.id: p};
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (_path == null || _path!.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(Icons.link_off, color: Colors.grey),
-              SizedBox(width: 8),
-              Text('No relationship path found between these two people.'),
+              Icon(Icons.link_off, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              const Text('No relationship path found between these two people.'),
             ],
           ),
         ),
@@ -114,15 +115,18 @@ class _RelationshipFinderScreenState
               Expanded(
                 child: ListView.separated(
                   itemCount: _path!.length,
-                  separatorBuilder: (_, __) => const Padding(
-                    padding: EdgeInsets.only(left: 16),
-                    child: Icon(Icons.arrow_downward, color: Colors.grey),
+                  separatorBuilder: (_, __) => Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: Icon(Icons.arrow_downward,
+                        color: colorScheme.onSurfaceVariant),
                   ),
                   itemBuilder: (context, i) {
                     final id = _path![i];
                     final person = personMap[id];
                     return ListTile(
                       leading: CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        foregroundColor: colorScheme.onPrimaryContainer,
                         child: Text(
                           person?.name.isNotEmpty == true
                               ? person!.name[0].toUpperCase()

@@ -22,13 +22,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x'
           channel: stable
           cache: true
 
       - name: Scaffold iOS platform
         working-directory: app
         run: flutter create --platforms=ios --org com.koshkikode .
+
+      - name: Set iOS minimum deployment target
+        run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '13.0'/" app/ios/Podfile
 
       - name: Install dependencies
         working-directory: app

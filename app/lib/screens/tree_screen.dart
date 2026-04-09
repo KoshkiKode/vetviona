@@ -89,7 +89,7 @@ class _TreeScreenState extends State<TreeScreen> {
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
-                          ?.copyWith(color: Colors.grey),
+                          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 28),
@@ -272,19 +272,21 @@ class _PersonCard extends StatelessWidget {
   final Person person;
   const _PersonCard({required this.person});
 
-  Color _avatarColor(BuildContext context) {
+  /// Returns `(backgroundColor, foregroundColor)` based on gender.
+  (Color, Color) _avatarColors(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     if (person.gender?.toLowerCase() == 'male') {
-      return const Color(0xFF1565C0);
+      return (colorScheme.primary, colorScheme.onPrimary);
     } else if (person.gender?.toLowerCase() == 'female') {
-      return const Color(0xFFAD1457);
+      return (colorScheme.error, colorScheme.onError);
     }
-    return colorScheme.primary;
+    return (colorScheme.secondary, colorScheme.onSecondary);
   }
 
   @override
   Widget build(BuildContext context) {
-    final avatarColor = _avatarColor(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final (avatarBg, avatarFg) = _avatarColors(context);
 
     return Card(
       child: Column(
@@ -294,13 +296,13 @@ class _PersonCard extends StatelessWidget {
                 const EdgeInsets.fromLTRB(16, 8, 16, 4),
             leading: CircleAvatar(
               radius: 24,
-              backgroundColor: avatarColor,
+              backgroundColor: avatarBg,
               child: Text(
                 person.name.isNotEmpty
                     ? person.name[0].toUpperCase()
                     : '?',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: avatarFg,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -362,7 +364,7 @@ class _PersonCard extends StatelessWidget {
                 _ActionChip(
                   icon: Icons.delete_outline,
                   label: 'Delete',
-                  color: Colors.red,
+                  color: colorScheme.error,
                   onPressed: () =>
                       _confirmDelete(context, person),
                 ),
@@ -405,7 +407,7 @@ class _PersonCard extends StatelessWidget {
               child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: Colors.red),
+                backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),

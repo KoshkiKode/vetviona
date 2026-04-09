@@ -47,7 +47,7 @@ class SourcesPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text('No sources added yet.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Colors.grey,
+                            color: colorScheme.onSurfaceVariant,
                           )),
                   const SizedBox(height: 12),
                   FilledButton.icon(
@@ -138,7 +138,8 @@ class SourcesPage extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
           ),
@@ -199,13 +200,14 @@ class _SourceCard extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.link, size: 14, color: Colors.grey),
+                  Icon(Icons.link,
+                      size: 14, color: colorScheme.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       source.url,
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.blueAccent),
+                      style: TextStyle(
+                          fontSize: 12, color: colorScheme.primary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -250,7 +252,8 @@ class _SourceCard extends StatelessWidget {
                 TextButton.icon(
                   icon: const Icon(Icons.delete_outline, size: 16),
                   label: const Text('Delete'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.error),
                   onPressed: onDelete,
                 ),
               ],
