@@ -22,7 +22,6 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x'
           channel: stable
           cache: true
 
@@ -32,6 +31,9 @@ jobs:
       - name: Scaffold macOS platform
         working-directory: app
         run: flutter create --platforms=macos --org com.koshkikode .
+
+      - name: Set macOS minimum deployment target
+        run: sed -i '' "s/# platform :macos, '[0-9.]*'/platform :macos, '10.15'/" app/macos/Podfile
 
       - name: Install dependencies
         working-directory: app
