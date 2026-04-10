@@ -13,7 +13,9 @@ import '../models/life_event.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import 'map_picker_screen.dart';
+import 'medical_history_screen.dart';
 import 'photo_gallery_screen.dart';
+import 'research_tasks_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -45,6 +47,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   GeoCoord? _deathCoord;
   GeoCoord? _burialCoord;
   bool _isLiving = true;
+  bool _isPrivate = false;
   late List<String> _photoPaths;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
@@ -83,6 +86,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _burialCoord = widget.person?.burialCoord;
     _isLiving =
         widget.person == null || widget.person!.deathDate == null;
+    _isPrivate = widget.person?.isPrivate ?? false;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
   }
 

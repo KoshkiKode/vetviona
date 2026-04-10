@@ -13,8 +13,10 @@ import 'package:uuid/uuid.dart';
 import '../config/app_config.dart';
 import '../models/device.dart';
 import '../models/life_event.dart';
+import '../models/medical_condition.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
+import '../models/research_task.dart';
 import '../models/source.dart';
 import '../services/gedcom_parser.dart';
 
@@ -24,6 +26,8 @@ class TreeProvider extends ChangeNotifier {
   List<Source> sources = [];
   List<Partnership> partnerships = [];
   List<LifeEvent> lifeEvents = [];
+  List<MedicalCondition> medicalConditions = [];
+  List<ResearchTask> researchTasks = [];
   List<String> treeNames = [];
   String currentTreeId = 'default';
   List<Device> pairedDevices = [];
@@ -75,7 +79,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -109,7 +113,9 @@ class TreeProvider extends ChangeNotifier {
             burialCoord TEXT,
             birthPostalCode TEXT,
             deathPostalCode TEXT,
-            burialPostalCode TEXT
+            burialPostalCode TEXT,
+            isPrivate INTEGER NOT NULL DEFAULT 0,
+            preferredSourceIds TEXT
           )
         ''');
         await db.execute('''
@@ -152,6 +158,28 @@ class TreeProvider extends ChangeNotifier {
             date TEXT,
             place TEXT,
             notes TEXT,
+            treeId TEXT
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE medical_conditions (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            condition TEXT NOT NULL,
+            category TEXT NOT NULL,
+            ageOfOnset TEXT,
+            notes TEXT,
+            treeId TEXT
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE research_tasks (
+            id TEXT PRIMARY KEY,
+            personId TEXT,
+            title TEXT NOT NULL,
+            notes TEXT,
+            status TEXT NOT NULL DEFAULT 'todo',
+            priority TEXT NOT NULL DEFAULT 'normal',
             treeId TEXT
           )
         ''');
@@ -245,6 +273,34 @@ class TreeProvider extends ChangeNotifier {
           await db.execute('ALTER TABLE persons ADD COLUMN deathPostalCode TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN burialPostalCode TEXT');
         }
+        if (oldVersion < 6) {
+          await db.execute(
+              'ALTER TABLE persons ADD COLUMN isPrivate INTEGER NOT NULL DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE persons ADD COLUMN preferredSourceIds TEXT');
+          await db.execute('''
+            CREATE TABLE medical_conditions (
+              id TEXT PRIMARY KEY,
+              personId TEXT NOT NULL,
+              condition TEXT NOT NULL,
+              category TEXT NOT NULL,
+              ageOfOnset TEXT,
+              notes TEXT,
+              treeId TEXT
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE research_tasks (
+              id TEXT PRIMARY KEY,
+              personId TEXT,
+              title TEXT NOT NULL,
+              notes TEXT,
+              status TEXT NOT NULL DEFAULT 'todo',
+              priority TEXT NOT NULL DEFAULT 'normal',
+              treeId TEXT
+            )
+          ''');
+        }
       },
     );
   }
@@ -284,6 +340,19 @@ class TreeProvider extends ChangeNotifier {
       [currentTreeId],
     );
     lifeEvents = lifeEventMaps.map(LifeEvent.fromMap).toList();
+
+    final medicalMaps = await db.rawQuery(
+      'SELECT mc.* FROM medical_conditions mc INNER JOIN persons p ON mc.personId = p.id WHERE p.treeId = ?',
+      [currentTreeId],
+    );
+    medicalConditions = medicalMaps.map(MedicalCondition.fromMap).toList();
+
+    final taskMaps = await db.query(
+      'research_tasks',
+      where: 'treeId = ?',
+      whereArgs: [currentTreeId],
+    );
+    researchTasks = taskMaps.map(ResearchTask.fromMap).toList();
 
     final deviceMaps = await db.query('devices');
     pairedDevices = deviceMaps.map(Device.fromMap).toList();
@@ -342,6 +411,13 @@ class TreeProvider extends ChangeNotifier {
         where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
     partnerships.removeWhere(
         (pt) => pt.person1Id == id || pt.person2Id == id);
+    // Remove medical conditions and research tasks linked to this person
+    await db.delete('medical_conditions',
+        where: 'personId = ?', whereArgs: [id]);
+    medicalConditions.removeWhere((mc) => mc.personId == id);
+    await db.delete('research_tasks',
+        where: 'personId = ?', whereArgs: [id]);
+    researchTasks.removeWhere((t) => t.personId == id);
     // Remove this person's ID from other persons' parentIds / childIds
     for (final p in persons) {
       final hadParent = p.parentIds.remove(id);
@@ -478,6 +554,72 @@ class TreeProvider extends ChangeNotifier {
   List<LifeEvent> lifeEventsFor(String personId) =>
       lifeEvents.where((e) => e.personId == personId).toList();
 
+  // ── Medical Conditions ─────────────────────────────────────────────────────
+  Future<void> addMedicalCondition(MedicalCondition condition) async {
+    condition.id = condition.id.isEmpty ? _uuid.v4() : condition.id;
+    final person = persons.firstWhere((p) => p.id == condition.personId,
+        orElse: () =>
+            throw StateError('Person ${condition.personId} not found'));
+    condition.treeId = person.treeId;
+    final db = await _database;
+    await db.insert('medical_conditions', condition.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    medicalConditions.add(condition);
+    notifyListeners();
+  }
+
+  Future<void> updateMedicalCondition(MedicalCondition condition) async {
+    final db = await _database;
+    await db.update('medical_conditions', condition.toMap(),
+        where: 'id = ?', whereArgs: [condition.id]);
+    final idx =
+        medicalConditions.indexWhere((mc) => mc.id == condition.id);
+    if (idx != -1) medicalConditions[idx] = condition;
+    notifyListeners();
+  }
+
+  Future<void> deleteMedicalCondition(String id) async {
+    final db = await _database;
+    await db.delete('medical_conditions', where: 'id = ?', whereArgs: [id]);
+    medicalConditions.removeWhere((mc) => mc.id == id);
+    notifyListeners();
+  }
+
+  /// Returns all medical conditions recorded for [personId].
+  List<MedicalCondition> medicalConditionsFor(String personId) =>
+      medicalConditions.where((mc) => mc.personId == personId).toList();
+
+  // ── Research Tasks ─────────────────────────────────────────────────────────
+  Future<void> addResearchTask(ResearchTask task) async {
+    task.id = task.id.isEmpty ? _uuid.v4() : task.id;
+    task.treeId = currentTreeId;
+    final db = await _database;
+    await db.insert('research_tasks', task.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    researchTasks.add(task);
+    notifyListeners();
+  }
+
+  Future<void> updateResearchTask(ResearchTask task) async {
+    final db = await _database;
+    await db.update('research_tasks', task.toMap(),
+        where: 'id = ?', whereArgs: [task.id]);
+    final idx = researchTasks.indexWhere((t) => t.id == task.id);
+    if (idx != -1) researchTasks[idx] = task;
+    notifyListeners();
+  }
+
+  Future<void> deleteResearchTask(String id) async {
+    final db = await _database;
+    await db.delete('research_tasks', where: 'id = ?', whereArgs: [id]);
+    researchTasks.removeWhere((t) => t.id == id);
+    notifyListeners();
+  }
+
+  /// Returns all research tasks linked to [personId].
+  List<ResearchTask> researchTasksFor(String personId) =>
+      researchTasks.where((t) => t.personId == personId).toList();
+
   // ── Trees ──────────────────────────────────────────────────────────────────
   Future<String> addTree(String name) async {
     final id = _uuid.v4();
@@ -507,11 +649,17 @@ class TreeProvider extends ChangeNotifier {
           where: 'personId IN ($placeholders)', whereArgs: personIds);
       sources.removeWhere(
           (s) => personIds.contains(s.personId));
+      await db.delete('medical_conditions',
+          where: 'personId IN ($placeholders)', whereArgs: personIds);
+      medicalConditions.removeWhere((mc) => personIds.contains(mc.personId));
     }
     await db.delete('trees', where: 'id = ?', whereArgs: [treeId]);
     await db.delete('persons', where: 'treeId = ?', whereArgs: [treeId]);
     await db.delete('partnerships',
         where: 'treeId = ?', whereArgs: [treeId]);
+    await db.delete('research_tasks',
+        where: 'treeId = ?', whereArgs: [treeId]);
+    researchTasks.removeWhere((t) => t.treeId == treeId);
     if (currentTreeId == treeId) {
       currentTreeId = 'default';
     }
@@ -627,8 +775,16 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> exportGEDCOM(String path) async {
+    // Private persons are excluded from GEDCOM exports.
+    final publicPersons = persons.where((p) => !p.isPrivate).toList();
+    final publicPersonIds = publicPersons.map((p) => p.id).toSet();
+    final publicPartnerships = partnerships
+        .where((pt) =>
+            publicPersonIds.contains(pt.person1Id) &&
+            publicPersonIds.contains(pt.person2Id))
+        .toList();
     final parser = GEDCOMParser();
-    await parser.export(persons, partnerships, path);
+    await parser.export(publicPersons, publicPartnerships, path);
   }
 
   // ── Relationship BFS ───────────────────────────────────────────────────────
@@ -697,16 +853,23 @@ class TreeProvider extends ChangeNotifier {
   /// Serialises the current tree (persons, partnerships, sources) into a plain
   /// Dart map suitable for encryption and transmission.
   Map<String, dynamic> exportForSync() {
-    final personIds = persons.map((p) => p.id).toSet();
+    // Private persons are excluded from sync — their data stays strictly local.
+    final publicPersons = persons.where((p) => !p.isPrivate).toList();
+    final publicPersonIds = publicPersons.map((p) => p.id).toSet();
     return {
-      'persons': persons.map((p) => p.toMap()).toList(),
-      'partnerships': partnerships.map((p) => p.toMap()).toList(),
+      'persons': publicPersons.map((p) => p.toMap()).toList(),
+      'partnerships': partnerships
+          .where((pt) =>
+              publicPersonIds.contains(pt.person1Id) &&
+              publicPersonIds.contains(pt.person2Id))
+          .map((p) => p.toMap())
+          .toList(),
       'sources': sources
-          .where((s) => personIds.contains(s.personId))
+          .where((s) => publicPersonIds.contains(s.personId))
           .map((s) => s.toMap())
           .toList(),
       'lifeEvents': lifeEvents
-          .where((e) => personIds.contains(e.personId))
+          .where((e) => publicPersonIds.contains(e.personId))
           .map((e) => e.toMap())
           .toList(),
     };
