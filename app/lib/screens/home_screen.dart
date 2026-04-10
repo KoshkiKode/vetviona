@@ -350,8 +350,8 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           const Divider(),
-          // Multiple family trees are desktop-only for now.
-          if (currentAppTier == AppTier.desktopPro) ...[
+          // Multiple family trees are available for paid tiers.
+          if (currentAppTier != AppTier.mobileFree) ...[
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

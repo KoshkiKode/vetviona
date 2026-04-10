@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
@@ -47,6 +48,15 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<Database> _initDb() async {
+    // On desktop platforms sqflite needs the FFI implementation.
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     final dir = await getApplicationDocumentsDirectory();
     final path = p.join(dir.path, _dbName);
     return openDatabase(

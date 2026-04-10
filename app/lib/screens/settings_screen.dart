@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,12 @@ import '../config/app_config.dart';
 import '../config/build_metadata.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
+
+/// Whether Bluetooth sync is supported on the current platform.
+bool get _bluetoothSupported =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -331,16 +338,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 .bodySmall
                 ?.copyWith(color: onSurfaceVariant),
           ),
-          SwitchListTile(
-            title: const Text('Bluetooth Sync'),
-            subtitle: const Text('Sync nearby via Bluetooth'),
-            value: _bluetoothSync,
-            contentPadding: EdgeInsets.zero,
-            onChanged: (v) {
-              setState(() => _bluetoothSync = v);
-              _saveBool('bluetoothSync', v);
-            },
-          ),
+          if (_bluetoothSupported)
+            SwitchListTile(
+              title: const Text('Bluetooth Sync'),
+              subtitle: const Text('Sync nearby via Bluetooth'),
+              value: _bluetoothSync,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (v) {
+                setState(() => _bluetoothSync = v);
+                _saveBool('bluetoothSync', v);
+              },
+            ),
           const Divider(height: 16),
           Row(
             children: [
@@ -401,22 +409,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           Text(
-            'Tap to sync on demand — works over Bluetooth or any local connection you initiate.',
+            _bluetoothSupported
+                ? 'Tap to sync on demand — works over Bluetooth or any local connection you initiate.'
+                : 'Tap to sync on demand — works over WiFi on your local network.',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
                 ?.copyWith(color: onSurfaceVariant),
           ),
-          SwitchListTile(
-            title: const Text('Bluetooth Sync'),
-            subtitle: const Text('Sync nearby via Bluetooth'),
-            value: _bluetoothSync,
-            contentPadding: EdgeInsets.zero,
-            onChanged: (v) {
-              setState(() => _bluetoothSync = v);
-              _saveBool('bluetoothSync', v);
-            },
-          ),
+          if (_bluetoothSupported)
+            SwitchListTile(
+              title: const Text('Bluetooth Sync'),
+              subtitle: const Text('Sync nearby via Bluetooth'),
+              value: _bluetoothSync,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (v) {
+                setState(() => _bluetoothSync = v);
+                _saveBool('bluetoothSync', v);
+              },
+            ),
           if (currentAppTier == AppTier.desktopPro) ...[
             const Divider(height: 16),
             Text(
