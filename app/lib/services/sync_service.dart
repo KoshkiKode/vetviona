@@ -148,7 +148,7 @@ class SyncService extends ChangeNotifier {
         attributes: {'deviceId': deviceId, 'tier': tier},
       );
       _broadcast = BonsoirBroadcast(service: service);
-      await _broadcast!.ready;
+      await _broadcast!.initialize();
       await _broadcast!.start();
     } catch (e) {
       // mDNS broadcast is best-effort; the HTTP server still works without it.
@@ -169,7 +169,7 @@ class SyncService extends ChangeNotifier {
 
     try {
       _discovery = BonsoirDiscovery(type: _serviceType);
-      await _discovery!.ready;
+      await _discovery!.initialize();
       _discoverySubscription =
           _discovery!.eventStream?.listen(_onDiscoveryEvent);
       await _discovery!.start();
@@ -180,20 +180,18 @@ class SyncService extends ChangeNotifier {
   }
 
   void _onDiscoveryEvent(BonsoirDiscoveryEvent event) {
-    if (event.type == BonsoirDiscoveryEventType.discoveryServiceFound) {
+    if (event is BonsoirDiscoveryServiceFoundEvent) {
       // Trigger resolution so we get the IP address.
       final disc = _discovery;
       if (disc != null) {
-        event.service?.resolve(disc.serviceResolver);
+        disc.serviceResolver.resolveService(event.service);
       }
-    } else if (event.type ==
-        BonsoirDiscoveryEventType.discoveryServiceResolved) {
+    } else if (event is BonsoirDiscoveryServiceResolvedEvent) {
       final svc = event.service;
-      if (svc is! ResolvedBonsoirService) return;
       final host = svc.host ?? '';
       if (host.isEmpty) return;
 
-      final attrs = svc.attributes ?? {};
+      final attrs = svc.attributes;
       final deviceId = attrs['deviceId'];
       final myId = treeProvider?.localDeviceId;
       if (deviceId != null && deviceId == myId) return; // skip ourselves
@@ -207,9 +205,8 @@ class SyncService extends ChangeNotifier {
         tier: attrs['tier'],
       ));
       notifyListeners();
-    } else if (event.type == BonsoirDiscoveryEventType.discoveryServiceLost) {
-      final name = event.service?.name;
-      if (name == null) return;
+    } else if (event is BonsoirDiscoveryServiceLostEvent) {
+      final name = event.service.name;
       _discoveredPeers.removeWhere((p) => p.name == name);
       notifyListeners();
     }
