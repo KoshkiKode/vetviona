@@ -11,10 +11,14 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import 'calendar_screen.dart';
+import 'conflict_resolver_screen.dart';
 import 'login_screen.dart';
+import 'medical_history_screen.dart';
 import 'pedigree_screen.dart';
 import 'person_detail_screen.dart';
+import 'relationship_certificate_screen.dart';
 import 'relationship_finder_screen.dart';
+import 'research_tasks_screen.dart';
 import 'settings_screen.dart';
 import 'sync_screen.dart';
 import 'tree_diagram_screen.dart';
@@ -498,6 +502,68 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SyncScreen()),
+              );
+            },
+          ),
+          const Divider(),
+          // ── Unique Features ─────────────────────────────────────────────
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Text(
+              'Research Tools',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.local_hospital_outlined),
+            title: const Text('Family Medical History'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const MedicalHistoryScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.assignment_outlined),
+            title: const Text('Research Tasks'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const ResearchTasksScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.verified_outlined),
+            title: const Text('Relationship Certificate'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) =>
+                        const RelationshipCertificateScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.fact_check_outlined),
+            title: const Text('Evidence Conflict Resolver'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const ConflictResolverScreen()),
               );
             },
           ),
@@ -1169,6 +1235,18 @@ class _PersonCard extends StatelessWidget {
                                 Icons.warning_amber_rounded,
                                 size: 16,
                                 color: colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        if (person.isPrivate)
+                          Tooltip(
+                            message: 'Private — excluded from exports & sync',
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.lock_outline,
+                                size: 16,
+                                color: colorScheme.primary,
                               ),
                             ),
                           ),

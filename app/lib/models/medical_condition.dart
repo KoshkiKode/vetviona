@@ -7,6 +7,9 @@ class MedicalCondition {
   String? notes;
   String? treeId;
 
+  /// Local file paths for attached medical records, lab results, or scans.
+  List<String> attachmentPaths;
+
   static const List<String> categories = [
     'Cardiovascular',
     'Cancer',
@@ -222,7 +225,8 @@ class MedicalCondition {
     this.ageOfOnset,
     this.notes,
     this.treeId,
-  });
+    List<String>? attachmentPaths,
+  }) : attachmentPaths = attachmentPaths ?? [];
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -232,6 +236,7 @@ class MedicalCondition {
         'ageOfOnset': ageOfOnset,
         'notes': notes,
         'treeId': treeId,
+        'attachmentPaths': attachmentPaths.join(';'),
       };
 
   factory MedicalCondition.fromMap(Map<String, dynamic> map) =>
@@ -243,5 +248,10 @@ class MedicalCondition {
         ageOfOnset: map['ageOfOnset'] as String?,
         notes: map['notes'] as String?,
         treeId: map['treeId'] as String?,
+        attachmentPaths: (map['attachmentPaths'] as String?)
+                ?.split(';')
+                .where((s) => s.isNotEmpty)
+                .toList() ??
+            [],
       );
 }

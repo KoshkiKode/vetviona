@@ -1,8 +1,8 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -136,7 +136,6 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
     final now = DateFormat('d MMMM yyyy').format(DateTime.now());
 
     // Group conditions by person
-    final personMap = {for (final p in provider.persons) p.id: p};
     final personsWithConditions = provider.persons
         .where((p) => provider.medicalConditionsFor(p.id).isNotEmpty)
         .toList()
@@ -260,7 +259,13 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
             // Table of conditions for this person
             widgets.add(
               pw.TableHelper.fromTextArray(
-                headers: ['Condition', 'Category', 'Age of Onset', 'Notes'],
+                headers: [
+                  'Condition',
+                  'Category',
+                  'Age of Onset',
+                  'Notes',
+                  'Records'
+                ],
                 headerStyle: pw.TextStyle(
                   fontWeight: pw.FontWeight.bold,
                   fontSize: 9,
@@ -277,6 +282,9 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
                     mc.category,
                     mc.ageOfOnset ?? '—',
                     mc.notes ?? '—',
+                    mc.attachmentPaths.isEmpty
+                        ? '—'
+                        : '${mc.attachmentPaths.length} file${mc.attachmentPaths.length == 1 ? '' : 's'}',
                   ];
                 }).toList(),
                 columnWidths: {
@@ -284,6 +292,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
                   1: const pw.FlexColumnWidth(2),
                   2: const pw.FlexColumnWidth(1),
                   3: const pw.FlexColumnWidth(2.5),
+                  4: const pw.FlexColumnWidth(1),
                 },
                 rowDecoration: (idx, _) => idx % 2 == 0
                     ? null
@@ -612,6 +621,14 @@ class _ConditionCard extends StatelessWidget {
                         fontStyle: FontStyle.italic),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
+              if (condition.attachmentPaths.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                _AttachmentChip(
+                  count: condition.attachmentPaths.length,
+                  onTap: () => _showAttachmentsDialog(
+                      context, condition),
+                ),
+              ],
             ],
           ),
           trailing: _conditionTrailing(context, condition, provider),
@@ -620,6 +637,64 @@ class _ConditionCard extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showAttachmentsDialog(BuildContext context, MedicalCondition mc) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text('${mc.condition} — Attached Files'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: mc.attachmentPaths.length,
+          itemBuilder: (context, i) {
+            final path = mc.attachmentPaths[i];
+            final fileName = path.split('/').last.split('\\').last;
+            final isImage =
+                ['jpg', 'jpeg', 'png', 'heic', 'webp']
+                    .contains(path.split('.').last.toLowerCase());
+            return ListTile(
+              leading: isImage
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.file(
+                        File(path),
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.broken_image_outlined),
+                      ),
+                    )
+                  : const Icon(Icons.attach_file),
+              title: Text(fileName,
+                  style: const TextStyle(fontSize: 13)),
+              onTap: isImage
+                  ? () {
+                      Navigator.pop(context);
+                      showDialog(
+                        context: context,
+                        builder: (_) => Dialog(
+                          child: InteractiveViewer(
+                            child: Image.file(File(path)),
+                          ),
+                        ),
+                      );
+                    }
+                  : null,
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close')),
+      ],
+    ),
+  );
 }
 
 Widget _conditionTrailing(
@@ -715,6 +790,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
   late TextEditingController _notesController;
   String? _selectedPersonId;
   String _selectedCategory = MedicalCondition.categories.first;
+  late List<String> _attachmentPaths;
 
   @override
   void initState() {
@@ -725,6 +801,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
     _notesController = TextEditingController(text: e?.notes ?? '');
     _selectedPersonId = e?.personId ?? widget.preselectedPersonId;
     _selectedCategory = e?.category ?? MedicalCondition.categories.first;
+    _attachmentPaths = List<String>.from(e?.attachmentPaths ?? []);
   }
 
   @override
@@ -733,6 +810,27 @@ class _ConditionSheetState extends State<_ConditionSheet> {
     _ageController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  /// Opens a file picker so the user can attach medical records / scans.
+  Future<void> _pickAttachments() async {
+    final result = await FilePicker.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: [
+        'pdf', 'jpg', 'jpeg', 'png', 'heic', 'webp',
+        'doc', 'docx', 'txt', 'csv',
+      ],
+    );
+    if (result != null) {
+      final paths = result.files
+          .map((f) => f.path)
+          .whereType<String>()
+          .toList();
+      if (paths.isNotEmpty) {
+        setState(() => _attachmentPaths.addAll(paths));
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -759,6 +857,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      attachmentPaths: _attachmentPaths,
     );
     if (widget.existing == null) {
       await widget.provider.addMedicalCondition(mc);
@@ -922,6 +1021,13 @@ class _ConditionSheetState extends State<_ConditionSheet> {
               minLines: 2,
               maxLines: 4,
             ),
+            const SizedBox(height: 12),
+            // ── Medical Records / Attachments ────────────────────────────
+            _AttachmentsSection(
+              paths: _attachmentPaths,
+              onAdd: _pickAttachments,
+              onRemove: (i) => setState(() => _attachmentPaths.removeAt(i)),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -952,6 +1058,195 @@ class _ConditionSheetState extends State<_ConditionSheet> {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// ── Attachments section (inside the add/edit sheet) ─────────────────────────
+
+class _AttachmentsSection extends StatelessWidget {
+  final List<String> paths;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  const _AttachmentsSection({
+    required this.paths,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.attach_file, size: 16, color: colorScheme.primary),
+            const SizedBox(width: 6),
+            Text(
+              'Medical Records & Test Results',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Attach'),
+              onPressed: onAdd,
+            ),
+          ],
+        ),
+        if (paths.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Text(
+              'No files attached. Tap Attach to add scans, lab results, or test reports.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          )
+        else
+          ...paths.asMap().entries.map((entry) {
+            final i = entry.key;
+            final path = entry.value;
+            final fileName = path.split('/').last.split('\\').last;
+            final isImage = _isImagePath(path);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: colorScheme.outlineVariant.withOpacity(0.5)),
+              ),
+              child: ListTile(
+                dense: true,
+                leading: isImage
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.file(
+                          File(path),
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Icon(
+                            Icons.broken_image_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : Icon(_fileIcon(path), color: colorScheme.primary),
+                title: Text(
+                  fileName,
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  _fileTypeLabel(path),
+                  style: TextStyle(
+                      fontSize: 10, color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: IconButton(
+                  icon: Icon(Icons.delete_outline,
+                      size: 16, color: colorScheme.error),
+                  tooltip: 'Remove',
+                  onPressed: () => onRemove(i),
+                ),
+                onTap: () => _previewFile(context, path),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  void _previewFile(BuildContext context, String path) {
+    if (_isImagePath(path)) {
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          child: InteractiveViewer(
+            child: Image.file(File(path),
+                errorBuilder: (_, __, ___) =>
+                    const Center(child: Icon(Icons.broken_image, size: 64))),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('File: ${path.split('/').last.split('\\').last}'),
+          action: SnackBarAction(label: 'OK', onPressed: () {}),
+        ),
+      );
+    }
+  }
+
+  bool _isImagePath(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'heic', 'webp'].contains(ext);
+  }
+
+  IconData _fileIcon(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return switch (ext) {
+      'pdf' => Icons.picture_as_pdf_outlined,
+      'doc' || 'docx' => Icons.description_outlined,
+      'csv' || 'txt' => Icons.table_chart_outlined,
+      _ => Icons.attach_file,
+    };
+  }
+
+  String _fileTypeLabel(String path) {
+    final ext = path.split('.').last.toUpperCase();
+    return ext;
+  }
+}
+
+// ── Attachment chip shown on condition cards ──────────────────────────────────
+
+class _AttachmentChip extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+
+  const _AttachmentChip({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: colorScheme.secondary.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.attach_file,
+                size: 12, color: colorScheme.onSecondaryContainer),
+            const SizedBox(width: 3),
+            Text(
+              '$count file${count == 1 ? '' : 's'}',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 IconData _categoryIcon(String category) => switch (category) {
       'Cardiovascular' => Icons.favorite_border,

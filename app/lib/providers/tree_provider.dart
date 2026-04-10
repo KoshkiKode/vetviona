@@ -169,7 +169,8 @@ class TreeProvider extends ChangeNotifier {
             category TEXT NOT NULL,
             ageOfOnset TEXT,
             notes TEXT,
-            treeId TEXT
+            treeId TEXT,
+            attachmentPaths TEXT
           )
         ''');
         await db.execute('''
@@ -286,7 +287,8 @@ class TreeProvider extends ChangeNotifier {
               category TEXT NOT NULL,
               ageOfOnset TEXT,
               notes TEXT,
-              treeId TEXT
+              treeId TEXT,
+              attachmentPaths TEXT
             )
           ''');
           await db.execute('''

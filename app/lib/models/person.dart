@@ -89,8 +89,6 @@ class Person {
     this.burialPostalCode,
     this.isPrivate = false,
     Map<String, String>? preferredSourceIds,
-    this.isPrivate = false,
-    Map<String, String>? preferredSourceIds,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
