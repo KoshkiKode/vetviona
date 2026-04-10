@@ -47,14 +47,19 @@ class TreeProvider extends ChangeNotifier {
     return _db!;
   }
 
+  static bool _ffiInitialized = false;
+
   Future<Database> _initDb() async {
     // On desktop platforms sqflite needs the FFI implementation.
+    // Guard with a static flag so initialization happens at most once.
     if (!kIsWeb &&
+        !_ffiInitialized &&
         (defaultTargetPlatform == TargetPlatform.windows ||
             defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.linux)) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
+      _ffiInitialized = true;
     }
 
     final dir = await getApplicationDocumentsDirectory();

@@ -68,20 +68,21 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.linux);
 
+    List<String> newPaths = [];
     if (isDesktop) {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: true,
       );
       if (result != null) {
-        final paths =
-            result.files.map((f) => f.path).whereType<String>().toList();
-        setState(() => _photoPaths.addAll(paths));
+        newPaths = result.files.map((f) => f.path).whereType<String>().toList();
       }
     } else {
-      final picker = ImagePicker();
-      final images = await picker.pickMultiImage();
-      setState(() => _photoPaths.addAll(images.map((x) => x.path)));
+      final images = await ImagePicker().pickMultiImage();
+      newPaths = images.map((x) => x.path).toList();
+    }
+    if (newPaths.isNotEmpty) {
+      setState(() => _photoPaths.addAll(newPaths));
     }
   }
 
