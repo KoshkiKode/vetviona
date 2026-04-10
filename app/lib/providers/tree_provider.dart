@@ -28,6 +28,11 @@ class TreeProvider extends ChangeNotifier {
   bool get isLoggedIn => _currentUser != null;
   String? get currentUser => _currentUser;
 
+  /// This installation's persistent device ID.  Generated once and stored in
+  /// SharedPreferences so it survives app restarts.
+  String _localDeviceId = '';
+  String get localDeviceId => _localDeviceId;
+
   int colonizationLevel = 0; // 0=none 1=colonizers 2=native
   String _dateFormat = 'dd MMM yyyy';
   String get dateFormat => _dateFormat;
@@ -215,6 +220,13 @@ class TreeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _dateFormat = prefs.getString('dateFormat') ?? 'dd MMM yyyy';
     colonizationLevel = prefs.getInt('colonizationLevel') ?? 0;
+
+    // Stable per-installation ID used by the sync service.
+    _localDeviceId = prefs.getString('localDeviceId') ?? '';
+    if (_localDeviceId.isEmpty) {
+      _localDeviceId = _uuid.v4();
+      await prefs.setString('localDeviceId', _localDeviceId);
+    }
 
     notifyListeners();
   }
@@ -498,6 +510,85 @@ class TreeProvider extends ChangeNotifier {
     await db.delete('devices', where: 'id = ?', whereArgs: [id]);
     pairedDevices.removeWhere((d) => d.id == id);
     notifyListeners();
+  }
+
+  /// Updates an existing device record.  Used by [SyncService] to record the
+  /// remote device's real UUID after the first successful pairing sync.
+  Future<void> updateDevice(String oldId, Device updated) async {
+    final db = await _database;
+    await db.delete('devices', where: 'id = ?', whereArgs: [oldId]);
+    await db.insert('devices', updated.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    final idx = pairedDevices.indexWhere((d) => d.id == oldId);
+    if (idx != -1) pairedDevices[idx] = updated;
+    notifyListeners();
+  }
+
+  // ── Sync ───────────────────────────────────────────────────────────────────
+
+  /// Serialises the current tree (persons, partnerships, sources) into a plain
+  /// Dart map suitable for encryption and transmission.
+  Map<String, dynamic> exportForSync() => {
+        'persons': persons.map((p) => p.toMap()).toList(),
+        'partnerships': partnerships.map((p) => p.toMap()).toList(),
+        'sources': sources
+            .where((s) =>
+                persons.any((p) =>
+                    p.treeId == currentTreeId &&
+                    p.sourceIds.contains(s.id)) ||
+                persons.any((p) =>
+                    p.treeId == currentTreeId && p.id == s.personId))
+            .map((s) => s.toMap())
+            .toList(),
+      };
+
+  /// Merges incoming tree data from a peer using an upsert strategy: records
+  /// that do not exist locally are inserted; existing records are replaced
+  /// (last-write-wins).  The free-tier person limit is respected.
+  ///
+  /// Returns the number of new persons that were added (skipped persons if the
+  /// limit was hit are not counted).
+  Future<int> importFromSync(Map<String, dynamic> data) async {
+    final db = await _database;
+
+    final inPersons =
+        ((data['persons'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(Person.fromMap)
+            .toList();
+    final inPartnerships =
+        ((data['partnerships'] as List<dynamic>?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(Partnership.fromMap)
+            .toList();
+    final inSources =
+        ((data['sources'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(Source.fromMap)
+            .toList();
+
+    int added = 0;
+    for (final person in inPersons) {
+      final isNew = !persons.any((p) => p.id == person.id);
+      if (isNew && isAtPersonLimit) continue;
+      person.treeId = currentTreeId;
+      await db.insert('persons', person.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      if (isNew) added++;
+    }
+    for (final partnership in inPartnerships) {
+      partnership.treeId = currentTreeId;
+      await db.insert('partnerships', partnership.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    for (final source in inSources) {
+      await db.insert('sources', source.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    await loadPersons();
+    return added;
   }
 
   // ── Clear DB ───────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import '../config/app_config.dart';
 import '../config/build_metadata.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
+import 'sync_screen.dart';
 
 /// Whether Bluetooth sync is supported on the current platform.
 bool get _bluetoothSupported =>
@@ -184,7 +185,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionCard(
             icon: Icons.sync_outlined,
             title: 'RootLoop\u2122 Sync',
-            children: _buildSyncChildren(context),
+            children: [
+              FilledButton.icon(
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open RootLoop\u2122 Sync'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SyncScreen()),
+                ),
+              ),
+              const Divider(height: 24),
+              ..._buildSyncChildren(context),
+            ],
           ),
 
           const SizedBox(height: 12),

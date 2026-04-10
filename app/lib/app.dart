@@ -5,6 +5,7 @@ import 'providers/tree_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'config/build_metadata.dart';
+import 'services/sync_service.dart';
 
 class VetvionaApp extends StatelessWidget {
   const VetvionaApp({super.key});
@@ -25,6 +26,15 @@ class VetvionaApp extends StatelessWidget {
             final provider = ThemeProvider();
             provider.loadTheme();
             return provider;
+          },
+        ),
+        // SyncService keeps a live reference to TreeProvider so it can
+        // read/write tree data during sync operations.
+        ChangeNotifierProxyProvider<TreeProvider, SyncService>(
+          create: (_) => SyncService(),
+          update: (_, treeProvider, syncService) {
+            syncService!.treeProvider = treeProvider;
+            return syncService;
           },
         ),
       ],
