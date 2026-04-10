@@ -86,7 +86,7 @@
     <!-- ── Application files ───────────────────────────────────────── -->
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <!--
-        Add all files from the Flutter Windows build output here.
+        Files from the Flutter Windows build output.
         Flutter's release output lives in:
           build/windows/x64/runner/Release/
 
@@ -97,16 +97,7 @@
         <File Id="VetvionaExe" Name="vetviona.exe" Source="vetviona.exe" KeyPath="yes" />
       </Component>
       <Component Id="FlutterEngine">
-        <File Id="FlutterDll" Name="flutter_windows.dll" Source="flutter_windows.dll" />
-      </Component>
-      <Component Id="DataFolder">
-        <!--
-          Flutter places a 'data/' directory alongside the EXE.
-          Enumerate its contents explicitly here (or use a heat.exe harvest)
-          once you have a real build output to reference.
-          Example:
-          <File Id="IcudtlDat" Name="icudtl.dat" Source="data\icudtl.dat" />
-        -->
+        <File Id="FlutterDll" Name="flutter_windows.dll" Source="flutter_windows.dll" KeyPath="yes" />
       </Component>
     </ComponentGroup>
 
