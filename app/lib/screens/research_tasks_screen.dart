@@ -570,6 +570,7 @@ class _TaskSheetState extends State<_TaskSheet> {
           : _notesController.text.trim(),
       status: _status,
       priority: _priority,
+      treeId: widget.existing?.treeId,
     );
     if (widget.existing == null) {
       await widget.provider.addResearchTask(task);
