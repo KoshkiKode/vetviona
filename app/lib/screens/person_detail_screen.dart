@@ -407,8 +407,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   }
 }
 
-enum _DateField { birth, death }
-
 class _DatePickerTile extends StatelessWidget {
   final String label;
   final DateTime? date;

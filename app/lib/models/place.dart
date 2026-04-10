@@ -120,25 +120,9 @@ class Place {
     if (state != null && state!.isNotEmpty) parts.add(state!);
     if (ssr != null && ssr!.isNotEmpty) parts.add(ssr!);
 
-    String countryName = modernCountry;
-    if (date != null) {
-      if (name == 'Belgrade') {
-        if (date.year < 1918) countryName = 'Ottoman Empire';
-        else if (date.year < 1992) countryName = 'Yugoslavia';
-      } else if (name == 'Boston') {
-        if (date.year < 1776) countryName = 'British America';
-      } else if (name == 'New York') {
-        if (date.year < 1776) countryName = 'British America';
-        else if (date.year < 1788) countryName = 'New York State';
-      } else if (name == 'Istanbul' || name == 'Constantinople') {
-        if (date.year < 330) countryName = 'Roman Empire';
-        else if (date.year < 1923) countryName = 'Ottoman Empire';
-      } else if (name == 'Saint Petersburg') {
-        if (date.year >= 1914 && date.year < 1924) countryName = 'Petrograd, Russia';
-        else if (date.year >= 1924 && date.year < 1991) countryName = 'Leningrad, Soviet Union';
-      }
-    }
-    parts.add(countryName);
+    // Use the modernCountry directly — the Place data model already encodes
+    // the correct country/empire via validFrom/validTo for each historical era.
+    parts.add(modernCountry);
     return parts.join(', ');
   }
 

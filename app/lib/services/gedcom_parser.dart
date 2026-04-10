@@ -132,10 +132,16 @@ class GEDCOMParser {
           child.parentIds.add(wifeId);
         }
         if (husbId != null) {
-          persons[husbId]?.childIds.add(childId);
+          final husb = persons[husbId];
+          if (husb != null && !husb.childIds.contains(childId)) {
+            husb.childIds.add(childId);
+          }
         }
         if (wifeId != null) {
-          persons[wifeId]?.childIds.add(childId);
+          final wife = persons[wifeId];
+          if (wife != null && !wife.childIds.contains(childId)) {
+            wife.childIds.add(childId);
+          }
         }
       }
     }
