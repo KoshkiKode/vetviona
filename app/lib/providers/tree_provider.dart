@@ -821,6 +821,21 @@ class TreeProvider extends ChangeNotifier {
       partnership.treeId = currentTreeId;
       await addPartnership(partnership);
     }
+    for (final event in result.lifeEvents) {
+      // Only add if the person was successfully imported.
+      if (persons.any((p) => p.id == event.personId)) {
+        final treeEvent = LifeEvent(
+          id: event.id,
+          personId: event.personId,
+          title: event.title,
+          date: event.date,
+          place: event.place,
+          notes: event.notes,
+          treeId: currentTreeId,
+        );
+        await addLifeEvent(treeEvent);
+      }
+    }
   }
 
   Future<void> exportGEDCOM(String path,
@@ -837,7 +852,10 @@ class TreeProvider extends ChangeNotifier {
         .toList();
     final parser = GEDCOMParser();
     await parser.export(publicPersons, publicPartnerships, path,
-        includeLivingData: includeLivingData);
+        includeLivingData: includeLivingData,
+        lifeEvents: lifeEvents
+            .where((e) => publicPersonIds.contains(e.personId))
+            .toList());
   }
 
   // ── Relationship BFS ───────────────────────────────────────────────────────
