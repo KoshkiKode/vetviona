@@ -1,4 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -6,11 +13,12 @@ import '../models/medical_condition.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 
+// ── Main screen ──────────────────────────────────────────────────────────────
+
 /// Shows all medical conditions recorded for every person in the current tree,
-/// grouped by category, with the ability to drill into a per-person view.
+/// grouped by category or person, with PDF export.
 class MedicalHistoryScreen extends StatefulWidget {
-  /// When [person] is provided the screen opens in per-person mode and shows
-  /// only that person's conditions.
+  /// When [person] is provided the screen opens in per-person mode.
   final Person? person;
 
   const MedicalHistoryScreen({super.key, this.person});
@@ -22,6 +30,7 @@ class MedicalHistoryScreen extends StatefulWidget {
 class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _disclaimerDismissed = false;
 
   @override
   void initState() {
@@ -48,28 +57,46 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Export PDF',
+            onPressed: () => _exportPdf(context, provider),
+          ),
+        ],
         bottom: widget.person == null
             ? TabBar(
                 controller: _tabController,
                 tabs: const [
-                  Tab(text: 'By Person'),
-                  Tab(text: 'By Category'),
+                  Tab(icon: Icon(Icons.person_outline), text: 'By Person'),
+                  Tab(
+                      icon: Icon(Icons.category_outlined),
+                      text: 'By Category'),
                 ],
               )
             : null,
       ),
-      body: widget.person != null
-          ? _PersonConditionsList(
-              provider: provider,
-              personId: widget.person!.id,
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _AllPersonsList(provider: provider),
-                _ByCategoryList(provider: provider),
-              ],
-            ),
+      body: Column(
+        children: [
+          if (!_disclaimerDismissed) _DisclaimerBanner(
+            onDismiss: () => setState(() => _disclaimerDismissed = true),
+          ),
+          Expanded(
+            child: widget.person != null
+                ? _PersonConditionsList(
+                    provider: provider,
+                    personId: widget.person!.id,
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _AllPersonsList(provider: provider),
+                      _ByCategoryList(provider: provider),
+                    ],
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('Add Condition'),
@@ -81,6 +108,247 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
         ),
       ),
     );
+  }
+
+  // ── PDF export ─────────────────────────────────────────────────────────────
+
+  Future<void> _exportPdf(BuildContext context, TreeProvider provider) async {
+    try {
+      final pdfBytes = await _buildPdf(provider);
+      if (!context.mounted) return;
+
+      // Use the printing package's layout preview / share sheet
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdfBytes,
+        name: 'family_medical_history',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF export failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<List<int>> _buildPdf(TreeProvider provider) async {
+    final doc = pw.Document();
+    final now = DateFormat('d MMMM yyyy').format(DateTime.now());
+
+    // Group conditions by person
+    final personMap = {for (final p in provider.persons) p.id: p};
+    final personsWithConditions = provider.persons
+        .where((p) => provider.medicalConditionsFor(p.id).isNotEmpty)
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    // Category colour map (PdfColor approximations of Material colours)
+    const categoryColors = <String, PdfColor>{
+      'Cardiovascular': PdfColors.red300,
+      'Cancer': PdfColors.purple300,
+      'Mental Health': PdfColors.indigo300,
+      'Neurological': PdfColors.blue300,
+      'Metabolic / Endocrine': PdfColors.orange300,
+      'Autoimmune / Immune': PdfColors.teal300,
+      'Respiratory': PdfColors.cyan300,
+      'Genetic / Chromosomal': PdfColors.green300,
+      'Musculoskeletal': PdfColors.brown300,
+      'Gastrointestinal': PdfColors.amber300,
+      'Renal / Urological': PdfColors.lightBlue300,
+      'Reproductive / Gynaecological': PdfColors.pink300,
+      'Dermatological': PdfColors.lime300,
+      'Sensory (Vision / Hearing)': PdfColors.deepPurple300,
+      'Haematological / Blood': PdfColors.deepOrange300,
+      'Infectious / Tropical': PdfColors.yellow700,
+      'Congenital / Developmental': PdfColors.lightGreen300,
+    };
+
+    PdfColor categoryColor(String cat) =>
+        categoryColors[cat] ?? PdfColors.grey400;
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        header: (ctx) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Family Medical History',
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.green800,
+                  ),
+                ),
+                pw.Text(
+                  'Generated by Vetviona  ·  $now',
+                  style: pw.TextStyle(
+                      fontSize: 9, color: PdfColors.grey600),
+                ),
+              ],
+            ),
+            pw.Divider(color: PdfColors.green800),
+            pw.SizedBox(height: 4),
+            // Disclaimer
+            pw.Container(
+              padding: const pw.EdgeInsets.all(8),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.orange400),
+                borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4)),
+                color: PdfColors.orange50,
+              ),
+              child: pw.Text(
+                '⚠  IMPORTANT: This document is a personal family health history record for '
+                'informational and genealogical purposes ONLY. It is NOT medical advice and '
+                'should NOT be used to diagnose or treat any condition. Always consult a '
+                'qualified healthcare professional for medical guidance.',
+                style: pw.TextStyle(
+                    fontSize: 8, color: PdfColors.orange900),
+              ),
+            ),
+            pw.SizedBox(height: 8),
+          ],
+        ),
+        footer: (ctx) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text(
+            'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+            style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+          ),
+        ),
+        build: (ctx) {
+          if (personsWithConditions.isEmpty) {
+            return [
+              pw.Text('No medical conditions have been recorded yet.',
+                  style: pw.TextStyle(color: PdfColors.grey600)),
+            ];
+          }
+
+          final widgets = <pw.Widget>[];
+
+          for (final person in personsWithConditions) {
+            final conditions = provider.medicalConditionsFor(person.id);
+
+            widgets.add(
+              pw.Container(
+                margin: const pw.EdgeInsets.only(top: 12, bottom: 4),
+                padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 6),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.green50,
+                  border: const pw.Border(
+                    left: pw.BorderSide(
+                        color: PdfColors.green700, width: 4),
+                  ),
+                ),
+                child: pw.Text(
+                  person.name,
+                  style: pw.TextStyle(
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.green900,
+                  ),
+                ),
+              ),
+            );
+
+            // Table of conditions for this person
+            widgets.add(
+              pw.TableHelper.fromTextArray(
+                headers: ['Condition', 'Category', 'Age of Onset', 'Notes'],
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  fontSize: 9,
+                  color: PdfColors.white,
+                ),
+                headerDecoration:
+                    const pw.BoxDecoration(color: PdfColors.green700),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                cellPadding: const pw.EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 4),
+                data: conditions.map((mc) {
+                  return [
+                    mc.condition,
+                    mc.category,
+                    mc.ageOfOnset ?? '—',
+                    mc.notes ?? '—',
+                  ];
+                }).toList(),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(2.5),
+                  1: const pw.FlexColumnWidth(2),
+                  2: const pw.FlexColumnWidth(1),
+                  3: const pw.FlexColumnWidth(2.5),
+                },
+                rowDecoration: (idx, _) => idx % 2 == 0
+                    ? null
+                    : const pw.BoxDecoration(
+                        color: PdfColors.grey100),
+                border: pw.TableBorder.all(
+                    color: PdfColors.grey300, width: 0.5),
+              ),
+            );
+          }
+
+          // ── Summary by category ──────────────────────────────────────
+          widgets.add(pw.SizedBox(height: 16));
+          widgets.add(
+            pw.Text(
+              'Summary by Category',
+              style: pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.green800,
+              ),
+            ),
+          );
+          widgets.add(pw.Divider(color: PdfColors.green400));
+
+          final byCategory = <String, int>{};
+          for (final mc in provider.medicalConditions) {
+            byCategory[mc.category] =
+                (byCategory[mc.category] ?? 0) + 1;
+          }
+          final sortedCats = byCategory.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+
+          widgets.add(
+            pw.Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: sortedCats.map((e) {
+                final color = categoryColor(e.key);
+                return pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
+                  decoration: pw.BoxDecoration(
+                    color: color,
+                    borderRadius: const pw.BorderRadius.all(
+                        pw.Radius.circular(4)),
+                  ),
+                  child: pw.Text(
+                    '${e.key}: ${e.value}',
+                    style: pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.white,
+                        fontWeight: pw.FontWeight.bold),
+                  ),
+                );
+              }).toList(),
+            ),
+          );
+
+          return widgets;
+        },
+      ),
+    );
+
+    return doc.save();
   }
 
   static void _openConditionSheet(
@@ -104,7 +372,50 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
   }
 }
 
-// ── By-person list ──────────────────────────────────────────────────────────
+// ── Disclaimer banner ────────────────────────────────────────────────────────
+
+class _DisclaimerBanner extends StatelessWidget {
+  final VoidCallback onDismiss;
+  const _DisclaimerBanner({required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      color: colorScheme.tertiaryContainer.withOpacity(0.6),
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline,
+              size: 18, color: colorScheme.onTertiaryContainer),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'This is a personal family history tool for plotting inherited '
+              'conditions across generations — not a medical database. '
+              'Nothing here constitutes medical advice. '
+              'Always consult a qualified healthcare professional.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close,
+                size: 16, color: colorScheme.onTertiaryContainer),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Dismiss',
+            onPressed: onDismiss,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── By-person list ───────────────────────────────────────────────────────────
 
 class _AllPersonsList extends StatelessWidget {
   final TreeProvider provider;
@@ -119,8 +430,7 @@ class _AllPersonsList extends StatelessWidget {
 
     if (persons.isEmpty) {
       return const _EmptyState(
-          message:
-              'No medical conditions recorded yet.\nTap + to add the first one.');
+          message: 'No medical conditions recorded yet.\nTap + to add one.');
     }
 
     return ListView.builder(
@@ -139,7 +449,7 @@ class _AllPersonsList extends StatelessWidget {
   }
 }
 
-// ── By-category list ────────────────────────────────────────────────────────
+// ── By-category list ─────────────────────────────────────────────────────────
 
 class _ByCategoryList extends StatelessWidget {
   final TreeProvider provider;
@@ -149,8 +459,7 @@ class _ByCategoryList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (provider.medicalConditions.isEmpty) {
       return const _EmptyState(
-          message:
-              'No medical conditions recorded yet.\nTap + to add the first one.');
+          message: 'No medical conditions recorded yet.\nTap + to add one.');
     }
 
     final byCategory = <String, List<MedicalCondition>>{};
@@ -170,22 +479,17 @@ class _ByCategoryList extends StatelessWidget {
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: ExpansionTile(
-            leading: Icon(
-              _categoryIcon(category),
-              color: colorScheme.primary,
-            ),
-            title: Text(
-              category,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+            leading:
+                Icon(_categoryIcon(category), color: colorScheme.primary),
+            title: Text(category,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(
-              '${items.length} condition${items.length == 1 ? '' : 's'}',
-            ),
+                '${items.length} condition${items.length == 1 ? '' : 's'}'),
             children: items.map((mc) {
               final person = personMap[mc.personId];
               return ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 0),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 24),
                 title: Text(mc.condition),
                 subtitle: Text(person?.name ?? mc.personId),
                 trailing: _conditionTrailing(context, mc, provider),
@@ -212,18 +516,19 @@ class _PersonConditionsList extends StatelessWidget {
     if (conditions.isEmpty) {
       return const _EmptyState(
           message:
-              'No medical conditions recorded for this person.\nTap + to add one.');
+              'No conditions recorded for this person.\nTap + to add one.');
     }
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: conditions
-          .map((mc) => _ConditionCard(condition: mc, provider: provider))
+          .map((mc) =>
+              _ConditionCard(condition: mc, provider: provider))
           .toList(),
     );
   }
 }
 
-// ── Person tile (expands to conditions) ─────────────────────────────────────
+// ── Person tile ───────────────────────────────────────────────────────────────
 
 class _PersonTile extends StatelessWidget {
   final Person person;
@@ -245,26 +550,24 @@ class _PersonTile extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: colorScheme.primaryContainer,
           foregroundColor: colorScheme.onPrimaryContainer,
-          child: Text(
-            person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
-          ),
+          child: Text(person.name.isNotEmpty
+              ? person.name[0].toUpperCase()
+              : '?'),
         ),
-        title: Text(
-          person.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(person.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-          '${conditions.length} condition${conditions.length == 1 ? '' : 's'}',
-        ),
+            '${conditions.length} condition${conditions.length == 1 ? '' : 's'}'),
         children: conditions
-            .map((mc) => _ConditionCard(condition: mc, provider: provider))
+            .map((mc) =>
+                _ConditionCard(condition: mc, provider: provider))
             .toList(),
       ),
     );
   }
 }
 
-// ── Condition card ───────────────────────────────────────────────────────────
+// ── Condition card ────────────────────────────────────────────────────────────
 
 class _ConditionCard extends StatelessWidget {
   final MedicalCondition condition;
@@ -282,13 +585,12 @@ class _ConditionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
+          border: Border.all(
+              color: colorScheme.outlineVariant.withOpacity(0.5)),
         ),
         child: ListTile(
-          leading: Icon(
-            _categoryIcon(condition.category),
-            color: colorScheme.primary,
-          ),
+          leading: Icon(_categoryIcon(condition.category),
+              color: colorScheme.primary),
           title: Text(condition.condition,
               style: const TextStyle(fontWeight: FontWeight.w500)),
           subtitle: Column(
@@ -300,8 +602,10 @@ class _ConditionCard extends StatelessWidget {
               if (condition.ageOfOnset != null &&
                   condition.ageOfOnset!.isNotEmpty)
                 Text('Age of onset: ${condition.ageOfOnset}',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant)),
-              if (condition.notes != null && condition.notes!.isNotEmpty)
+                    style: TextStyle(
+                        color: colorScheme.onSurfaceVariant)),
+              if (condition.notes != null &&
+                  condition.notes!.isNotEmpty)
                 Text(condition.notes!,
                     style: TextStyle(
                         color: colorScheme.onSurfaceVariant,
@@ -341,7 +645,8 @@ Widget _conditionTrailing(
         ),
       ),
       IconButton(
-        icon: Icon(Icons.delete_outline, size: 18, color: colorScheme.error),
+        icon:
+            Icon(Icons.delete_outline, size: 18, color: colorScheme.error),
         tooltip: 'Delete',
         onPressed: () => provider.deleteMedicalCondition(mc.id),
       ),
@@ -349,7 +654,7 @@ Widget _conditionTrailing(
   );
 }
 
-// ── Empty state ──────────────────────────────────────────────────────────────
+// ── Empty state ───────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   final String message;
@@ -368,21 +673,18 @@ class _EmptyState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-              ),
+                  color: colorScheme.primaryContainer,
+                  shape: BoxShape.circle),
               child: Icon(Icons.local_hospital_outlined,
                   size: 40, color: colorScheme.onPrimaryContainer),
             ),
             const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant)),
           ],
         ),
       ),
@@ -390,7 +692,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ── Add / Edit sheet ─────────────────────────────────────────────────────────
+// ── Add / Edit sheet ──────────────────────────────────────────────────────────
 
 class _ConditionSheet extends StatefulWidget {
   final TreeProvider provider;
@@ -468,7 +770,11 @@ class _ConditionSheetState extends State<_ConditionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final persons = widget.provider.persons..sort((a, b) => a.name.compareTo(b.name));
+    final persons = [...widget.provider.persons]
+      ..sort((a, b) => a.name.compareTo(b.name));
+    final colorScheme = Theme.of(context).colorScheme;
+    final suggestions =
+        MedicalCondition.suggestions[_selectedCategory] ?? [];
 
     return Padding(
       padding: EdgeInsets.only(
@@ -482,6 +788,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Row(
               children: [
                 Text(
@@ -499,13 +806,37 @@ class _ConditionSheetState extends State<_ConditionSheet> {
                     onPressed: () => Navigator.pop(context)),
               ],
             ),
-            const SizedBox(height: 12),
+            // Inline disclaimer
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.tertiaryContainer.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 14,
+                      color: colorScheme.onTertiaryContainer),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'For family history tracking only. Not medical advice.',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onTertiaryContainer),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Person picker (only if not pre-selected)
             if (widget.preselectedPersonId == null)
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
-                  labelText: 'Person',
-                  border: OutlineInputBorder(),
-                ),
+                    labelText: 'Person',
+                    border: OutlineInputBorder()),
                 value: _selectedPersonId,
                 items: persons
                     .map((p) =>
@@ -514,34 +845,64 @@ class _ConditionSheetState extends State<_ConditionSheet> {
                 onChanged: (v) => setState(() => _selectedPersonId = v),
               )
             else
-              Text(
-                'Person: ${widget.provider.persons.firstWhere((p) => p.id == widget.preselectedPersonId, orElse: () => Person(id: '', name: 'Unknown')).name}',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              _labelRow(
+                  'Person',
+                  widget.provider.persons
+                      .firstWhere(
+                          (p) => p.id == widget.preselectedPersonId,
+                          orElse: () =>
+                              Person(id: '', name: 'Unknown'))
+                      .name),
             const SizedBox(height: 12),
+            // Category
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                  labelText: 'Category', border: OutlineInputBorder()),
+              value: _selectedCategory,
+              items: MedicalCondition.categories
+                  .map((c) =>
+                      DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (v) =>
+                  setState(() => _selectedCategory = v ?? _selectedCategory),
+            ),
+            // Suggestion chips
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Common conditions',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: suggestions.map((s) {
+                  final isSelected =
+                      _conditionController.text.trim() == s;
+                  return FilterChip(
+                    label: Text(s, style: const TextStyle(fontSize: 11)),
+                    selected: isSelected,
+                    onSelected: (_) =>
+                        setState(() => _conditionController.text = s),
+                  );
+                }).toList(),
+              ),
+            ],
+            const SizedBox(height: 12),
+            // Condition name
             TextFormField(
               controller: _conditionController,
               decoration: const InputDecoration(
                 labelText: 'Condition',
-                hintText: 'e.g. Type 2 Diabetes, Hypertension…',
+                hintText: 'Enter or pick from suggestions above',
                 border: OutlineInputBorder(),
               ),
               textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Category',
-                border: OutlineInputBorder(),
-              ),
-              value: _selectedCategory,
-              items: MedicalCondition.categories
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                  .toList(),
-              onChanged: (v) =>
-                  setState(() => _selectedCategory = v ?? _selectedCategory),
-            ),
-            const SizedBox(height: 12),
+            // Age of onset
             TextFormField(
               controller: _ageController,
               decoration: const InputDecoration(
@@ -551,6 +912,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
               ),
             ),
             const SizedBox(height: 12),
+            // Notes
             TextFormField(
               controller: _notesController,
               decoration: const InputDecoration(
@@ -574,9 +936,22 @@ class _ConditionSheetState extends State<_ConditionSheet> {
       ),
     );
   }
+
+  Widget _labelRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text('$label: ',
+              style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(value),
+        ],
+      ),
+    );
+  }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 IconData _categoryIcon(String category) => switch (category) {
       'Cardiovascular' => Icons.favorite_border,
@@ -584,9 +959,17 @@ IconData _categoryIcon(String category) => switch (category) {
       'Mental Health' => Icons.psychology_outlined,
       'Neurological' => Icons.biotech_outlined,
       'Metabolic / Endocrine' => Icons.science_outlined,
-      'Autoimmune' => Icons.shield_outlined,
+      'Autoimmune / Immune' => Icons.shield_outlined,
       'Respiratory' => Icons.air_outlined,
-      'Genetic' => Icons.account_tree_outlined,
+      'Genetic / Chromosomal' => Icons.account_tree_outlined,
       'Musculoskeletal' => Icons.accessibility_new_outlined,
+      'Gastrointestinal' => Icons.restaurant_outlined,
+      'Renal / Urological' => Icons.water_drop_outlined,
+      'Reproductive / Gynaecological' => Icons.child_care_outlined,
+      'Dermatological' => Icons.face_outlined,
+      'Sensory (Vision / Hearing)' => Icons.hearing_outlined,
+      'Haematological / Blood' => Icons.bloodtype_outlined,
+      'Infectious / Tropical' => Icons.bug_report_outlined,
+      'Congenital / Developmental' => Icons.baby_changing_station_outlined,
       _ => Icons.local_hospital_outlined,
     };
