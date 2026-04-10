@@ -491,7 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Clear All Data'),
         content: const Text(
-            'This will delete all people, sources, and devices. This cannot be undone.'),
+            'This will delete all people, sources, and partnerships. Paired device credentials are preserved. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),

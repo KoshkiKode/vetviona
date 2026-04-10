@@ -1,5 +1,7 @@
 import 'dart:collection';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -204,7 +206,10 @@ class TreeProvider extends ChangeNotifier {
     );
     persons = personMaps.map(Person.fromMap).toList();
 
-    final sourceMaps = await db.query('sources');
+    final sourceMaps = await db.rawQuery(
+      'SELECT s.* FROM sources s INNER JOIN persons p ON s.personId = p.id WHERE p.treeId = ?',
+      [currentTreeId],
+    );
     sources = sourceMaps.map(Source.fromMap).toList();
 
     final partnershipMaps = await db.query(
@@ -271,6 +276,16 @@ class TreeProvider extends ChangeNotifier {
         where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
     partnerships.removeWhere(
         (pt) => pt.person1Id == id || pt.person2Id == id);
+    // Remove this person's ID from other persons' parentIds / childIds
+    for (final p in persons) {
+      final hadParent = p.parentIds.remove(id);
+      final hadChild = p.childIds.remove(id);
+      if (hadParent || hadChild) {
+        p.parentRelTypes.remove(id);
+        await db.update('persons', p.toMap(),
+            where: 'id = ?', whereArgs: [p.id]);
+      }
+    }
     persons.removeWhere((p) => p.id == id);
     notifyListeners();
   }
@@ -365,12 +380,13 @@ class TreeProvider extends ChangeNotifier {
       .toList();
 
   // ── Trees ──────────────────────────────────────────────────────────────────
-  Future<void> addTree(String name) async {
+  Future<String> addTree(String name) async {
     final id = _uuid.v4();
     final db = await _database;
     await db.insert('trees', {'id': id, 'name': name});
     treeNames.add(name);
     notifyListeners();
+    return id;
   }
 
   Future<void> switchTree(String treeId) async {
@@ -381,6 +397,18 @@ class TreeProvider extends ChangeNotifier {
   Future<void> deleteTree(String treeId) async {
     if (treeId == 'default') return;
     final db = await _database;
+    // Find all person IDs belonging to this tree so we can delete their sources.
+    final personMaps = await db.query('persons',
+        columns: ['id'], where: 'treeId = ?', whereArgs: [treeId]);
+    final personIds = personMaps.map((m) => m['id'] as String).toList();
+    if (personIds.isNotEmpty) {
+      // Delete sources whose personId belongs to this tree.
+      final placeholders = personIds.map((_) => '?').join(',');
+      await db.delete('sources',
+          where: 'personId IN ($placeholders)', whereArgs: personIds);
+      sources.removeWhere(
+          (s) => personIds.contains(s.personId));
+    }
     await db.delete('trees', where: 'id = ?', whereArgs: [treeId]);
     await db.delete('persons', where: 'treeId = ?', whereArgs: [treeId]);
     await db.delete('partnerships',
@@ -392,11 +420,20 @@ class TreeProvider extends ChangeNotifier {
   }
 
   // ── Auth ───────────────────────────────────────────────────────────────────
+
+  /// Generates a SHA-256 hash of [password] using [salt].
+  static String _hashPassword(String password, String salt) {
+    final bytes = utf8.encode('$salt:$password');
+    return sha256.convert(bytes).toString();
+  }
+
   Future<bool> register(String username, String password) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'user_$username';
     if (prefs.containsKey(key)) return false;
-    await prefs.setString(key, password);
+    final salt = _uuid.v4();
+    final hash = _hashPassword(password, salt);
+    await prefs.setString(key, '$salt:$hash');
     _currentUser = username;
     notifyListeners();
     return true;
@@ -405,7 +442,25 @@ class TreeProvider extends ChangeNotifier {
   Future<bool> login(String username, String password) async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString('user_$username');
-    if (stored == password) {
+    if (stored == null) return false;
+    // Support both new hashed format (salt:hash) and legacy plaintext.
+    final parts = stored.split(':');
+    bool valid;
+    if (parts.length == 2 && parts[0].length == 36 && parts[1].length == 64) {
+      // New format: salt (UUID) : SHA-256 hash
+      final salt = parts[0];
+      final hash = parts[1];
+      valid = _hashPassword(password, salt) == hash;
+    } else {
+      // Legacy plaintext — migrate to hashed format on successful login.
+      valid = stored == password;
+      if (valid) {
+        final salt = _uuid.v4();
+        final hash = _hashPassword(password, salt);
+        await prefs.setString('user_$username', '$salt:$hash');
+      }
+    }
+    if (valid) {
       _currentUser = username;
       notifyListeners();
       return true;
@@ -450,7 +505,16 @@ class TreeProvider extends ChangeNotifier {
     final result = await parser.parse(path);
     for (final person in result.persons) {
       person.treeId = currentTreeId;
-      await addPerson(person);
+      try {
+        await addPerson(person);
+      } on StateError {
+        // Free-tier person limit reached — stop importing and notify caller.
+        throw StateError(
+          'Import stopped: free tier limit of $freeMobilePersonLimit people '
+          'reached after importing ${persons.length} people. '
+          'Upgrade to add more.',
+        );
+      }
     }
     for (final partnership in result.partnerships) {
       partnership.treeId = currentTreeId;
@@ -528,19 +592,17 @@ class TreeProvider extends ChangeNotifier {
 
   /// Serialises the current tree (persons, partnerships, sources) into a plain
   /// Dart map suitable for encryption and transmission.
-  Map<String, dynamic> exportForSync() => {
-        'persons': persons.map((p) => p.toMap()).toList(),
-        'partnerships': partnerships.map((p) => p.toMap()).toList(),
-        'sources': sources
-            .where((s) =>
-                persons.any((p) =>
-                    p.treeId == currentTreeId &&
-                    p.sourceIds.contains(s.id)) ||
-                persons.any((p) =>
-                    p.treeId == currentTreeId && p.id == s.personId))
-            .map((s) => s.toMap())
-            .toList(),
-      };
+  Map<String, dynamic> exportForSync() {
+    final personIds = persons.map((p) => p.id).toSet();
+    return {
+      'persons': persons.map((p) => p.toMap()).toList(),
+      'partnerships': partnerships.map((p) => p.toMap()).toList(),
+      'sources': sources
+          .where((s) => personIds.contains(s.personId))
+          .map((s) => s.toMap())
+          .toList(),
+    };
+  }
 
   /// Merges incoming tree data from a peer using an upsert strategy: records
   /// that do not exist locally are inserted; existing records are replaced
@@ -597,11 +659,9 @@ class TreeProvider extends ChangeNotifier {
     await db.delete('persons');
     await db.delete('sources');
     await db.delete('partnerships');
-    await db.delete('devices');
     persons.clear();
     sources.clear();
     partnerships.clear();
-    pairedDevices.clear();
     notifyListeners();
   }
 }

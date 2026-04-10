@@ -484,7 +484,9 @@ class SyncService extends ChangeNotifier {
 
   @override
   void dispose() {
-    stopAll();
+    // Schedule async resource teardown; stopAll() stops the HTTP server and
+    // mDNS broadcast.  unawaited signals the intent to fire-and-forget.
+    unawaited(stopAll());
     super.dispose();
   }
 }
