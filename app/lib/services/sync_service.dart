@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:bonsoir/bonsoir.dart';
+import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -147,7 +149,11 @@ class SyncService extends ChangeNotifier {
       await _broadcast!.ready;
       await _broadcast!.start();
     } catch (e) {
+      // mDNS broadcast is best-effort; the HTTP server still works without it.
+      // Update the status message but keep the server running.
       debugPrint('[SyncService] mDNS broadcast error: $e');
+      _setStatus(SyncStatus.advertising,
+          'Ready on port $_serverPort (mDNS unavailable)');
     }
   }
 
@@ -367,14 +373,13 @@ class SyncService extends ChangeNotifier {
 
   // ── Encryption ──────────────────────────────────────────────────────────────
 
-  /// Derives a 32-byte AES-256 key from a UUID shared secret.
+  /// Derives a 32-byte AES-256 key from a shared secret using SHA-256.
   ///
-  /// A UUID without dashes is exactly 32 hexadecimal characters, which are
-  /// valid UTF-8 bytes, giving us a 256-bit key with no padding needed.
+  /// SHA-256 produces 32 bytes of uniformly distributed key material from
+  /// any-length input, making it safe regardless of secret format.
   static enc.Key _keyFromSecret(String sharedSecret) {
-    final hex = sharedSecret.replaceAll('-', '');
-    final padded = hex.padRight(32, '0').substring(0, 32);
-    return enc.Key.fromUtf8(padded);
+    final digest = sha256.convert(utf8.encode(sharedSecret));
+    return enc.Key(Uint8List.fromList(digest.bytes));
   }
 
   /// Encrypts [data] as JSON with AES-256-CBC and returns

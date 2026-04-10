@@ -31,6 +31,7 @@ dependencies:
   bonsoir: ^5.0.0
   shelf: ^1.4.0
   shelf_router: ^1.1.0
+  crypto: ^3.0.0
 
 dev_dependencies:
   flutter_test:

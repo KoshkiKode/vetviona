@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/device.dart';
 import '../providers/tree_provider.dart';
@@ -358,7 +359,7 @@ class _SyncScreenState extends State<SyncScreen> {
     }
 
     final device = Device(
-      id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'pending_${const Uuid().v4()}',
       sharedSecret: secret,
       tier: 'mobileFree',
     );
@@ -491,8 +492,7 @@ class _PeerTile extends StatelessWidget {
         treeProvider.pairedDevices.any((d) => d.sharedSecret == confirmed);
     if (!alreadyPaired) {
       final device = Device(
-        id: peer.deviceId ??
-            'pending_${DateTime.now().millisecondsSinceEpoch}',
+        id: peer.deviceId ?? 'pending_${const Uuid().v4()}',
         sharedSecret: confirmed,
         tier: peer.tier ?? 'mobileFree',
       );
