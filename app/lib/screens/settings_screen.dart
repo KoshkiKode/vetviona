@@ -146,9 +146,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : Icons.volume_off),
                 value: _soundEnabled,
                 contentPadding: EdgeInsets.zero,
-                onChanged: (v) {
+                onChanged: (v) async {
+                  await SoundService.instance.setSoundEnabled(v);
                   setState(() => _soundEnabled = v);
-                  SoundService.instance.setSoundEnabled(v);
                   if (v) SoundService.instance.playSuccess();
                 },
               ),

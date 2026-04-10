@@ -31,9 +31,9 @@ class SoundService {
   }
 
   Future<void> setSoundEnabled(bool value) async {
-    _enabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('soundEnabled', value);
+    _enabled = value;
   }
 
   // ── Public play methods ───────────────────────────────────────────────────
