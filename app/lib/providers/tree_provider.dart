@@ -421,6 +421,9 @@ class TreeProvider extends ChangeNotifier {
 
   // ── Auth ───────────────────────────────────────────────────────────────────
 
+  static const _uuidLength = 36; // UUID v4 string length
+  static const _sha256HexLength = 64; // SHA-256 hex digest length
+
   /// Generates a SHA-256 hash of [password] using [salt].
   static String _hashPassword(String password, String salt) {
     final bytes = utf8.encode('$salt:$password');
@@ -446,7 +449,9 @@ class TreeProvider extends ChangeNotifier {
     // Support both new hashed format (salt:hash) and legacy plaintext.
     final parts = stored.split(':');
     bool valid;
-    if (parts.length == 2 && parts[0].length == 36 && parts[1].length == 64) {
+    if (parts.length == 2 &&
+        parts[0].length == _uuidLength &&
+        parts[1].length == _sha256HexLength) {
       // New format: salt (UUID) : SHA-256 hash
       final salt = parts[0];
       final hash = parts[1];
