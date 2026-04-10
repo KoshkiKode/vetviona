@@ -984,8 +984,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Shows a dialog asking whether to include full details for living people.
+  ///
+  /// Returns `true` if the user wants full data, `false` for generic labels,
+  /// or `null` if the dialog was dismissed.
+  Future<bool?> _askLivingDataPolicy(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Living People'),
+        content: const Text(
+          'How should living people (no recorded death date) appear in the export?\n\n'
+          '• Generic labels — names and personal details are replaced with "Living" to protect privacy (default).\n'
+          '• Full details — all data is included as-is.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Generic Labels'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Full Details'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _exportCSV(
       BuildContext context, TreeProvider provider) async {
+    final includeLivingData = await _askLivingDataPolicy(context);
+    if (includeLivingData == null) return; // cancelled
+
     try {
       String quoteCsvField(String field) {
         if (field.contains(',') ||
@@ -1003,39 +1038,61 @@ class _HomeScreenState extends State<HomeScreen> {
       final personMap = {for (final p in provider.persons) p.id: p};
 
       for (final p in provider.persons) {
+        // Private persons are always excluded from exports.
+        if (p.isPrivate) continue;
+
         String formatDate(DateTime? d) =>
           d != null ? d.toIso8601String().split('T').first : '';
 
-        final parents = p.parentIds
-            .map((id) => personMap[id]?.name ?? id)
-            .join('; ');
-        final children = p.childIds
-            .map((id) => personMap[id]?.name ?? id)
-            .join('; ');
-        final partners = provider
-            .partnerIdsFor(p.id)
-            .map((id) => personMap[id]?.name ?? id)
-            .join('; ');
+        final isLiving = p.deathDate == null;
 
-        final row = [
-          p.name,
-          p.gender ?? '',
-          formatDate(p.birthDate),
-          p.birthPlace ?? '',
-          formatDate(p.deathDate),
-          p.deathPlace ?? '',
-          p.occupation ?? '',
-          p.nationality ?? '',
-          p.maidenName ?? '',
-          formatDate(p.burialDate),
-          p.burialPlace ?? '',
-          p.notes ?? '',
-          parents,
-          children,
-          partners,
-        ].map(quoteCsvField).join(',');
+        // Resolve the display name for partner/parent/child resolution.
+        // If the referenced person is living and we're genericising, show
+        // "Living" instead of their real name.
+        String resolveName(String id) {
+          final ref = personMap[id];
+          if (ref == null) return id;
+          if (!includeLivingData && ref.deathDate == null) return 'Living';
+          return ref.name;
+        }
 
-        buf.writeln(row);
+        final parents = p.parentIds.map(resolveName).join('; ');
+        final children = p.childIds.map(resolveName).join('; ');
+        final partners =
+            provider.partnerIdsFor(p.id).map(resolveName).join('; ');
+
+        // Personal detail columns — blanked out for living people unless the
+        // user explicitly chose to include full data.
+        final String name;
+        final String gender, birthDate, birthPlace, deathDate, deathPlace,
+            occupation, nationality, maidenName, burialDate, burialPlace, notes;
+        if (!includeLivingData && isLiving) {
+          name = 'Living';
+          gender = birthDate = birthPlace = deathDate = deathPlace =
+              occupation = nationality = maidenName =
+              burialDate = burialPlace = notes = '';
+        } else {
+          name = p.name;
+          gender = p.gender ?? '';
+          birthDate = formatDate(p.birthDate);
+          birthPlace = p.birthPlace ?? '';
+          deathDate = formatDate(p.deathDate);
+          deathPlace = p.deathPlace ?? '';
+          occupation = p.occupation ?? '';
+          nationality = p.nationality ?? '';
+          maidenName = p.maidenName ?? '';
+          burialDate = formatDate(p.burialDate);
+          burialPlace = p.burialPlace ?? '';
+          notes = p.notes ?? '';
+        }
+
+        final values = [
+          name, gender, birthDate, birthPlace, deathDate, deathPlace,
+          occupation, nationality, maidenName, burialDate, burialPlace, notes,
+          parents, children, partners,
+        ];
+
+        buf.writeln(values.map(quoteCsvField).join(','));
       }
 
       final dir = await getApplicationDocumentsDirectory();
@@ -1082,11 +1139,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _exportGEDCOM(
       BuildContext context, TreeProvider provider) async {
+    final includeLivingData = await _askLivingDataPolicy(context);
+    if (includeLivingData == null) return; // cancelled
+
     try {
       final dir = await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final path = '${dir.path}/vetviona_export_$timestamp.ged';
-      await provider.exportGEDCOM(path);
+      await provider.exportGEDCOM(path, includeLivingData: includeLivingData);
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Exported to: $path')));

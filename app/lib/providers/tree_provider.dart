@@ -776,8 +776,11 @@ class TreeProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> exportGEDCOM(String path) async {
-    // Private persons are excluded from GEDCOM exports.
+  Future<void> exportGEDCOM(String path,
+      {bool includeLivingData = false}) async {
+    // Private persons are always excluded from GEDCOM exports.
+    // Living persons (no death date) are exported as generic placeholders
+    // unless [includeLivingData] is true.
     final publicPersons = persons.where((p) => !p.isPrivate).toList();
     final publicPersonIds = publicPersons.map((p) => p.id).toSet();
     final publicPartnerships = partnerships
@@ -786,7 +789,8 @@ class TreeProvider extends ChangeNotifier {
             publicPersonIds.contains(pt.person2Id))
         .toList();
     final parser = GEDCOMParser();
-    await parser.export(publicPersons, publicPartnerships, path);
+    await parser.export(publicPersons, publicPartnerships, path,
+        includeLivingData: includeLivingData);
   }
 
   // ── Relationship BFS ───────────────────────────────────────────────────────

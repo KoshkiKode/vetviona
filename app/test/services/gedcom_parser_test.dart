@@ -275,7 +275,7 @@ void main() {
         Person(id: 'P1', name: 'Alice Test', gender: 'F'),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, [], path);
+      await parser.export(persons, [], path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('@P1@ INDI'));
       expect(content, contains('1 NAME Alice Test'));
@@ -292,7 +292,7 @@ void main() {
         ),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, [], path);
+      await parser.export(persons, [], path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('1 BIRT'));
       expect(content, contains('2 DATE'));
@@ -326,7 +326,7 @@ void main() {
         Partnership(id: 'F1', person1Id: 'P1', person2Id: 'P2'),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, partnerships, path);
+      await parser.export(persons, partnerships, path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('FAM'));
       expect(content, contains('1 HUSB @P1@'));
@@ -343,7 +343,7 @@ void main() {
         Partnership(id: 'F1', person1Id: 'P1', person2Id: 'P2'),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, partnerships, path);
+      await parser.export(persons, partnerships, path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('1 CHIL @P3@'));
     });
@@ -363,7 +363,7 @@ void main() {
         ),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, partnerships, path);
+      await parser.export(persons, partnerships, path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('1 MARR'));
       expect(content, contains('2 PLAC London'));
@@ -385,7 +385,7 @@ void main() {
         ),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, partnerships, path);
+      await parser.export(persons, partnerships, path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('1 DIV'));
       expect(content, contains('2 PLAC Paris'));
@@ -396,7 +396,7 @@ void main() {
         Person(id: 'P1', name: 'Alice', notes: 'Emigrated in 1920'),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, [], path);
+      await parser.export(persons, [], path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('1 NOTE Emigrated in 1920'));
     });
@@ -407,7 +407,7 @@ void main() {
         Person(id: 'P2', name: 'Child', parentIds: ['P1']),
       ];
       final path = '${tempDir.path}/out.ged';
-      await parser.export(persons, [], path);
+      await parser.export(persons, [], path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('FAM'));
       expect(content, contains('1 HUSB @P1@'));
@@ -420,7 +420,7 @@ void main() {
         (i) => Person(id: 'P$i', name: 'Person $i', gender: i.isEven ? 'M' : 'F'),
       );
       final path = '${tempDir.path}/rt.ged';
-      await parser.export(persons, [], path);
+      await parser.export(persons, [], path, includeLivingData: true);
       final result = await parser.parse(path);
       expect(result.persons.length, 50);
     });
@@ -437,12 +437,59 @@ void main() {
       );
       final path = '${tempDir.path}/large.ged';
       final sw = Stopwatch()..start();
-      await parser.export(persons, [], path);
+      await parser.export(persons, [], path, includeLivingData: true);
       sw.stop();
       expect(sw.elapsedMilliseconds, lessThan(5000));
 
       final result = await parser.parse(path);
       expect(result.persons.length, 100);
+    });
+
+    test('living person exported as generic when includeLivingData is false',
+        () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Alice Living',
+          gender: 'F',
+          birthDate: DateTime(1990, 5, 1),
+          birthPlace: 'London',
+          notes: 'Some private notes',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path);
+      final content = await File(path).readAsString();
+      expect(content, contains('@P1@ INDI'));
+      expect(content, contains('1 NAME Living'));
+      expect(content, contains('1 RESN PRIVACY'));
+      expect(content, isNot(contains('Alice Living')));
+      expect(content, isNot(contains('1 SEX')));
+      expect(content, isNot(contains('1 BIRT')));
+      expect(content, isNot(contains('1 NOTE')));
+    });
+
+    test('deceased person exported with full data even when includeLivingData is false',
+        () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Bob Deceased',
+          gender: 'M',
+          birthDate: DateTime(1920, 1, 1),
+          deathDate: DateTime(2000, 12, 31),
+          notes: 'Historical figure',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 NAME Bob Deceased'));
+      expect(content, contains('1 SEX M'));
+      expect(content, contains('1 BIRT'));
+      expect(content, contains('1 DEAT'));
+      expect(content, contains('1 NOTE Historical figure'));
+      expect(content, isNot(contains('1 RESN PRIVACY')));
     });
   });
 }
