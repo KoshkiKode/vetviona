@@ -1,3 +1,5 @@
+import 'geo_coord.dart';
+
 class Person {
   String id;
   String name;
@@ -22,6 +24,24 @@ class Person {
   String? maidenName;
   DateTime? burialDate;
   String? burialPlace;
+
+  /// Geographic coordinates + political boundaries for the birth location.
+  GeoCoord? birthCoord;
+
+  /// Geographic coordinates + political boundaries for the death location.
+  GeoCoord? deathCoord;
+
+  /// Geographic coordinates + political boundaries for the burial location.
+  GeoCoord? burialCoord;
+
+  /// Postal / ZIP code for the birth place.
+  String? birthPostalCode;
+
+  /// Postal / ZIP code for the death place.
+  String? deathPostalCode;
+
+  /// Postal / ZIP code for the burial place.
+  String? burialPostalCode;
 
   static const List<String> allParentRelTypes = [
     'biological',
@@ -51,6 +71,12 @@ class Person {
     this.maidenName,
     this.burialDate,
     this.burialPlace,
+    this.birthCoord,
+    this.deathCoord,
+    this.burialCoord,
+    this.birthPostalCode,
+    this.deathPostalCode,
+    this.burialPostalCode,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
@@ -101,6 +127,12 @@ class Person {
       'maidenName': maidenName,
       'burialDate': burialDate?.toIso8601String(),
       'burialPlace': burialPlace,
+      'birthCoord': birthCoord?.toDbString(),
+      'deathCoord': deathCoord?.toDbString(),
+      'burialCoord': burialCoord?.toDbString(),
+      'birthPostalCode': birthPostalCode,
+      'deathPostalCode': deathPostalCode,
+      'burialPostalCode': burialPostalCode,
     };
   }
 
@@ -155,6 +187,12 @@ class Person {
           ? DateTime.parse(map['burialDate'] as String)
           : null,
       burialPlace: map['burialPlace'] as String?,
+      birthCoord: GeoCoord.fromDbString(map['birthCoord'] as String?),
+      deathCoord: GeoCoord.fromDbString(map['deathCoord'] as String?),
+      burialCoord: GeoCoord.fromDbString(map['burialCoord'] as String?),
+      birthPostalCode: map['birthPostalCode'] as String?,
+      deathPostalCode: map['deathPostalCode'] as String?,
+      burialPostalCode: map['burialPostalCode'] as String?,
     );
   }
 }

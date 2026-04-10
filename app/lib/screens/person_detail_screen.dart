@@ -8,9 +8,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../models/geo_coord.dart';
 import '../models/life_event.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import 'map_picker_screen.dart';
 import 'photo_gallery_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
@@ -32,10 +34,16 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   late TextEditingController _nationalityController;
   late TextEditingController _maidenNameController;
   late TextEditingController _burialPlaceController;
+  late TextEditingController _birthPostalCodeController;
+  late TextEditingController _deathPostalCodeController;
+  late TextEditingController _burialPostalCodeController;
   String? _gender;
   DateTime? _birthDate;
   DateTime? _deathDate;
   DateTime? _burialDate;
+  GeoCoord? _birthCoord;
+  GeoCoord? _deathCoord;
+  GeoCoord? _burialCoord;
   bool _isLiving = true;
   late List<String> _photoPaths;
 
@@ -60,10 +68,19 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         TextEditingController(text: widget.person?.maidenName ?? '');
     _burialPlaceController =
         TextEditingController(text: widget.person?.burialPlace ?? '');
+    _birthPostalCodeController =
+        TextEditingController(text: widget.person?.birthPostalCode ?? '');
+    _deathPostalCodeController =
+        TextEditingController(text: widget.person?.deathPostalCode ?? '');
+    _burialPostalCodeController =
+        TextEditingController(text: widget.person?.burialPostalCode ?? '');
     _gender = widget.person?.gender;
     _birthDate = widget.person?.birthDate;
     _deathDate = widget.person?.deathDate;
     _burialDate = widget.person?.burialDate;
+    _birthCoord = widget.person?.birthCoord;
+    _deathCoord = widget.person?.deathCoord;
+    _burialCoord = widget.person?.burialCoord;
     _isLiving =
         widget.person == null || widget.person!.deathDate == null;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
@@ -79,6 +96,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _nationalityController.dispose();
     _maidenNameController.dispose();
     _burialPlaceController.dispose();
+    _birthPostalCodeController.dispose();
+    _deathPostalCodeController.dispose();
+    _burialPostalCodeController.dispose();
     super.dispose();
   }
 
@@ -185,11 +205,26 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                _PlaceField(
                   controller: _birthPlaceController,
-                  decoration:
-                      const InputDecoration(labelText: 'Birth Place'),
-                  textCapitalization: TextCapitalization.words,
+                  postalCodeController: _birthPostalCodeController,
+                  label: 'Birth Place',
+                  coord: _birthCoord,
+                  eventDate: _birthDate,
+                  onCoordChanged: (c) {
+                    setState(() {
+                      _birthCoord = c;
+                      if (c != null) {
+                        if (_birthPlaceController.text.trim().isEmpty) {
+                          _birthPlaceController.text = c.shortLabel;
+                        }
+                        if (_birthPostalCodeController.text.trim().isEmpty &&
+                            c.postalCode != null) {
+                          _birthPostalCodeController.text = c.postalCode!;
+                        }
+                      }
+                    });
+                  },
                 ),
               ],
             ),
@@ -209,11 +244,26 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _PlaceField(
                     controller: _deathPlaceController,
-                    decoration:
-                        const InputDecoration(labelText: 'Death Place'),
-                    textCapitalization: TextCapitalization.words,
+                    postalCodeController: _deathPostalCodeController,
+                    label: 'Death Place',
+                    coord: _deathCoord,
+                    eventDate: _deathDate,
+                    onCoordChanged: (c) {
+                      setState(() {
+                        _deathCoord = c;
+                        if (c != null) {
+                          if (_deathPlaceController.text.trim().isEmpty) {
+                            _deathPlaceController.text = c.shortLabel;
+                          }
+                          if (_deathPostalCodeController.text.trim().isEmpty &&
+                              c.postalCode != null) {
+                            _deathPostalCodeController.text = c.postalCode!;
+                          }
+                        }
+                      });
+                    },
                   ),
                 ],
               ),
@@ -277,11 +327,26 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _PlaceField(
                     controller: _burialPlaceController,
-                    decoration:
-                        const InputDecoration(labelText: 'Burial Place'),
-                    textCapitalization: TextCapitalization.words,
+                    postalCodeController: _burialPostalCodeController,
+                    label: 'Burial Place',
+                    coord: _burialCoord,
+                    eventDate: _burialDate,
+                    onCoordChanged: (c) {
+                      setState(() {
+                        _burialCoord = c;
+                        if (c != null) {
+                          if (_burialPlaceController.text.trim().isEmpty) {
+                            _burialPlaceController.text = c.shortLabel;
+                          }
+                          if (_burialPostalCodeController.text.trim().isEmpty &&
+                              c.postalCode != null) {
+                            _burialPostalCodeController.text = c.postalCode!;
+                          }
+                        }
+                      });
+                    },
                   ),
                 ],
               ),
@@ -498,6 +563,22 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           : (_burialPlaceController.text.trim().isEmpty
               ? null
               : _burialPlaceController.text.trim()),
+      birthCoord: _birthCoord,
+      deathCoord: _isLiving ? null : _deathCoord,
+      burialCoord: _isLiving ? null : _burialCoord,
+      birthPostalCode: _birthPostalCodeController.text.trim().isEmpty
+          ? null
+          : _birthPostalCodeController.text.trim(),
+      deathPostalCode: _isLiving
+          ? null
+          : (_deathPostalCodeController.text.trim().isEmpty
+              ? null
+              : _deathPostalCodeController.text.trim()),
+      burialPostalCode: _isLiving
+          ? null
+          : (_burialPostalCodeController.text.trim().isEmpty
+              ? null
+              : _burialPostalCodeController.text.trim()),
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
@@ -519,6 +600,157 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       await provider.updatePerson(person);
     }
     if (mounted) Navigator.pop(context);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PlaceField — place name + postal code + map picker button + coord chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PlaceField extends StatelessWidget {
+  final TextEditingController controller;
+  final TextEditingController postalCodeController;
+  final String label;
+  final GeoCoord? coord;
+  final DateTime? eventDate;
+  final ValueChanged<GeoCoord?> onCoordChanged;
+
+  const _PlaceField({
+    required this.controller,
+    required this.postalCodeController,
+    required this.label,
+    required this.coord,
+    required this.eventDate,
+    required this.onCoordChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Place name text field ──────────────────────────────────────────
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            suffixIcon: IconButton(
+              icon: Icon(Icons.map_outlined, color: colorScheme.primary),
+              tooltip: 'Pick on map',
+              onPressed: () async {
+                final result = await Navigator.push<GeoCoord?>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        MapPickerScreen(initialCoord: coord),
+                  ),
+                );
+                // result == null means the user pressed back without confirming;
+                // we only update if the screen returned something (even an
+                // explicit clear returns null via the Clear button path handled
+                // inside the screen — here result is simply absent so no-op).
+                if (result != null) {
+                  onCoordChanged(result);
+                }
+              },
+            ),
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+
+        // ── Postal / ZIP code field ────────────────────────────────────────
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: postalCodeController,
+          decoration: InputDecoration(
+            labelText: 'Postal / ZIP code',
+            prefixIcon:
+                Icon(Icons.local_post_office_outlined, size: 18,
+                    color: colorScheme.onSurfaceVariant),
+          ),
+          keyboardType: TextInputType.text,
+        ),
+
+        // ── Coord info chip ────────────────────────────────────────────────
+        if (coord != null) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              // Coordinate badge
+              _InfoChip(
+                icon: Icons.my_location,
+                label: coord!.coordinateLabel,
+                colorScheme: colorScheme,
+              ),
+              // Political boundaries badge
+              if (coord!.politicalBoundaries.isNotEmpty)
+                _InfoChip(
+                  icon: Icons.account_balance_outlined,
+                  label: coord!.politicalBoundaries,
+                  colorScheme: colorScheme,
+                ),
+              // Clear coord button
+              ActionChip(
+                avatar: Icon(Icons.close, size: 14,
+                    color: colorScheme.error),
+                label: Text('Clear pin',
+                    style: TextStyle(
+                        fontSize: 11, color: colorScheme.error)),
+                onPressed: () => onCoordChanged(null),
+                side: BorderSide(color: colorScheme.error.withOpacity(0.3)),
+                backgroundColor:
+                    colorScheme.error.withOpacity(0.08),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme colorScheme;
+
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: colorScheme.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: colorScheme.primary),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

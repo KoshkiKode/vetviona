@@ -75,7 +75,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -103,7 +103,13 @@ class TreeProvider extends ChangeNotifier {
             nationality TEXT,
             maidenName TEXT,
             burialDate TEXT,
-            burialPlace TEXT
+            burialPlace TEXT,
+            birthCoord TEXT,
+            deathCoord TEXT,
+            burialCoord TEXT,
+            birthPostalCode TEXT,
+            deathPostalCode TEXT,
+            burialPostalCode TEXT
           )
         ''');
         await db.execute('''
@@ -230,6 +236,14 @@ class TreeProvider extends ChangeNotifier {
               treeId TEXT
             )
           ''');
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE persons ADD COLUMN birthCoord TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN deathCoord TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN burialCoord TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN birthPostalCode TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN deathPostalCode TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN burialPostalCode TEXT');
         }
       },
     );
