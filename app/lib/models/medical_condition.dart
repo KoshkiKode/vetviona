@@ -1,0 +1,257 @@
+class MedicalCondition {
+  String id;
+  String personId;
+  String condition;
+  String category;
+  String? ageOfOnset;
+  String? notes;
+  String? treeId;
+
+  /// Local file paths for attached medical records, lab results, or scans.
+  List<String> attachmentPaths;
+
+  static const List<String> categories = [
+    'Cardiovascular',
+    'Cancer',
+    'Mental Health',
+    'Neurological',
+    'Metabolic / Endocrine',
+    'Autoimmune / Immune',
+    'Respiratory',
+    'Genetic / Chromosomal',
+    'Musculoskeletal',
+    'Gastrointestinal',
+    'Renal / Urological',
+    'Reproductive / Gynaecological',
+    'Dermatological',
+    'Sensory (Vision / Hearing)',
+    'Haematological / Blood',
+    'Infectious / Tropical',
+    'Congenital / Developmental',
+    'Other',
+  ];
+
+  /// Common condition names grouped by category, used as quick-fill
+  /// suggestions in the add/edit sheet.
+  static const Map<String, List<String>> suggestions = {
+    'Cardiovascular': [
+      'Hypertension',
+      'Coronary Artery Disease',
+      'Heart Failure',
+      'Atrial Fibrillation',
+      'Stroke / TIA',
+      'Peripheral Arterial Disease',
+      'Deep Vein Thrombosis',
+      'Aortic Aneurysm',
+      'Cardiomyopathy',
+      'Congenital Heart Defect',
+    ],
+    'Cancer': [
+      'Breast Cancer',
+      'Prostate Cancer',
+      'Colorectal Cancer',
+      'Lung Cancer',
+      'Melanoma / Skin Cancer',
+      'Leukaemia',
+      'Lymphoma',
+      'Ovarian Cancer',
+      'Cervical Cancer',
+      'Pancreatic Cancer',
+      'Thyroid Cancer',
+      'Brain Tumour',
+      'Kidney Cancer',
+    ],
+    'Mental Health': [
+      'Depression',
+      'Anxiety Disorder',
+      'Bipolar Disorder',
+      'Schizophrenia',
+      'Post-Traumatic Stress Disorder (PTSD)',
+      'Obsessive-Compulsive Disorder (OCD)',
+      'Eating Disorder',
+      'Substance Use Disorder',
+      'Autism Spectrum Disorder',
+      'Attention Deficit Disorder (ADHD)',
+    ],
+    'Neurological': [
+      "Alzheimer's Disease",
+      "Parkinson's Disease",
+      'Epilepsy',
+      'Multiple Sclerosis',
+      'Migraine',
+      "Huntington's Disease",
+      'Motor Neurone Disease',
+      'Cerebral Palsy',
+      'Peripheral Neuropathy',
+    ],
+    'Metabolic / Endocrine': [
+      'Type 1 Diabetes',
+      'Type 2 Diabetes',
+      'Hypothyroidism',
+      'Hyperthyroidism',
+      'Obesity',
+      'Hypercholesterolaemia',
+      "Cushing's Syndrome",
+      "Addison's Disease",
+      'Gout',
+      'Metabolic Syndrome',
+    ],
+    'Autoimmune / Immune': [
+      'Rheumatoid Arthritis',
+      'Systemic Lupus Erythematosus (SLE)',
+      "Sjögren's Syndrome",
+      "Hashimoto's Thyroiditis",
+      "Graves' Disease",
+      'Multiple Sclerosis',
+      'Psoriasis',
+      "Crohn's Disease",
+      'Ulcerative Colitis',
+      'Coeliac Disease',
+    ],
+    'Respiratory': [
+      'Asthma',
+      'Chronic Obstructive Pulmonary Disease (COPD)',
+      'Emphysema',
+      'Cystic Fibrosis',
+      'Sleep Apnoea',
+      'Pulmonary Fibrosis',
+      'Tuberculosis',
+      'Pulmonary Hypertension',
+    ],
+    'Genetic / Chromosomal': [
+      'Down Syndrome (Trisomy 21)',
+      "Turner's Syndrome",
+      "Klinefelter's Syndrome",
+      'Fragile X Syndrome',
+      'BRCA1 / BRCA2 Mutation',
+      'Sickle Cell Disease',
+      'Haemophilia A',
+      'Haemophilia B',
+      'Phenylketonuria (PKU)',
+      "Wilson's Disease",
+      "Marfan's Syndrome",
+      "Ehlers-Danlos Syndrome",
+    ],
+    'Musculoskeletal': [
+      'Osteoporosis',
+      'Osteoarthritis',
+      'Rheumatoid Arthritis',
+      'Ankylosing Spondylitis',
+      'Fibromyalgia',
+      'Scoliosis',
+      'Muscular Dystrophy',
+      'Gout',
+    ],
+    'Gastrointestinal': [
+      "Crohn's Disease",
+      'Ulcerative Colitis',
+      "Barrett's Oesophagus",
+      'Liver Cirrhosis',
+      'Fatty Liver Disease',
+      'Gallstones',
+      'Peptic Ulcer Disease',
+      'Pancreatitis',
+      'Coeliac Disease',
+      'Irritable Bowel Syndrome',
+    ],
+    'Renal / Urological': [
+      'Chronic Kidney Disease',
+      'Polycystic Kidney Disease',
+      'Kidney Stones',
+      'Bladder Cancer',
+      'Prostate Hypertrophy (BPH)',
+      'Urinary Incontinence',
+    ],
+    'Reproductive / Gynaecological': [
+      'Endometriosis',
+      'Polycystic Ovary Syndrome (PCOS)',
+      'Uterine Fibroids',
+      'Premature Menopause',
+      'Infertility',
+      'Pre-eclampsia',
+    ],
+    'Dermatological': [
+      'Psoriasis',
+      'Eczema / Atopic Dermatitis',
+      'Rosacea',
+      'Vitiligo',
+      'Alopecia',
+      'Epidermolysis Bullosa',
+    ],
+    'Sensory (Vision / Hearing)': [
+      'Glaucoma',
+      'Macular Degeneration',
+      'Cataracts',
+      'Retinitis Pigmentosa',
+      'Colour Blindness',
+      'Hereditary Hearing Loss',
+      "Ménière's Disease",
+      'Otosclerosis',
+    ],
+    'Haematological / Blood': [
+      'Sickle Cell Disease',
+      'Thalassaemia',
+      'Haemophilia A',
+      'Haemophilia B',
+      'Von Willebrand Disease',
+      'Iron Deficiency Anaemia',
+      'Pernicious Anaemia',
+      'Thrombocytopenia',
+      'Polycythaemia Vera',
+    ],
+    'Infectious / Tropical': [
+      'Hepatitis B (chronic)',
+      'Hepatitis C (chronic)',
+      'HIV / AIDS',
+      'Tuberculosis',
+      'Malaria (recurrent)',
+    ],
+    'Congenital / Developmental': [
+      'Congenital Heart Defect',
+      'Cleft Lip / Palate',
+      'Hip Dysplasia',
+      'Spina Bifida',
+      'Hydrocephalus',
+      'Club Foot (Talipes)',
+    ],
+    'Other': [],
+  };
+
+  MedicalCondition({
+    required this.id,
+    required this.personId,
+    required this.condition,
+    required this.category,
+    this.ageOfOnset,
+    this.notes,
+    this.treeId,
+    List<String>? attachmentPaths,
+  }) : attachmentPaths = attachmentPaths ?? [];
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'personId': personId,
+        'condition': condition,
+        'category': category,
+        'ageOfOnset': ageOfOnset,
+        'notes': notes,
+        'treeId': treeId,
+        'attachmentPaths': attachmentPaths.join(';'),
+      };
+
+  factory MedicalCondition.fromMap(Map<String, dynamic> map) =>
+      MedicalCondition(
+        id: map['id'] as String,
+        personId: map['personId'] as String,
+        condition: map['condition'] as String,
+        category: map['category'] as String,
+        ageOfOnset: map['ageOfOnset'] as String?,
+        notes: map['notes'] as String?,
+        treeId: map['treeId'] as String?,
+        attachmentPaths: (map['attachmentPaths'] as String?)
+                ?.split(';')
+                .where((s) => s.isNotEmpty)
+                .toList() ??
+            [],
+      );
+}

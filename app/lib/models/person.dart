@@ -43,6 +43,16 @@ class Person {
   /// Postal / ZIP code for the burial place.
   String? burialPostalCode;
 
+  /// When `true`, this person is excluded from GEDCOM exports and RootLoop™
+  /// sync — their data stays strictly local.  Intended for living family
+  /// members whose contact details and records should never leave the device.
+  bool isPrivate;
+
+  /// Maps fact name (e.g. `'Birth Date'`, `'Death Place'`) to the ID of the
+  /// preferred source for that fact, as resolved in the Evidence Conflict
+  /// Resolver.
+  Map<String, String> preferredSourceIds;
+
   static const List<String> allParentRelTypes = [
     'biological',
     'adoptive',
@@ -77,11 +87,14 @@ class Person {
     this.birthPostalCode,
     this.deathPostalCode,
     this.burialPostalCode,
+    this.isPrivate = false,
+    Map<String, String>? preferredSourceIds,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
         photoPaths = photoPaths ?? [],
-        sourceIds = sourceIds ?? [];
+        sourceIds = sourceIds ?? [],
+        preferredSourceIds = preferredSourceIds ?? {};
 
   /// Returns the relationship type for [parentId], defaulting to `biological`.
   String parentRelType(String parentId) =>
@@ -133,6 +146,12 @@ class Person {
       'birthPostalCode': birthPostalCode,
       'deathPostalCode': deathPostalCode,
       'burialPostalCode': burialPostalCode,
+      'isPrivate': isPrivate ? 1 : 0,
+      // Encoded as "fact=sourceId,fact=sourceId"; fact names use spaces but
+      // never '=' or ',', so the encoding is unambiguous.
+      'preferredSourceIds': preferredSourceIds.entries
+          .map((e) => '${e.key}=${e.value}')
+          .join(','),
     };
   }
 
@@ -143,6 +162,14 @@ class Person {
       final idx = entry.indexOf('=');
       if (idx > 0) {
         relTypes[entry.substring(0, idx)] = entry.substring(idx + 1);
+      }
+    }
+    final prefRaw = map['preferredSourceIds'] as String? ?? '';
+    final prefSourceIds = <String, String>{};
+    for (final entry in prefRaw.split(',')) {
+      final idx = entry.indexOf('=');
+      if (idx > 0) {
+        prefSourceIds[entry.substring(0, idx)] = entry.substring(idx + 1);
       }
     }
     return Person(
@@ -193,6 +220,8 @@ class Person {
       birthPostalCode: map['birthPostalCode'] as String?,
       deathPostalCode: map['deathPostalCode'] as String?,
       burialPostalCode: map['burialPostalCode'] as String?,
+      isPrivate: (map['isPrivate'] as int? ?? 0) != 0,
+      preferredSourceIds: prefSourceIds,
     );
   }
 }

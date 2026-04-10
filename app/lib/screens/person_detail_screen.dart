@@ -13,7 +13,9 @@ import '../models/life_event.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import 'map_picker_screen.dart';
+import 'medical_history_screen.dart';
 import 'photo_gallery_screen.dart';
+import 'research_tasks_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -45,6 +47,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   GeoCoord? _deathCoord;
   GeoCoord? _burialCoord;
   bool _isLiving = true;
+  bool _isPrivate = false;
   late List<String> _photoPaths;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
@@ -83,6 +86,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _burialCoord = widget.person?.burialCoord;
     _isLiving =
         widget.person == null || widget.person!.deathDate == null;
+    _isPrivate = widget.person?.isPrivate ?? false;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
   }
 
@@ -184,6 +188,19 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   value: _isLiving,
                   onChanged: (v) => setState(() => _isLiving = v),
                   title: const Text('Currently living'),
+                  contentPadding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                SwitchListTile(
+                  value: _isPrivate,
+                  onChanged: (v) => setState(() => _isPrivate = v),
+                  title: const Text('Private (living person)'),
+                  subtitle: const Text(
+                    'Excluded from all exports & sync',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  secondary: const Icon(Icons.lock_outline),
                   contentPadding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -443,8 +460,35 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (isEditing)
+            if (isEditing) ...[
               _LifeEventsSection(personId: widget.person!.id),
+              const SizedBox(height: 8),
+              _QuickLinkCard(
+                icon: Icons.local_hospital_outlined,
+                title: 'Medical History',
+                subtitle: 'Track inherited conditions',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        MedicalHistoryScreen(person: widget.person),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _QuickLinkCard(
+                icon: Icons.assignment_outlined,
+                title: 'Research Tasks',
+                subtitle: 'To-do items for this person',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ResearchTasksScreen(person: widget.person),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton.icon(
               icon: const Icon(Icons.save),
@@ -579,6 +623,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           : (_burialPostalCodeController.text.trim().isEmpty
               ? null
               : _burialPostalCodeController.text.trim()),
+      isPrivate: _isPrivate,
+      preferredSourceIds: widget.person?.preferredSourceIds ?? {},
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
@@ -819,6 +865,40 @@ class _DatePickerTile extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Quick link card ────────────────────────────────────────────────────────────
+
+class _QuickLinkCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _QuickLinkCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: ListTile(
+        leading: Icon(icon, color: colorScheme.primary),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle,
+            style: TextStyle(
+                color: colorScheme.onSurfaceVariant, fontSize: 12)),
+        trailing: Icon(Icons.chevron_right,
+            color: colorScheme.onSurfaceVariant.withOpacity(0.5)),
+        onTap: onTap,
       ),
     );
   }
