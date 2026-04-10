@@ -8,6 +8,7 @@ import '../config/app_config.dart';
 import '../config/build_metadata.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
+import '../services/sound_service.dart';
 import 'sync_screen.dart';
 
 /// Whether Bluetooth sync is supported on the current platform.
@@ -26,6 +27,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _wifiSync = true;
   bool _bluetoothSync = false;
+  bool _soundEnabled = true;
 
   @override
   void initState() {
@@ -38,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _wifiSync = prefs.getBool('wifiSync') ?? true;
       _bluetoothSync = prefs.getBool('bluetoothSync') ?? false;
+      _soundEnabled = prefs.getBool('soundEnabled') ?? true;
     });
   }
 
@@ -123,6 +126,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: const Text('Reset to default'),
                   ),
                 ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Sound ─────────────────────────────────────────────
+          _SectionCard(
+            icon: Icons.volume_up_outlined,
+            title: 'Sound',
+            children: [
+              SwitchListTile(
+                title: const Text('UI Sounds'),
+                subtitle: const Text(
+                    'Sync, success, failure and warning tones'),
+                secondary: Icon(_soundEnabled
+                    ? Icons.volume_up
+                    : Icons.volume_off),
+                value: _soundEnabled,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (v) {
+                  setState(() => _soundEnabled = v);
+                  SoundService.instance.setSoundEnabled(v);
+                  if (v) SoundService.instance.playSuccess();
+                },
               ),
             ],
           ),
