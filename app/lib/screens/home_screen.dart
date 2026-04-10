@@ -10,6 +10,7 @@ import 'login_screen.dart';
 import 'person_detail_screen.dart';
 import 'relationship_finder_screen.dart';
 import 'settings_screen.dart';
+import 'sync_screen.dart';
 import 'tree_diagram_screen.dart';
 import 'tree_screen.dart';
 
@@ -349,9 +350,20 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.sync_outlined),
+            title: const Text('RootLoop\u2122 Sync'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SyncScreen()),
+              );
+            },
+          ),
           const Divider(),
-          // Multiple family trees are desktop-only for now.
-          if (currentAppTier == AppTier.desktopPro) ...[
+          // Multiple family trees are available for paid tiers.
+          if (currentAppTier != AppTier.mobileFree) ...[
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

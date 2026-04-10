@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -24,6 +29,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   DateTime? _birthDate;
   DateTime? _deathDate;
   bool _isLiving = true;
+  late List<String> _photoPaths;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
 
@@ -43,6 +49,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _deathDate = widget.person?.deathDate;
     _isLiving =
         widget.person == null || widget.person!.deathDate == null;
+    _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
   }
 
   @override
@@ -52,6 +59,31 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _deathPlaceController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  /// Picks one or more photos from the gallery / file system.
+  Future<void> _pickPhotos() async {
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux);
+
+    List<String> newPaths = [];
+    if (isDesktop) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
+      if (result != null) {
+        newPaths = result.files.map((f) => f.path).whereType<String>().toList();
+      }
+    } else {
+      final images = await ImagePicker().pickMultiImage();
+      newPaths = images.map((x) => x.path).toList();
+    }
+    if (newPaths.isNotEmpty) {
+      setState(() => _photoPaths.addAll(newPaths));
+    }
   }
 
   @override
@@ -180,6 +212,80 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _buildSection(
+              context,
+              icon: Icons.photo_library_outlined,
+              title: 'Photos',
+              children: [
+                if (_photoPaths.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'No photos added.',
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 100,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _photoPaths.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) {
+                        final path = _photoPaths[i];
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(path),
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 100,
+                                  height: 100,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest,
+                                  child: const Icon(Icons.broken_image),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 2,
+                              right: 2,
+                              child: GestureDetector(
+                                onTap: () => setState(
+                                    () => _photoPaths.removeAt(i)),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.close,
+                                      size: 16, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: const Text('Add Photo'),
+                  onPressed: _pickPhotos,
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
             FilledButton.icon(
               icon: const Icon(Icons.save),
@@ -263,7 +369,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               ? null
               : _deathPlaceController.text.trim()),
       gender: _gender,
-      photoPaths: widget.person?.photoPaths ?? [],
+      photoPaths: _photoPaths,
       sourceIds: widget.person?.sourceIds ?? [],
       parentIds: widget.person?.parentIds ?? [],
       childIds: widget.person?.childIds ?? [],

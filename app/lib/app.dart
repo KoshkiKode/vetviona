@@ -5,30 +5,38 @@ import 'providers/tree_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'config/build_metadata.dart';
+import 'services/sync_service.dart';
 
-class VetvionaApp extends StatefulWidget {
+class VetvionaApp extends StatelessWidget {
   const VetvionaApp({super.key});
-
-  @override
-  State<VetvionaApp> createState() => _VetvionaAppState();
-}
-
-class _VetvionaAppState extends State<VetvionaApp> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TreeProvider>().loadPersons();
-      context.read<ThemeProvider>().loadTheme();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TreeProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = TreeProvider();
+            provider.loadPersons();
+            return provider;
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = ThemeProvider();
+            provider.loadTheme();
+            return provider;
+          },
+        ),
+        // SyncService keeps a live reference to TreeProvider so it can
+        // read/write tree data during sync operations.
+        ChangeNotifierProxyProvider<TreeProvider, SyncService>(
+          create: (_) => SyncService(),
+          update: (_, treeProvider, syncService) {
+            syncService!.treeProvider = treeProvider;
+            return syncService;
+          },
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) => MaterialApp(
