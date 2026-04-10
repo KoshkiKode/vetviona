@@ -937,7 +937,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final personMap = {for (final p in provider.persons) p.id: p};
 
       for (final p in provider.persons) {
-        String fmt(DateTime? d) => d != null ? d.toIso8601String().split('T').first : '';
+        String formatDate(DateTime? d) =>
+          d != null ? d.toIso8601String().split('T').first : '';
 
         final parents = p.parentIds
             .map((id) => personMap[id]?.name ?? id)
@@ -953,14 +954,14 @@ class _HomeScreenState extends State<HomeScreen> {
         final row = [
           p.name,
           p.gender ?? '',
-          fmt(p.birthDate),
+          formatDate(p.birthDate),
           p.birthPlace ?? '',
-          fmt(p.deathDate),
+          formatDate(p.deathDate),
           p.deathPlace ?? '',
           p.occupation ?? '',
           p.nationality ?? '',
           p.maidenName ?? '',
-          fmt(p.burialDate),
+          formatDate(p.burialDate),
           p.burialPlace ?? '',
           p.notes ?? '',
           parents,

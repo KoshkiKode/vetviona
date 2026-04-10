@@ -239,12 +239,18 @@ String describeRelationship(
     final minDeg = ups < downs ? ups : downs;
     final diff = (ups - downs).abs();
     final cousinDegree = minDeg - 1;
-    final ordinal = switch (cousinDegree) {
-      1 => '1st',
-      2 => '2nd',
-      3 => '3rd',
-      _ => '${cousinDegree}th',
-    };
+    // Correct ordinal suffix: 11th/12th/13th are exceptions
+    final String ordinal;
+    if (cousinDegree >= 11 && cousinDegree <= 13) {
+      ordinal = '${cousinDegree}th';
+    } else {
+      ordinal = switch (cousinDegree % 10) {
+        1 => '${cousinDegree}st',
+        2 => '${cousinDegree}nd',
+        3 => '${cousinDegree}rd',
+        _ => '${cousinDegree}th',
+      };
+    }
     if (diff == 0) return '$ordinal Cousin';
     final removedLabel = diff == 1 ? 'once removed' : '$diff times removed';
     return '$ordinal Cousin $removedLabel';
