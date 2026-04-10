@@ -12,6 +12,7 @@ import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import 'calendar_screen.dart';
 import 'login_screen.dart';
+import 'pedigree_screen.dart';
 import 'person_detail_screen.dart';
 import 'relationship_finder_screen.dart';
 import 'settings_screen.dart';
@@ -209,6 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     persons: provider.persons,
                     partnerships: provider.partnerships,
                   ),
+                _buildDuplicateBanner(context, provider),
                 if (_recentIds.isNotEmpty && _searchQuery.isEmpty)
                   _buildRecentPeople(context, provider),
                 _buildFilterSortBar(context),
@@ -467,6 +469,17 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.family_restroom),
+            title: const Text('Pedigree Chart'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PedigreeScreen()),
+              );
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.calendar_month_outlined),
             title: const Text('Birthdays & Anniversaries'),
             onTap: () {
@@ -531,6 +544,14 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () {
               Navigator.pop(context);
               _exportGEDCOM(context, provider);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.table_view_outlined),
+            title: const Text('Export to CSV'),
+            onTap: () {
+              Navigator.pop(context);
+              _exportCSV(context, provider);
             },
           ),
           const Divider(),
@@ -771,6 +792,202 @@ class _HomeScreenState extends State<HomeScreen> {
             color: colorScheme.outlineVariant.withOpacity(0.5)),
       ],
     );
+  }
+
+  Widget _buildDuplicateBanner(BuildContext context, TreeProvider provider) {
+    final dupes = provider.findDuplicates();
+    if (dupes.isEmpty) return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.error.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              color: colorScheme.error, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '\u26A0 Possible duplicates detected: ${dupes.length} group${dupes.length == 1 ? '' : 's'}',
+              style: TextStyle(
+                  color: colorScheme.onErrorContainer,
+                  fontWeight: FontWeight.w500),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _showDuplicatesDialog(context, provider, dupes),
+            child: const Text('Review'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDuplicatesDialog(BuildContext context, TreeProvider provider,
+      List<List<Person>> dupes) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Possible Duplicates'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: dupes.length,
+            itemBuilder: (context, gi) {
+              final group = dupes[gi];
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (gi > 0) const Divider(height: 16),
+                  Text(
+                    'Group ${gi + 1}',
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  for (int i = 0; i < group.length; i++)
+                    for (int j = i + 1; j < group.length; j++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(group[i].name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                  if (group[i].birthDate != null)
+                                    Text(
+                                        'b. ${group[i].birthDate!.year}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
+                                  const SizedBox(height: 2),
+                                  Text(group[j].name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                  if (group[j].birthDate != null)
+                                    Text(
+                                        'b. ${group[j].birthDate!.year}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                Navigator.pop(ctx);
+                                await provider.mergePersons(
+                                    group[i].id, group[j].id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Merged "${group[j].name}" into "${group[i].name}"'),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text('Merge'),
+                            ),
+                          ],
+                        ),
+                      ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportCSV(
+      BuildContext context, TreeProvider provider) async {
+    try {
+      String quoteCsvField(String field) {
+        if (field.contains(',') ||
+            field.contains('"') ||
+            field.contains('\n')) {
+          return '"${field.replaceAll('"', '""')}"';
+        }
+        return field;
+      }
+
+      final buf = StringBuffer();
+      buf.writeln(
+          'Name,Gender,Birth Date,Birth Place,Death Date,Death Place,Occupation,Nationality,Maiden Name,Burial Date,Burial Place,Notes,Parents,Children,Partners');
+
+      final personMap = {for (final p in provider.persons) p.id: p};
+
+      for (final p in provider.persons) {
+        String fmt(DateTime? d) => d != null ? d.toIso8601String().split('T').first : '';
+
+        final parents = p.parentIds
+            .map((id) => personMap[id]?.name ?? id)
+            .join('; ');
+        final children = p.childIds
+            .map((id) => personMap[id]?.name ?? id)
+            .join('; ');
+        final partners = provider
+            .partnerIdsFor(p.id)
+            .map((id) => personMap[id]?.name ?? id)
+            .join('; ');
+
+        final row = [
+          p.name,
+          p.gender ?? '',
+          fmt(p.birthDate),
+          p.birthPlace ?? '',
+          fmt(p.deathDate),
+          p.deathPlace ?? '',
+          p.occupation ?? '',
+          p.nationality ?? '',
+          p.maidenName ?? '',
+          fmt(p.burialDate),
+          p.burialPlace ?? '',
+          p.notes ?? '',
+          parents,
+          children,
+          partners,
+        ].map(quoteCsvField).join(',');
+
+        buf.writeln(row);
+      }
+
+      final dir = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/vetviona_export_$timestamp.csv');
+      await file.writeAsString(buf.toString());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CSV exported to: ${file.path}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CSV export failed: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _importGEDCOM(

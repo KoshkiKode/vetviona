@@ -4,6 +4,7 @@ import 'package:graphview/GraphView.dart';
 
 import '../providers/tree_provider.dart';
 import '../models/person.dart';
+import 'pedigree_screen.dart';
 import 'person_detail_screen.dart';
 
 class TreeDiagramScreen extends StatefulWidget {
@@ -90,6 +91,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       appBar: AppBar(
         title: const Text('Family Tree Diagram'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.family_restroom),
+            tooltip: 'Pedigree Chart',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PedigreeScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.fit_screen),
             tooltip: 'Reset view',
