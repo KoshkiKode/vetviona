@@ -185,22 +185,11 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
       }
     }
 
-    final updated = Person(
-      id: p.id,
-      name: p.name,
-      birthDate: p.birthDate,
-      birthPlace: p.birthPlace,
-      deathDate: p.deathDate,
-      deathPlace: p.deathPlace,
-      gender: p.gender,
-      parentIds: newParentIds,
-      parentRelTypes: newRelTypes,
-      childIds: p.childIds,
-      photoPaths: p.photoPaths,
-      sourceIds: p.sourceIds,
-      notes: p.notes,
-    );
-    await provider.updatePerson(updated);
+    // Mutate the person in place — avoids dropping new fields that weren't
+    // present in the original Person constructor call here.
+    p.parentIds = newParentIds;
+    p.parentRelTypes = newRelTypes;
+    await provider.updatePerson(p);
 
     if (mounted) Navigator.pop(context);
   }
@@ -533,6 +522,9 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
   DateTime? _endDate;
   late TextEditingController _startPlaceCtrl;
   late TextEditingController _endPlaceCtrl;
+  String? _ceremonyType;
+  late TextEditingController _witnessesCtrl;
+  late TextEditingController _notesCtrl;
 
   @override
   void initState() {
@@ -550,9 +542,14 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
           TextEditingController(text: pt.startPlace ?? '');
       _endPlaceCtrl =
           TextEditingController(text: pt.endPlace ?? '');
+      _ceremonyType = pt.ceremonyType;
+      _witnessesCtrl = TextEditingController(text: pt.witnesses ?? '');
+      _notesCtrl = TextEditingController(text: pt.notes ?? '');
     } else {
       _startPlaceCtrl = TextEditingController();
       _endPlaceCtrl = TextEditingController();
+      _witnessesCtrl = TextEditingController();
+      _notesCtrl = TextEditingController();
     }
   }
 
@@ -560,6 +557,8 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
   void dispose() {
     _startPlaceCtrl.dispose();
     _endPlaceCtrl.dispose();
+    _witnessesCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -673,6 +672,36 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
               ),
             ],
 
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              value: _ceremonyType,
+              decoration:
+                  const InputDecoration(labelText: 'Ceremony Type (optional)'),
+              items: [
+                const DropdownMenuItem<String?>(
+                    value: null, child: Text('Not specified')),
+                ...Partnership.allCeremonyTypes.map((t) =>
+                    DropdownMenuItem<String?>(
+                        value: t, child: Text(_ceremonyTypeLabel(t)))),
+              ],
+              onChanged: (v) => setState(() => _ceremonyType = v),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _witnessesCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Witnesses / Officiant (optional)'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _notesCtrl,
+              decoration:
+                  const InputDecoration(labelText: 'Notes (optional)'),
+              minLines: 2,
+              maxLines: 4,
+            ),
+
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -730,6 +759,8 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
     if (_partnerId == null) return;
     final sp = _startPlaceCtrl.text.trim();
     final ep = _endPlaceCtrl.text.trim();
+    final witnesses = _witnessesCtrl.text.trim();
+    final notes = _notesCtrl.text.trim();
     final result = Partnership(
       id: widget.existing?.id ?? '',
       person1Id: widget.currentPersonId,
@@ -739,8 +770,27 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
       startPlace: sp.isEmpty ? null : sp,
       endDate: _showEndFields ? _endDate : null,
       endPlace: (_showEndFields && ep.isNotEmpty) ? ep : null,
+      ceremonyType: _ceremonyType,
+      witnesses: witnesses.isEmpty ? null : witnesses,
+      notes: notes.isEmpty ? null : notes,
+      sourceIds: widget.existing?.sourceIds ?? [],
     );
     Navigator.pop(context, result);
+  }
+
+  String _ceremonyTypeLabel(String t) {
+    switch (t) {
+      case 'civil':
+        return 'Civil';
+      case 'religious':
+        return 'Religious';
+      case 'traditional':
+        return 'Traditional';
+      case 'common-law':
+        return 'Common-law';
+      default:
+        return 'Other';
+    }
   }
 }
 

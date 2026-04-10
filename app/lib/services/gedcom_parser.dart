@@ -41,7 +41,6 @@ const _titleToGedcomTag = {
   'Immigration': 'IMMI',
   'Emigration': 'EMIG',
   'Naturalization': 'NATU',
-  'Naturalization': 'NATU',
   'Residence': 'RESI',
   'Census': 'CENS',
   'Military Service': 'MILI',
