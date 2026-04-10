@@ -1061,45 +1061,36 @@ class _HomeScreenState extends State<HomeScreen> {
         final partners =
             provider.partnerIdsFor(p.id).map(resolveName).join('; ');
 
-        final List<String> values;
+        // Personal detail columns — blanked out for living people unless the
+        // user explicitly chose to include full data.
+        final String name;
+        final String gender, birthDate, birthPlace, deathDate, deathPlace,
+            occupation, nationality, maidenName, burialDate, burialPlace, notes;
         if (!includeLivingData && isLiving) {
-          // Replace all identifying details with generic placeholders.
-          values = [
-            'Living',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            parents,
-            children,
-            partners,
-          ];
+          name = 'Living';
+          gender = birthDate = birthPlace = deathDate = deathPlace =
+              occupation = nationality = maidenName =
+              burialDate = burialPlace = notes = '';
         } else {
-          values = [
-            p.name,
-            p.gender ?? '',
-            formatDate(p.birthDate),
-            p.birthPlace ?? '',
-            formatDate(p.deathDate),
-            p.deathPlace ?? '',
-            p.occupation ?? '',
-            p.nationality ?? '',
-            p.maidenName ?? '',
-            formatDate(p.burialDate),
-            p.burialPlace ?? '',
-            p.notes ?? '',
-            parents,
-            children,
-            partners,
-          ];
+          name = p.name;
+          gender = p.gender ?? '';
+          birthDate = formatDate(p.birthDate);
+          birthPlace = p.birthPlace ?? '';
+          deathDate = formatDate(p.deathDate);
+          deathPlace = p.deathPlace ?? '';
+          occupation = p.occupation ?? '';
+          nationality = p.nationality ?? '';
+          maidenName = p.maidenName ?? '';
+          burialDate = formatDate(p.burialDate);
+          burialPlace = p.burialPlace ?? '';
+          notes = p.notes ?? '';
         }
+
+        final values = [
+          name, gender, birthDate, birthPlace, deathDate, deathPlace,
+          occupation, nationality, maidenName, burialDate, burialPlace, notes,
+          parents, children, partners,
+        ];
 
         buf.writeln(values.map(quoteCsvField).join(','));
       }
