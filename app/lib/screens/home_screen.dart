@@ -451,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _importGEDCOM(
       BuildContext context, TreeProvider provider) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['ged', 'gedcom'],
     );

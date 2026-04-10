@@ -70,7 +70,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
     List<String> newPaths = [];
     if (isDesktop) {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: true,
       );
