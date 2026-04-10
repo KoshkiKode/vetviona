@@ -59,7 +59,7 @@ jobs:
 
       - name: Create DMG
         run: |
-          APP_PATH="app/build/macos/Build/Products/Release/vetviona.app"
+          APP_PATH="app/build/macos/Build/Products/Release/vetviona_app.app"
           DMG_PATH="vetviona-macos.dmg"
           hdiutil create -volname "Vetviona" \
             -srcfolder "$APP_PATH" \

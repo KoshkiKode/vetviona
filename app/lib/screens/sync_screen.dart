@@ -45,6 +45,8 @@ class _SyncScreenState extends State<SyncScreen> {
     final sync = context.watch<SyncService>();
     final tree = context.watch<TreeProvider>();
     final cs = Theme.of(context).colorScheme;
+    final wifiEnabled = sync.wifiSyncEnabled;
+    final bluetoothEnabled = sync.bluetoothSyncEnabled;
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +62,7 @@ class _SyncScreenState extends State<SyncScreen> {
             TextButton.icon(
               icon: Icon(Icons.play_circle_outlined, color: cs.onPrimary),
               label: Text('Go Online', style: TextStyle(color: cs.onPrimary)),
-              onPressed: () => sync.startServer(),
+              onPressed: wifiEnabled ? () => sync.startServer() : null,
             ),
         ],
       ),
@@ -143,15 +145,17 @@ class _SyncScreenState extends State<SyncScreen> {
                     child: const Text('Stop'),
                   )
                 : TextButton(
-                    onPressed: () => sync.startDiscovery(),
+                    onPressed: wifiEnabled ? () => sync.startDiscovery() : null,
                     child: const Text('Scan'),
                   ),
             children: [
               if (sync.discoveredPeers.isEmpty)
                 Text(
-                  sync.isDiscovering
-                      ? 'Scanning for Vetviona devices on this network\u2026'
-                      : 'No devices found. Tap Scan to start.',
+                  !wifiEnabled
+                      ? 'WiFi Auto-Sync is disabled in Settings.'
+                      : sync.isDiscovering
+                          ? 'Scanning for Vetviona devices on this network\u2026'
+                          : 'No devices found. Tap Scan to start.',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
@@ -175,7 +179,9 @@ class _SyncScreenState extends State<SyncScreen> {
             title: 'Manual Connect',
             children: [
               Text(
-                'Connect directly if mDNS discovery does not work on your network.',
+                wifiEnabled || bluetoothEnabled
+                    ? 'Connect directly if discovery does not work on your network.'
+                    : 'Enable WiFi Auto-Sync or Bluetooth Sync in Settings to sync.',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -216,7 +222,9 @@ class _SyncScreenState extends State<SyncScreen> {
               FilledButton.icon(
                 icon: const Icon(Icons.sync),
                 label: const Text('Sync Now'),
-                onPressed: () => _manualSync(context, sync),
+                onPressed: (wifiEnabled || bluetoothEnabled)
+                    ? () => _manualSync(context, sync)
+                    : null,
               ),
             ],
           ),
@@ -626,7 +634,7 @@ class _StatusBanner extends StatelessWidget {
         ),
       SyncStatus.success => (
           Icons.check_circle_outline,
-          Colors.green,
+          cs.tertiary,
           sync.lastMessage ?? 'Sync complete'
         ),
       SyncStatus.error => (

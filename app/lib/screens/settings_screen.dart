@@ -9,6 +9,7 @@ import '../config/build_metadata.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
 import '../services/sound_service.dart';
+import '../services/sync_service.dart';
 import 'sync_screen.dart';
 
 /// Whether Bluetooth sync is supported on the current platform.
@@ -36,23 +37,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
+    final sync = context.read<SyncService>();
+    await sync.loadSettings();
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
-      _wifiSync = prefs.getBool('wifiSync') ?? true;
-      _bluetoothSync = prefs.getBool('bluetoothSync') ?? false;
+      _wifiSync = sync.wifiSyncEnabled;
+      _bluetoothSync = sync.bluetoothSyncEnabled;
       _soundEnabled = prefs.getBool('soundEnabled') ?? true;
     });
-  }
-
-  Future<void> _saveBool(String key, bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final treeProvider = context.watch<TreeProvider>();
+    final syncService = context.watch<SyncService>();
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -223,7 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const Divider(height: 24),
-              ..._buildSyncChildren(context),
+              ..._buildSyncChildren(context, syncService),
             ],
           ),
 
@@ -356,7 +356,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  List<Widget> _buildSyncChildren(BuildContext context) {
+  List<Widget> _buildSyncChildren(BuildContext context, SyncService syncService) {
     final onSurfaceVariant = Theme.of(context).colorScheme.onSurfaceVariant;
     switch (currentAppTier) {
       case AppTier.mobileFree:
@@ -384,9 +384,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: const Text('Sync nearby via Bluetooth'),
               value: _bluetoothSync,
               contentPadding: EdgeInsets.zero,
-              onChanged: (v) {
+              onChanged: (v) async {
                 setState(() => _bluetoothSync = v);
-                _saveBool('bluetoothSync', v);
+                await syncService.setBluetoothSyncEnabled(v);
               },
             ),
           const Divider(height: 16),
@@ -431,9 +431,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('Sync automatically on home network'),
             value: _wifiSync,
             contentPadding: EdgeInsets.zero,
-            onChanged: (v) {
+            onChanged: (v) async {
               setState(() => _wifiSync = v);
-              _saveBool('wifiSync', v);
+              await syncService.setWifiSyncEnabled(v);
             },
           ),
           const Divider(height: 24),
@@ -463,9 +463,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: const Text('Sync nearby via Bluetooth'),
               value: _bluetoothSync,
               contentPadding: EdgeInsets.zero,
-              onChanged: (v) {
+              onChanged: (v) async {
                 setState(() => _bluetoothSync = v);
-                _saveBool('bluetoothSync', v);
+                await syncService.setBluetoothSyncEnabled(v);
               },
             ),
           if (currentAppTier == AppTier.desktopPro) ...[

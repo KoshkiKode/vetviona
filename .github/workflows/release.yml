@@ -88,7 +88,8 @@ jobs:
           flutter create --platforms=windows --org com.koshkikode .
           flutter pub get
           flutter build windows --release --dart-define=PAID=true
-      - run: dotnet tool install --global wix
+      - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
+      - run: dotnet tool install --global wix --version 5.0.2
       - run: cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
       - working-directory: app/build/windows/x64/runner/Release
         run: wix build vetviona.wxs -o vetviona-setup.msi
@@ -117,7 +118,7 @@ jobs:
           flutter build macos --release --dart-define=PAID=true
       - run: |
           hdiutil create -volname "Vetviona" \
-            -srcfolder "app/build/macos/Build/Products/Release/vetviona.app" \
+            -srcfolder "app/build/macos/Build/Products/Release/vetviona_app.app" \
             -ov -format UDZO vetviona-macos.dmg
       - uses: actions/upload-artifact@v4
         with:
@@ -135,7 +136,9 @@ jobs:
       - run: |
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev dpkg-dev
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            dpkg-dev
       - uses: subosito/flutter-action@v2
         with: { flutter-version: '3.22.x', channel: stable, cache: true }
       - working-directory: app
@@ -159,7 +162,7 @@ jobs:
           cat > "$PKGDIR/usr/share/applications/vetviona.desktop" <<EOF
           [Desktop Entry]
           Name=Vetviona
-          Exec=/usr/bin/vetviona
+          Exec=/usr/bin/vetviona_app
           Icon=vetviona
           Terminal=false
           Type=Application

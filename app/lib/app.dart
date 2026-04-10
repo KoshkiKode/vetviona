@@ -31,7 +31,11 @@ class VetvionaApp extends StatelessWidget {
         // SyncService keeps a live reference to TreeProvider so it can
         // read/write tree data during sync operations.
         ChangeNotifierProxyProvider<TreeProvider, SyncService>(
-          create: (_) => SyncService(),
+          create: (_) {
+            final service = SyncService();
+            service.loadSettings();
+            return service;
+          },
           update: (_, treeProvider, syncService) {
             syncService!.treeProvider = treeProvider;
             return syncService;

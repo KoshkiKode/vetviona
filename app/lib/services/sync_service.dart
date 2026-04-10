@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
@@ -76,6 +77,12 @@ class SyncService extends ChangeNotifier {
   bool _isDiscovering = false;
   bool get isDiscovering => _isDiscovering;
 
+  bool _wifiSyncEnabled = true;
+  bool get wifiSyncEnabled => _wifiSyncEnabled;
+
+  bool _bluetoothSyncEnabled = false;
+  bool get bluetoothSyncEnabled => _bluetoothSyncEnabled;
+
   final List<DiscoveredPeer> _discoveredPeers = [];
   List<DiscoveredPeer> get discoveredPeers =>
       List.unmodifiable(_discoveredPeers);
@@ -93,11 +100,46 @@ class SyncService extends ChangeNotifier {
   /// Injected by [ChangeNotifierProxyProvider] every time TreeProvider changes.
   TreeProvider? treeProvider;
 
+  // ── User settings ────────────────────────────────────────────────────────────
+
+  Future<void> loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    _wifiSyncEnabled = prefs.getBool('wifiSync') ?? true;
+    _bluetoothSyncEnabled = prefs.getBool('bluetoothSync') ?? false;
+    notifyListeners();
+  }
+
+  Future<void> setWifiSyncEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('wifiSync', enabled);
+    _wifiSyncEnabled = enabled;
+    if (!enabled) {
+      await stopServer();
+      await stopDiscovery();
+      _setStatus(SyncStatus.idle, 'WiFi sync is off');
+    } else if (_status == SyncStatus.idle && _lastMessage == 'WiFi sync is off') {
+      _setStatus(SyncStatus.idle, null);
+    } else {
+      notifyListeners();
+    }
+  }
+
+  Future<void> setBluetoothSyncEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('bluetoothSync', enabled);
+    _bluetoothSyncEnabled = enabled;
+    notifyListeners();
+  }
+
   // ── Server lifecycle ────────────────────────────────────────────────────────
 
   /// Starts the shelf HTTP server on a random port and begins mDNS advertisement.
   Future<void> startServer() async {
     if (_isServerRunning) return;
+    if (!_wifiSyncEnabled) {
+      _setStatus(SyncStatus.error, 'WiFi sync is disabled in Settings.');
+      return;
+    }
 
     final tp = treeProvider;
     if (tp == null) {
@@ -164,6 +206,10 @@ class SyncService extends ChangeNotifier {
   /// Starts mDNS discovery; populates [discoveredPeers] as devices appear.
   Future<void> startDiscovery() async {
     if (_isDiscovering) return;
+    if (!_wifiSyncEnabled) {
+      _setStatus(SyncStatus.error, 'WiFi sync is disabled in Settings.');
+      return;
+    }
     _isDiscovering = true;
     _setStatus(SyncStatus.discovering, 'Scanning for nearby devices…');
 
@@ -308,6 +354,10 @@ class SyncService extends ChangeNotifier {
   }) async {
     final tp = treeProvider;
     if (tp == null) return false;
+    if (!_wifiSyncEnabled && !_bluetoothSyncEnabled) {
+      _setStatus(SyncStatus.error, 'Enable WiFi or Bluetooth sync in Settings.');
+      return false;
+    }
 
     _setStatus(SyncStatus.syncing, 'Syncing…');
     try {

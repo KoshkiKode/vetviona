@@ -44,9 +44,12 @@ jobs:
         working-directory: app
         run: flutter build windows --release --dart-define=PAID=true
 
+      - name: Rename executable for packaging
+        run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
+
       # ── WiX MSI packaging ─────────────────────────────────────────────────
       - name: Install WiX Toolset
-        run: dotnet tool install --global wix
+        run: dotnet tool install --global wix --version 5.0.2
 
       - name: Copy WiX source
         run: cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs

@@ -265,11 +265,17 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                     () => _photoPaths.removeAt(i)),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.black54,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .scrim
+                                        .withOpacity(0.65),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: const Icon(Icons.close,
-                                      size: 16, color: Colors.white),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Theme.of(context).colorScheme.onPrimary,
+                                  ),
                                 ),
                               ),
                             ),
