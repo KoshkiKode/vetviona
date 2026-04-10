@@ -541,7 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.sync_outlined),
-            title: const Text('RootLoop\u2122 Sync'),
+            title: const Text('RootLoop™ Sync'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -1262,7 +1262,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.phone_android,
               tier: 'Mobile Paid',
               description:
-                  'Unlimited people · RootLoop\u2122 Auto Sync',
+                  'Unlimited people · RootLoop™ Auto Sync',
               color: colorScheme.secondary,
             ),
             const SizedBox(height: 8),
