@@ -16,6 +16,7 @@ import 'map_picker_screen.dart';
 import 'medical_history_screen.dart';
 import 'photo_gallery_screen.dart';
 import 'research_tasks_screen.dart';
+import 'descendants_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -49,6 +50,16 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   bool _isLiving = true;
   bool _isPrivate = false;
   late List<String> _photoPaths;
+
+  // New fields — physical traits and extra details
+  late TextEditingController _causeOfDeathController;
+  late TextEditingController _eyeColourController;
+  late TextEditingController _hairColourController;
+  late TextEditingController _heightController;
+  late TextEditingController _religionController;
+  late TextEditingController _educationController;
+  String? _bloodType;
+  late List<String> _aliases;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
 
@@ -88,6 +99,20 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         widget.person == null || widget.person!.deathDate == null;
     _isPrivate = widget.person?.isPrivate ?? false;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
+    _causeOfDeathController =
+        TextEditingController(text: widget.person?.causeOfDeath ?? '');
+    _eyeColourController =
+        TextEditingController(text: widget.person?.eyeColour ?? '');
+    _hairColourController =
+        TextEditingController(text: widget.person?.hairColour ?? '');
+    _heightController =
+        TextEditingController(text: widget.person?.height ?? '');
+    _religionController =
+        TextEditingController(text: widget.person?.religion ?? '');
+    _educationController =
+        TextEditingController(text: widget.person?.education ?? '');
+    _bloodType = widget.person?.bloodType;
+    _aliases = List<String>.from(widget.person?.aliases ?? []);
   }
 
   @override
@@ -103,6 +128,12 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _birthPostalCodeController.dispose();
     _deathPostalCodeController.dispose();
     _burialPostalCodeController.dispose();
+    _causeOfDeathController.dispose();
+    _eyeColourController.dispose();
+    _hairColourController.dispose();
+    _heightController.dispose();
+    _religionController.dispose();
+    _educationController.dispose();
     super.dispose();
   }
 
@@ -282,6 +313,13 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       });
                     },
                   ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _causeOfDeathController,
+                    decoration:
+                        const InputDecoration(labelText: 'Cause of Death'),
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
                 ],
               ),
             ],
@@ -297,6 +335,78 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       const InputDecoration(labelText: 'Notes (optional)'),
                   minLines: 3,
                   maxLines: 6,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildSection(
+              context,
+              icon: Icons.accessibility_new,
+              title: 'Physical Traits',
+              children: [
+                DropdownButtonFormField<String?>(
+                  value: _bloodType,
+                  decoration:
+                      const InputDecoration(labelText: 'Blood Type'),
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('Not specified')),
+                    ...Person.allBloodTypes.map(
+                        (t) => DropdownMenuItem(value: t, child: Text(t))),
+                  ],
+                  onChanged: (v) => setState(() => _bloodType = v),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _eyeColourController,
+                  decoration:
+                      const InputDecoration(labelText: 'Eye Colour'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _hairColourController,
+                  decoration:
+                      const InputDecoration(labelText: 'Hair Colour'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _heightController,
+                  decoration: const InputDecoration(
+                      labelText: 'Height (e.g. 178 cm)'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildSection(
+              context,
+              icon: Icons.badge_outlined,
+              title: 'Aliases / Also Known As',
+              children: [
+                ..._aliases.asMap().entries.map((entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(entry.value,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            tooltip: 'Remove alias',
+                            onPressed: () =>
+                                setState(() => _aliases.removeAt(entry.key)),
+                          ),
+                        ],
+                      ),
+                    )),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add Alias'),
+                  onPressed: () => _addAlias(context),
                 ),
               ],
             ),
@@ -324,6 +434,20 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   controller: _maidenNameController,
                   decoration:
                       const InputDecoration(labelText: 'Maiden Name'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _religionController,
+                  decoration:
+                      const InputDecoration(labelText: 'Religion / Faith'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _educationController,
+                  decoration: const InputDecoration(
+                      labelText: 'Education Level'),
                   textCapitalization: TextCapitalization.words,
                 ),
               ],
@@ -464,6 +588,19 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               _LifeEventsSection(personId: widget.person!.id),
               const SizedBox(height: 8),
               _QuickLinkCard(
+                icon: Icons.account_tree,
+                title: 'Descendants Chart',
+                subtitle: 'View all descendants of this person',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        DescendantsScreen(initialPerson: widget.person),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _QuickLinkCard(
                 icon: Icons.local_hospital_outlined,
                 title: 'Medical History',
                 subtitle: 'Track inherited conditions',
@@ -534,6 +671,36 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _addAlias(BuildContext context) async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Alias'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+              hintText: 'e.g. Birth name, nickname…'),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty && !_aliases.contains(result)) {
+      setState(() => _aliases.add(result));
+    }
   }
 
   Future<void> _selectDate(BuildContext context, bool isBirth) async {
@@ -625,6 +792,28 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               : _burialPostalCodeController.text.trim()),
       isPrivate: _isPrivate,
       preferredSourceIds: widget.person?.preferredSourceIds ?? {},
+      causeOfDeath: _isLiving
+          ? null
+          : (_causeOfDeathController.text.trim().isEmpty
+              ? null
+              : _causeOfDeathController.text.trim()),
+      bloodType: _bloodType,
+      eyeColour: _eyeColourController.text.trim().isEmpty
+          ? null
+          : _eyeColourController.text.trim(),
+      hairColour: _hairColourController.text.trim().isEmpty
+          ? null
+          : _hairColourController.text.trim(),
+      height: _heightController.text.trim().isEmpty
+          ? null
+          : _heightController.text.trim(),
+      religion: _religionController.text.trim().isEmpty
+          ? null
+          : _religionController.text.trim(),
+      education: _educationController.text.trim().isEmpty
+          ? null
+          : _educationController.text.trim(),
+      aliases: _aliases,
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
