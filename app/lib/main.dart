@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'config/app_config.dart';
+import 'services/sound_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SoundService.instance.init();
   runApp(const _RootWidget());
 }
 

@@ -15,6 +15,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../config/app_config.dart';
 import '../models/device.dart';
 import '../providers/tree_provider.dart';
+import 'sound_service.dart';
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -415,6 +416,23 @@ class SyncService extends ChangeNotifier {
     _status = status;
     _lastMessage = message;
     notifyListeners();
+    _playSound(status);
+  }
+
+  void _playSound(SyncStatus status) {
+    final snd = SoundService.instance;
+    switch (status) {
+      case SyncStatus.syncing:
+        snd.playSyncStart();
+      case SyncStatus.success:
+        snd.playSyncComplete();
+      case SyncStatus.error:
+        snd.playFailure();
+      case SyncStatus.advertising:
+      case SyncStatus.discovering:
+      case SyncStatus.idle:
+        break;
+    }
   }
 
   @override
