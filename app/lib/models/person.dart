@@ -17,6 +17,11 @@ class Person {
   List<String> sourceIds;
   String? notes;
   String? treeId;
+  String? occupation;
+  String? nationality;
+  String? maidenName;
+  DateTime? burialDate;
+  String? burialPlace;
 
   static const List<String> allParentRelTypes = [
     'biological',
@@ -41,6 +46,11 @@ class Person {
     List<String>? sourceIds,
     this.notes,
     this.treeId,
+    this.occupation,
+    this.nationality,
+    this.maidenName,
+    this.burialDate,
+    this.burialPlace,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
@@ -86,6 +96,11 @@ class Person {
           .join(','),
       'notes': notes,
       'treeId': treeId,
+      'occupation': occupation,
+      'nationality': nationality,
+      'maidenName': maidenName,
+      'burialDate': burialDate?.toIso8601String(),
+      'burialPlace': burialPlace,
     };
   }
 
@@ -133,6 +148,13 @@ class Person {
           [],
       notes: map['notes'] as String?,
       treeId: map['treeId'] as String?,
+      occupation: map['occupation'] as String?,
+      nationality: map['nationality'] as String?,
+      maidenName: map['maidenName'] as String?,
+      burialDate: map['burialDate'] != null
+          ? DateTime.parse(map['burialDate'] as String)
+          : null,
+      burialPlace: map['burialPlace'] as String?,
     );
   }
 }

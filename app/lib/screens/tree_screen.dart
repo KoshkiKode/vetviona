@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -287,6 +289,7 @@ class _PersonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final (avatarBg, avatarFg) = _avatarColors(context);
+    final hasPhoto = person.photoPaths.isNotEmpty;
 
     return Card(
       child: Column(
@@ -294,20 +297,28 @@ class _PersonCard extends StatelessWidget {
           ListTile(
             contentPadding:
                 const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            leading: CircleAvatar(
-              radius: 24,
-              backgroundColor: avatarBg,
-              child: Text(
-                person.name.isNotEmpty
-                    ? person.name[0].toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  color: avatarFg,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ),
+            leading: hasPhoto
+                ? CircleAvatar(
+                    radius: 24,
+                    backgroundImage:
+                        FileImage(File(person.photoPaths.first)),
+                    backgroundColor: avatarBg,
+                    onBackgroundImageError: (_, __) {},
+                  )
+                : CircleAvatar(
+                    radius: 24,
+                    backgroundColor: avatarBg,
+                    child: Text(
+                      person.name.isNotEmpty
+                          ? person.name[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        color: avatarFg,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
             title: Text(
               person.name,
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -395,28 +406,22 @@ class _PersonCard extends StatelessWidget {
 
   Future<void> _confirmDelete(
       BuildContext context, Person person) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Person'),
-        content:
-            Text('Delete ${person.name}? This cannot be undone.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
+    final provider = context.read<TreeProvider>();
+    await provider.deletePerson(person.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${person.name} deleted'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            await provider.addPerson(person);
+          },
+        ),
       ),
     );
-    if (confirmed == true && context.mounted) {
-      await context.read<TreeProvider>().deletePerson(person.id);
-    }
   }
 }
 

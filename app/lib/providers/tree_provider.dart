@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
 import '../models/device.dart';
+import '../models/life_event.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
@@ -22,6 +23,7 @@ class TreeProvider extends ChangeNotifier {
   List<Person> persons = [];
   List<Source> sources = [];
   List<Partnership> partnerships = [];
+  List<LifeEvent> lifeEvents = [];
   List<String> treeNames = [];
   String currentTreeId = 'default';
   List<Device> pairedDevices = [];
@@ -73,7 +75,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -96,7 +98,12 @@ class TreeProvider extends ChangeNotifier {
             sourceIds TEXT,
             parentRelTypes TEXT,
             notes TEXT,
-            treeId TEXT
+            treeId TEXT,
+            occupation TEXT,
+            nationality TEXT,
+            maidenName TEXT,
+            burialDate TEXT,
+            burialPlace TEXT
           )
         ''');
         await db.execute('''
@@ -128,6 +135,17 @@ class TreeProvider extends ChangeNotifier {
             startPlace TEXT,
             endDate TEXT,
             endPlace TEXT,
+            treeId TEXT
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE life_events (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            date TEXT,
+            place TEXT,
+            notes TEXT,
             treeId TEXT
           )
         ''');
@@ -185,6 +203,34 @@ class TreeProvider extends ChangeNotifier {
             });
           }
         }
+        if (oldVersion < 4) {
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN occupation TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN nationality TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN maidenName TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN burialDate TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN burialPlace TEXT',
+          );
+          await db.execute('''
+            CREATE TABLE life_events (
+              id TEXT PRIMARY KEY,
+              personId TEXT NOT NULL,
+              title TEXT NOT NULL,
+              date TEXT,
+              place TEXT,
+              notes TEXT,
+              treeId TEXT
+            )
+          ''');
+        }
       },
     );
   }
@@ -218,6 +264,12 @@ class TreeProvider extends ChangeNotifier {
       whereArgs: [currentTreeId],
     );
     partnerships = partnershipMaps.map(Partnership.fromMap).toList();
+
+    final lifeEventMaps = await db.rawQuery(
+      'SELECT le.* FROM life_events le INNER JOIN persons p ON le.personId = p.id WHERE p.treeId = ?',
+      [currentTreeId],
+    );
+    lifeEvents = lifeEventMaps.map(LifeEvent.fromMap).toList();
 
     final deviceMaps = await db.query('devices');
     pairedDevices = deviceMaps.map(Device.fromMap).toList();
@@ -378,6 +430,39 @@ class TreeProvider extends ChangeNotifier {
           child.parentIds.contains(p.person1Id) &&
           child.parentIds.contains(p.person2Id))
       .toList();
+
+  // ── Life Events ────────────────────────────────────────────────────────────
+  Future<void> addLifeEvent(LifeEvent event) async {
+    event.id = event.id.isEmpty ? _uuid.v4() : event.id;
+    final person = persons.firstWhere((p) => p.id == event.personId,
+        orElse: () => throw StateError('Person with id ${event.personId} not found'));
+    event.treeId = person.treeId;
+    final db = await _database;
+    await db.insert('life_events', event.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    lifeEvents.add(event);
+    notifyListeners();
+  }
+
+  Future<void> updateLifeEvent(LifeEvent event) async {
+    final db = await _database;
+    await db.update('life_events', event.toMap(),
+        where: 'id = ?', whereArgs: [event.id]);
+    final idx = lifeEvents.indexWhere((e) => e.id == event.id);
+    if (idx != -1) lifeEvents[idx] = event;
+    notifyListeners();
+  }
+
+  Future<void> deleteLifeEvent(String id) async {
+    final db = await _database;
+    await db.delete('life_events', where: 'id = ?', whereArgs: [id]);
+    lifeEvents.removeWhere((e) => e.id == id);
+    notifyListeners();
+  }
+
+  /// Returns all life events for the given [personId].
+  List<LifeEvent> lifeEventsFor(String personId) =>
+      lifeEvents.where((e) => e.personId == personId).toList();
 
   // ── Trees ──────────────────────────────────────────────────────────────────
   Future<String> addTree(String name) async {
@@ -606,6 +691,10 @@ class TreeProvider extends ChangeNotifier {
           .where((s) => personIds.contains(s.personId))
           .map((s) => s.toMap())
           .toList(),
+      'lifeEvents': lifeEvents
+          .where((e) => personIds.contains(e.personId))
+          .map((e) => e.toMap())
+          .toList(),
     };
   }
 
@@ -634,6 +723,11 @@ class TreeProvider extends ChangeNotifier {
                 [])
             .map(Source.fromMap)
             .toList();
+    final inLifeEvents =
+        ((data['lifeEvents'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(LifeEvent.fromMap)
+            .toList();
 
     int added = 0;
     for (final person in inPersons) {
@@ -651,6 +745,10 @@ class TreeProvider extends ChangeNotifier {
     }
     for (final source in inSources) {
       await db.insert('sources', source.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    for (final event in inLifeEvents) {
+      await db.insert('life_events', event.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -543,6 +545,7 @@ class _PersonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final (avatarBg, avatarFg) = _avatarColors(context);
+    final hasPhoto = person.photoPaths.isNotEmpty;
 
     return Card(
       child: InkWell(
@@ -557,20 +560,28 @@ class _PersonCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: avatarBg,
-                child: Text(
-                  person.name.isNotEmpty
-                      ? person.name[0].toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                    color: avatarFg,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              hasPhoto
+                  ? CircleAvatar(
+                      radius: 26,
+                      backgroundImage:
+                          FileImage(File(person.photoPaths.first)),
+                      backgroundColor: avatarBg,
+                      onBackgroundImageError: (_, __) {},
+                    )
+                  : CircleAvatar(
+                      radius: 26,
+                      backgroundColor: avatarBg,
+                      child: Text(
+                        person.name.isNotEmpty
+                            ? person.name[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          color: avatarFg,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../providers/tree_provider.dart';
 import '../models/person.dart';
+import 'photo_gallery_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -25,9 +27,14 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   late TextEditingController _birthPlaceController;
   late TextEditingController _deathPlaceController;
   late TextEditingController _notesController;
+  late TextEditingController _occupationController;
+  late TextEditingController _nationalityController;
+  late TextEditingController _maidenNameController;
+  late TextEditingController _burialPlaceController;
   String? _gender;
   DateTime? _birthDate;
   DateTime? _deathDate;
+  DateTime? _burialDate;
   bool _isLiving = true;
   late List<String> _photoPaths;
 
@@ -44,9 +51,18 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         TextEditingController(text: widget.person?.deathPlace ?? '');
     _notesController =
         TextEditingController(text: widget.person?.notes ?? '');
+    _occupationController =
+        TextEditingController(text: widget.person?.occupation ?? '');
+    _nationalityController =
+        TextEditingController(text: widget.person?.nationality ?? '');
+    _maidenNameController =
+        TextEditingController(text: widget.person?.maidenName ?? '');
+    _burialPlaceController =
+        TextEditingController(text: widget.person?.burialPlace ?? '');
     _gender = widget.person?.gender;
     _birthDate = widget.person?.birthDate;
     _deathDate = widget.person?.deathDate;
+    _burialDate = widget.person?.burialDate;
     _isLiving =
         widget.person == null || widget.person!.deathDate == null;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
@@ -58,6 +74,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _birthPlaceController.dispose();
     _deathPlaceController.dispose();
     _notesController.dispose();
+    _occupationController.dispose();
+    _nationalityController.dispose();
+    _maidenNameController.dispose();
+    _burialPlaceController.dispose();
     super.dispose();
   }
 
@@ -215,6 +235,59 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             const SizedBox(height: 16),
             _buildSection(
               context,
+              icon: Icons.info_outline,
+              title: 'Additional Details',
+              children: [
+                TextFormField(
+                  controller: _occupationController,
+                  decoration:
+                      const InputDecoration(labelText: 'Occupation'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _nationalityController,
+                  decoration:
+                      const InputDecoration(labelText: 'Nationality'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _maidenNameController,
+                  decoration:
+                      const InputDecoration(labelText: 'Maiden Name'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+              ],
+            ),
+            if (!_isLiving) ...[
+              const SizedBox(height: 16),
+              _buildSection(
+                context,
+                icon: Icons.place_outlined,
+                title: 'Burial',
+                children: [
+                  _DatePickerTile(
+                    label: 'Burial Date',
+                    date: _burialDate,
+                    onPick: () => _selectBurialDate(context),
+                    onClear: _burialDate != null
+                        ? () => setState(() => _burialDate = null)
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _burialPlaceController,
+                    decoration:
+                        const InputDecoration(labelText: 'Burial Place'),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+            _buildSection(
+              context,
               icon: Icons.photo_library_outlined,
               title: 'Photos',
               children: [
@@ -240,20 +313,31 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         final path = _photoPaths[i];
                         return Stack(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(path),
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
+                            GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PhotoGalleryScreen(
+                                    photoPaths: _photoPaths,
+                                    initialIndex: i,
+                                  ),
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  File(path),
                                   width: 100,
                                   height: 100,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                                  child: const Icon(Icons.broken_image),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 100,
+                                    height: 100,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    child: const Icon(Icons.broken_image),
+                                  ),
                                 ),
                               ),
                             ),
@@ -358,11 +442,23 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     }
   }
 
+  Future<void> _selectBurialDate(BuildContext context) async {
+    final initial = _burialDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1700),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _burialDate = picked);
+    }
+  }
+
   Future<void> _savePerson() async {
     if (!_formKey.currentState!.validate()) return;
     final person = Person(
-      id: widget.person?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
+      id: widget.person?.id ?? const Uuid().v4(),
       name: _nameController.text.trim(),
       birthDate: _birthDate,
       birthPlace: _birthPlaceController.text.trim().isEmpty
@@ -383,6 +479,21 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      occupation: _occupationController.text.trim().isEmpty
+          ? null
+          : _occupationController.text.trim(),
+      nationality: _nationalityController.text.trim().isEmpty
+          ? null
+          : _nationalityController.text.trim(),
+      maidenName: _maidenNameController.text.trim().isEmpty
+          ? null
+          : _maidenNameController.text.trim(),
+      burialDate: _isLiving ? null : _burialDate,
+      burialPlace: _isLiving
+          ? null
+          : (_burialPlaceController.text.trim().isEmpty
+              ? null
+              : _burialPlaceController.text.trim()),
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
