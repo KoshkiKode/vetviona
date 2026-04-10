@@ -1,6 +1,10 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -296,6 +300,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 12),
 
+          // ── Backup & Restore ──────────────────────────────────
+          _SectionCard(
+            icon: Icons.backup_outlined,
+            title: 'Backup & Restore',
+            children: [
+              Text(
+                'Save all tree data to a JSON file or restore from a previous backup.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.upload_outlined),
+                label: const Text('Create Backup'),
+                onPressed: () => _createBackup(context, treeProvider),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Restore from Backup'),
+                onPressed: () => _restoreBackup(context, treeProvider),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
           // ── Danger Zone ───────────────────────────────────────
           _SectionCard(
             icon: Icons.warning_amber_outlined,
@@ -510,6 +543,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('All data cleared.')));
+      }
+    }
+  }
+
+  Future<void> _createBackup(
+      BuildContext context, TreeProvider provider) async {
+    try {
+      final json = await provider.exportBackupJson();
+      final dir = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/vetviona_backup_$timestamp.json');
+      await file.writeAsString(json);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backup saved to: ${file.path}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backup failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreBackup(
+      BuildContext context, TreeProvider provider) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+      if (result == null || result.files.single.path == null) return;
+      final file = File(result.files.single.path!);
+      final json = await file.readAsString();
+      await provider.importBackupJson(json);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup restored successfully.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore failed: $e')),
+        );
       }
     }
   }

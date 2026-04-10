@@ -4,11 +4,16 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
-import '../providers/tree_provider.dart';
+import '../models/geo_coord.dart';
+import '../models/life_event.dart';
 import '../models/person.dart';
+import '../providers/tree_provider.dart';
+import 'map_picker_screen.dart';
+import 'photo_gallery_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -25,9 +30,20 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   late TextEditingController _birthPlaceController;
   late TextEditingController _deathPlaceController;
   late TextEditingController _notesController;
+  late TextEditingController _occupationController;
+  late TextEditingController _nationalityController;
+  late TextEditingController _maidenNameController;
+  late TextEditingController _burialPlaceController;
+  late TextEditingController _birthPostalCodeController;
+  late TextEditingController _deathPostalCodeController;
+  late TextEditingController _burialPostalCodeController;
   String? _gender;
   DateTime? _birthDate;
   DateTime? _deathDate;
+  DateTime? _burialDate;
+  GeoCoord? _birthCoord;
+  GeoCoord? _deathCoord;
+  GeoCoord? _burialCoord;
   bool _isLiving = true;
   late List<String> _photoPaths;
 
@@ -44,9 +60,27 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         TextEditingController(text: widget.person?.deathPlace ?? '');
     _notesController =
         TextEditingController(text: widget.person?.notes ?? '');
+    _occupationController =
+        TextEditingController(text: widget.person?.occupation ?? '');
+    _nationalityController =
+        TextEditingController(text: widget.person?.nationality ?? '');
+    _maidenNameController =
+        TextEditingController(text: widget.person?.maidenName ?? '');
+    _burialPlaceController =
+        TextEditingController(text: widget.person?.burialPlace ?? '');
+    _birthPostalCodeController =
+        TextEditingController(text: widget.person?.birthPostalCode ?? '');
+    _deathPostalCodeController =
+        TextEditingController(text: widget.person?.deathPostalCode ?? '');
+    _burialPostalCodeController =
+        TextEditingController(text: widget.person?.burialPostalCode ?? '');
     _gender = widget.person?.gender;
     _birthDate = widget.person?.birthDate;
     _deathDate = widget.person?.deathDate;
+    _burialDate = widget.person?.burialDate;
+    _birthCoord = widget.person?.birthCoord;
+    _deathCoord = widget.person?.deathCoord;
+    _burialCoord = widget.person?.burialCoord;
     _isLiving =
         widget.person == null || widget.person!.deathDate == null;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
@@ -58,6 +92,13 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _birthPlaceController.dispose();
     _deathPlaceController.dispose();
     _notesController.dispose();
+    _occupationController.dispose();
+    _nationalityController.dispose();
+    _maidenNameController.dispose();
+    _burialPlaceController.dispose();
+    _birthPostalCodeController.dispose();
+    _deathPostalCodeController.dispose();
+    _burialPostalCodeController.dispose();
     super.dispose();
   }
 
@@ -164,11 +205,26 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                _PlaceField(
                   controller: _birthPlaceController,
-                  decoration:
-                      const InputDecoration(labelText: 'Birth Place'),
-                  textCapitalization: TextCapitalization.words,
+                  postalCodeController: _birthPostalCodeController,
+                  label: 'Birth Place',
+                  coord: _birthCoord,
+                  eventDate: _birthDate,
+                  onCoordChanged: (c) {
+                    setState(() {
+                      _birthCoord = c;
+                      if (c != null) {
+                        if (_birthPlaceController.text.trim().isEmpty) {
+                          _birthPlaceController.text = c.shortLabel;
+                        }
+                        if (_birthPostalCodeController.text.trim().isEmpty &&
+                            c.postalCode != null) {
+                          _birthPostalCodeController.text = c.postalCode!;
+                        }
+                      }
+                    });
+                  },
                 ),
               ],
             ),
@@ -188,11 +244,26 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _PlaceField(
                     controller: _deathPlaceController,
-                    decoration:
-                        const InputDecoration(labelText: 'Death Place'),
-                    textCapitalization: TextCapitalization.words,
+                    postalCodeController: _deathPostalCodeController,
+                    label: 'Death Place',
+                    coord: _deathCoord,
+                    eventDate: _deathDate,
+                    onCoordChanged: (c) {
+                      setState(() {
+                        _deathCoord = c;
+                        if (c != null) {
+                          if (_deathPlaceController.text.trim().isEmpty) {
+                            _deathPlaceController.text = c.shortLabel;
+                          }
+                          if (_deathPostalCodeController.text.trim().isEmpty &&
+                              c.postalCode != null) {
+                            _deathPostalCodeController.text = c.postalCode!;
+                          }
+                        }
+                      });
+                    },
                   ),
                 ],
               ),
@@ -212,6 +283,74 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _buildSection(
+              context,
+              icon: Icons.info_outline,
+              title: 'Additional Details',
+              children: [
+                TextFormField(
+                  controller: _occupationController,
+                  decoration:
+                      const InputDecoration(labelText: 'Occupation'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _nationalityController,
+                  decoration:
+                      const InputDecoration(labelText: 'Nationality'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _maidenNameController,
+                  decoration:
+                      const InputDecoration(labelText: 'Maiden Name'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+              ],
+            ),
+            if (!_isLiving) ...[
+              const SizedBox(height: 16),
+              _buildSection(
+                context,
+                icon: Icons.place_outlined,
+                title: 'Burial',
+                children: [
+                  _DatePickerTile(
+                    label: 'Burial Date',
+                    date: _burialDate,
+                    onPick: () => _selectBurialDate(context),
+                    onClear: _burialDate != null
+                        ? () => setState(() => _burialDate = null)
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  _PlaceField(
+                    controller: _burialPlaceController,
+                    postalCodeController: _burialPostalCodeController,
+                    label: 'Burial Place',
+                    coord: _burialCoord,
+                    eventDate: _burialDate,
+                    onCoordChanged: (c) {
+                      setState(() {
+                        _burialCoord = c;
+                        if (c != null) {
+                          if (_burialPlaceController.text.trim().isEmpty) {
+                            _burialPlaceController.text = c.shortLabel;
+                          }
+                          if (_burialPostalCodeController.text.trim().isEmpty &&
+                              c.postalCode != null) {
+                            _burialPostalCodeController.text = c.postalCode!;
+                          }
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             _buildSection(
               context,
@@ -240,20 +379,31 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         final path = _photoPaths[i];
                         return Stack(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(path),
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
+                            GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PhotoGalleryScreen(
+                                    photoPaths: _photoPaths,
+                                    initialIndex: i,
+                                  ),
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  File(path),
                                   width: 100,
                                   height: 100,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                                  child: const Icon(Icons.broken_image),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 100,
+                                    height: 100,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    child: const Icon(Icons.broken_image),
+                                  ),
                                 ),
                               ),
                             ),
@@ -292,6 +442,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            if (isEditing)
+              _LifeEventsSection(personId: widget.person!.id),
             const SizedBox(height: 24),
             FilledButton.icon(
               icon: const Icon(Icons.save),
@@ -358,11 +511,23 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     }
   }
 
+  Future<void> _selectBurialDate(BuildContext context) async {
+    final initial = _burialDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1700),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _burialDate = picked);
+    }
+  }
+
   Future<void> _savePerson() async {
     if (!_formKey.currentState!.validate()) return;
     final person = Person(
-      id: widget.person?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
+      id: widget.person?.id ?? const Uuid().v4(),
       name: _nameController.text.trim(),
       birthDate: _birthDate,
       birthPlace: _birthPlaceController.text.trim().isEmpty
@@ -383,6 +548,37 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      occupation: _occupationController.text.trim().isEmpty
+          ? null
+          : _occupationController.text.trim(),
+      nationality: _nationalityController.text.trim().isEmpty
+          ? null
+          : _nationalityController.text.trim(),
+      maidenName: _maidenNameController.text.trim().isEmpty
+          ? null
+          : _maidenNameController.text.trim(),
+      burialDate: _isLiving ? null : _burialDate,
+      burialPlace: _isLiving
+          ? null
+          : (_burialPlaceController.text.trim().isEmpty
+              ? null
+              : _burialPlaceController.text.trim()),
+      birthCoord: _birthCoord,
+      deathCoord: _isLiving ? null : _deathCoord,
+      burialCoord: _isLiving ? null : _burialCoord,
+      birthPostalCode: _birthPostalCodeController.text.trim().isEmpty
+          ? null
+          : _birthPostalCodeController.text.trim(),
+      deathPostalCode: _isLiving
+          ? null
+          : (_deathPostalCodeController.text.trim().isEmpty
+              ? null
+              : _deathPostalCodeController.text.trim()),
+      burialPostalCode: _isLiving
+          ? null
+          : (_burialPostalCodeController.text.trim().isEmpty
+              ? null
+              : _burialPostalCodeController.text.trim()),
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
@@ -404,6 +600,157 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       await provider.updatePerson(person);
     }
     if (mounted) Navigator.pop(context);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PlaceField — place name + postal code + map picker button + coord chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PlaceField extends StatelessWidget {
+  final TextEditingController controller;
+  final TextEditingController postalCodeController;
+  final String label;
+  final GeoCoord? coord;
+  final DateTime? eventDate;
+  final ValueChanged<GeoCoord?> onCoordChanged;
+
+  const _PlaceField({
+    required this.controller,
+    required this.postalCodeController,
+    required this.label,
+    required this.coord,
+    required this.eventDate,
+    required this.onCoordChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Place name text field ──────────────────────────────────────────
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            suffixIcon: IconButton(
+              icon: Icon(Icons.map_outlined, color: colorScheme.primary),
+              tooltip: 'Pick on map',
+              onPressed: () async {
+                final result = await Navigator.push<GeoCoord?>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        MapPickerScreen(initialCoord: coord),
+                  ),
+                );
+                // result == null means the user pressed back without confirming;
+                // we only update if the screen returned something (even an
+                // explicit clear returns null via the Clear button path handled
+                // inside the screen — here result is simply absent so no-op).
+                if (result != null) {
+                  onCoordChanged(result);
+                }
+              },
+            ),
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+
+        // ── Postal / ZIP code field ────────────────────────────────────────
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: postalCodeController,
+          decoration: InputDecoration(
+            labelText: 'Postal / ZIP code',
+            prefixIcon:
+                Icon(Icons.local_post_office_outlined, size: 18,
+                    color: colorScheme.onSurfaceVariant),
+          ),
+          keyboardType: TextInputType.text,
+        ),
+
+        // ── Coord info chip ────────────────────────────────────────────────
+        if (coord != null) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              // Coordinate badge
+              _InfoChip(
+                icon: Icons.my_location,
+                label: coord!.coordinateLabel,
+                colorScheme: colorScheme,
+              ),
+              // Political boundaries badge
+              if (coord!.politicalBoundaries.isNotEmpty)
+                _InfoChip(
+                  icon: Icons.account_balance_outlined,
+                  label: coord!.politicalBoundaries,
+                  colorScheme: colorScheme,
+                ),
+              // Clear coord button
+              ActionChip(
+                avatar: Icon(Icons.close, size: 14,
+                    color: colorScheme.error),
+                label: Text('Clear pin',
+                    style: TextStyle(
+                        fontSize: 11, color: colorScheme.error)),
+                onPressed: () => onCoordChanged(null),
+                side: BorderSide(color: colorScheme.error.withOpacity(0.3)),
+                backgroundColor:
+                    colorScheme.error.withOpacity(0.08),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme colorScheme;
+
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: colorScheme.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: colorScheme.primary),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -472,6 +819,361 @@ class _DatePickerTile extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Life Events ────────────────────────────────────────────────────────────────
+
+class _LifeEventsSection extends StatelessWidget {
+  final String personId;
+  const _LifeEventsSection({required this.personId});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<TreeProvider>();
+    final events = provider.lifeEventsFor(personId);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.event, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Life Events',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Event'),
+                  onPressed: () =>
+                      _openEventSheet(context, provider, personId, null),
+                ),
+              ],
+            ),
+            if (events.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'No life events recorded.',
+                  style:
+                      TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              )
+            else ...[
+              const SizedBox(height: 8),
+              ...events.map((event) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor:
+                          colorScheme.tertiaryContainer,
+                      child: Icon(Icons.event,
+                          size: 18,
+                          color: colorScheme.onTertiaryContainer),
+                    ),
+                    title: Text(event.title),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (event.date != null)
+                          Text(DateFormat('d MMMM yyyy')
+                              .format(event.date!)),
+                        if (event.place != null &&
+                            event.place!.isNotEmpty)
+                          Text(event.place!,
+                              style: TextStyle(
+                                  color:
+                                      colorScheme.onSurfaceVariant)),
+                        if (event.notes != null &&
+                            event.notes!.isNotEmpty)
+                          Text(event.notes!,
+                              style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontStyle: FontStyle.italic),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          tooltip: 'Edit',
+                          onPressed: () => _openEventSheet(
+                              context, provider, personId, event),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline,
+                              size: 18,
+                              color: colorScheme.error),
+                          tooltip: 'Delete',
+                          onPressed: () =>
+                              provider.deleteLifeEvent(event.id),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _openEventSheet(
+    BuildContext context,
+    TreeProvider provider,
+    String personId,
+    LifeEvent? existing,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _LifeEventSheet(
+        personId: personId,
+        existing: existing,
+        provider: provider,
+      ),
+    );
+  }
+}
+
+class _LifeEventSheet extends StatefulWidget {
+  final String personId;
+  final LifeEvent? existing;
+  final TreeProvider provider;
+
+  const _LifeEventSheet({
+    required this.personId,
+    required this.existing,
+    required this.provider,
+  });
+
+  @override
+  State<_LifeEventSheet> createState() => _LifeEventSheetState();
+}
+
+class _LifeEventSheetState extends State<_LifeEventSheet> {
+  late TextEditingController _titleController;
+  late TextEditingController _placeController;
+  late TextEditingController _notesController;
+  DateTime? _date;
+  String? _selectedType;
+  bool _useCustomTitle = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    final isCommon = e != null && LifeEvent.commonTypes.contains(e.title);
+    _selectedType = isCommon ? e.title : null;
+    _useCustomTitle = e != null && !isCommon;
+    _titleController = TextEditingController(
+        text: _useCustomTitle ? (e?.title ?? '') : '');
+    _placeController = TextEditingController(text: e?.place ?? '');
+    _notesController = TextEditingController(text: e?.notes ?? '');
+    _date = e?.date;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _placeController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  String get _effectiveTitle =>
+      _useCustomTitle ? _titleController.text.trim() : (_selectedType ?? '');
+
+  Future<void> _save() async {
+    if (_effectiveTitle.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter an event title.')),
+      );
+      return;
+    }
+    final event = LifeEvent(
+      id: widget.existing?.id ?? const Uuid().v4(),
+      personId: widget.personId,
+      title: _effectiveTitle,
+      date: _date,
+      place: _placeController.text.trim().isEmpty
+          ? null
+          : _placeController.text.trim(),
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+    );
+    if (widget.existing == null) {
+      await widget.provider.addLifeEvent(event);
+    } else {
+      await widget.provider.updateLifeEvent(event);
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                widget.existing == null ? 'Add Life Event' : 'Edit Life Event',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!_useCustomTitle) ...[
+            DropdownButtonFormField<String>(
+              value: _selectedType,
+              decoration: const InputDecoration(
+                labelText: 'Event Type',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                ...LifeEvent.commonTypes.map((t) =>
+                    DropdownMenuItem(value: t, child: Text(t))),
+                const DropdownMenuItem(
+                    value: '__custom__', child: Text('Custom…')),
+              ],
+              onChanged: (v) {
+                if (v == '__custom__') {
+                  setState(() => _useCustomTitle = true);
+                } else {
+                  setState(() => _selectedType = v);
+                }
+              },
+            ),
+          ] else ...[
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'Custom Title',
+                border: const OutlineInputBorder(),
+                suffixIcon: TextButton(
+                  child: const Text('Use list'),
+                  onPressed: () => setState(() {
+                    _useCustomTitle = false;
+                    _titleController.clear();
+                  }),
+                ),
+              ),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _date ?? DateTime.now(),
+                firstDate: DateTime(1700),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) setState(() => _date = picked);
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                border:
+                    Border.all(color: colorScheme.outline.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today,
+                      size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _date != null
+                          ? DateFormat('d MMMM yyyy').format(_date!)
+                          : 'Tap to set date (optional)',
+                      style: TextStyle(
+                        color: _date != null
+                            ? null
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (_date != null)
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () => setState(() => _date = null),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _placeController,
+            decoration: const InputDecoration(
+              labelText: 'Place (optional)',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.location_on_outlined),
+            ),
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _notesController,
+            decoration: const InputDecoration(
+              labelText: 'Notes (optional)',
+              border: OutlineInputBorder(),
+            ),
+            minLines: 2,
+            maxLines: 4,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.save),
+              label: Text(widget.existing == null ? 'Save Event' : 'Update Event'),
+              onPressed: _save,
+            ),
+          ),
+        ],
       ),
     );
   }

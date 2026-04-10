@@ -100,6 +100,12 @@ class _RelationshipFinderScreenState
       );
     }
 
+    final fromPerson = personMap[_path!.first];
+    final toPerson = personMap[_path!.last];
+    final label = (fromPerson != null && toPerson != null)
+        ? describeRelationship(fromPerson, toPerson, persons, _path!)
+        : 'Relative';
+
     return Expanded(
       child: Card(
         child: Padding(
@@ -107,6 +113,32 @@ class _RelationshipFinderScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Relationship label — shown prominently
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.people,
+                        size: 20, color: colorScheme.onPrimaryContainer),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style:
+                          Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Path (${_path!.length - 1} step${_path!.length == 2 ? '' : 's'})',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -152,4 +184,77 @@ class _RelationshipFinderScreenState
       ),
     );
   }
+}
+
+/// Computes a human-readable relationship label between [from] and [to]
+/// by scanning consecutive pairs in [path]:
+///   - If B is in A's parentIds  → "up" step
+///   - If B is in A's childIds   → "down" step
+///   - Otherwise                 → lateral/partner step (ignored for counting)
+String describeRelationship(
+    Person from, Person to, List<Person> allPersons, List<String> path) {
+  if (path.length < 2) return 'Same Person';
+
+  final personMap = {for (final p in allPersons) p.id: p};
+  int ups = 0;
+  int downs = 0;
+
+  for (int i = 0; i < path.length - 1; i++) {
+    final a = personMap[path[i]];
+    final b = personMap[path[i + 1]];
+    if (a == null || b == null) continue;
+    if (a.parentIds.contains(b.id)) {
+      ups++;
+    } else if (a.childIds.contains(b.id)) {
+      downs++;
+    }
+    // Lateral partner step — does not count as up or down
+  }
+
+  // Direct partner link
+  if (ups == 0 && downs == 0 && path.length == 2) return 'Partner/Spouse';
+
+  // Direct ancestor
+  if (ups > 0 && downs == 0) {
+    if (ups == 1) return 'Parent';
+    if (ups == 2) return 'Grandparent';
+    if (ups == 3) return 'Great-Grandparent';
+    return '${ups - 2}x Great-Grandparent';
+  }
+
+  // Direct descendant
+  if (ups == 0 && downs > 0) {
+    if (downs == 1) return 'Child';
+    if (downs == 2) return 'Grandchild';
+    if (downs == 3) return 'Great-Grandchild';
+    return '${downs - 2}x Great-Grandchild';
+  }
+
+  if (ups == 1 && downs == 1) return 'Sibling';
+  if (ups == 2 && downs == 1) return 'Aunt/Uncle';
+  if (ups == 1 && downs == 2) return 'Niece/Nephew';
+
+  // Cousin relationships
+  if (ups >= 2 && downs >= 2) {
+    final minDeg = ups < downs ? ups : downs;
+    final diff = (ups - downs).abs();
+    final cousinDegree = minDeg - 1;
+    // Correct ordinal suffix: 11th/12th/13th are exceptions
+    final String ordinal;
+    if (cousinDegree >= 11 && cousinDegree <= 13) {
+      ordinal = '${cousinDegree}th';
+    } else {
+      ordinal = switch (cousinDegree % 10) {
+        1 => '${cousinDegree}st',
+        2 => '${cousinDegree}nd',
+        3 => '${cousinDegree}rd',
+        _ => '${cousinDegree}th',
+      };
+    }
+    if (diff == 0) return '$ordinal Cousin';
+    final removedLabel = diff == 1 ? 'once removed' : '$diff times removed';
+    return '$ordinal Cousin $removedLabel';
+  }
+
+  return 'Relative';
 }
