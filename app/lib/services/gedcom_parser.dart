@@ -153,7 +153,8 @@ class GEDCOMParser {
   }
 
   Future<void> export(
-      List<Person> persons, List<Partnership> partnerships, String filePath) async {
+      List<Person> persons, List<Partnership> partnerships, String filePath,
+      {bool includeLivingData = false}) async {
     final buf = StringBuffer();
     final df = DateFormat('d MMM yyyy');
 
@@ -165,35 +166,47 @@ class GEDCOMParser {
     buf.writeln('2 VERS 1.0');
 
     for (final person in persons) {
+      // A person is considered living when they have no recorded death date.
+      final isLiving = person.deathDate == null;
+      // When living-data is withheld, replace identifying details with a
+      // generic placeholder and tag the record with RESN PRIVACY.
+      final exportName =
+          (!includeLivingData && isLiving) ? 'Living' : person.name;
+
       buf.writeln('0 @${person.id}@ INDI');
-      if (person.name.isNotEmpty) {
-        buf.writeln('1 NAME ${person.name}');
+      if (exportName.isNotEmpty) {
+        buf.writeln('1 NAME $exportName');
       }
-      if (person.gender != null && person.gender!.isNotEmpty) {
-        buf.writeln('1 SEX ${person.gender![0].toUpperCase()}');
-      }
-      if (person.birthDate != null || person.birthPlace != null) {
-        buf.writeln('1 BIRT');
-        if (person.birthDate != null) {
-          buf.writeln(
-              '2 DATE ${df.format(person.birthDate!).toUpperCase()}');
+      if (!includeLivingData && isLiving) {
+        // Mark the record as restricted per GEDCOM 5.5.5 spec.
+        buf.writeln('1 RESN PRIVACY');
+      } else {
+        if (person.gender != null && person.gender!.isNotEmpty) {
+          buf.writeln('1 SEX ${person.gender![0].toUpperCase()}');
         }
-        if (person.birthPlace != null && person.birthPlace!.isNotEmpty) {
-          buf.writeln('2 PLAC ${person.birthPlace}');
+        if (person.birthDate != null || person.birthPlace != null) {
+          buf.writeln('1 BIRT');
+          if (person.birthDate != null) {
+            buf.writeln(
+                '2 DATE ${df.format(person.birthDate!).toUpperCase()}');
+          }
+          if (person.birthPlace != null && person.birthPlace!.isNotEmpty) {
+            buf.writeln('2 PLAC ${person.birthPlace}');
+          }
         }
-      }
-      if (person.deathDate != null || person.deathPlace != null) {
-        buf.writeln('1 DEAT');
-        if (person.deathDate != null) {
-          buf.writeln(
-              '2 DATE ${df.format(person.deathDate!).toUpperCase()}');
+        if (person.deathDate != null || person.deathPlace != null) {
+          buf.writeln('1 DEAT');
+          if (person.deathDate != null) {
+            buf.writeln(
+                '2 DATE ${df.format(person.deathDate!).toUpperCase()}');
+          }
+          if (person.deathPlace != null && person.deathPlace!.isNotEmpty) {
+            buf.writeln('2 PLAC ${person.deathPlace}');
+          }
         }
-        if (person.deathPlace != null && person.deathPlace!.isNotEmpty) {
-          buf.writeln('2 PLAC ${person.deathPlace}');
+        if (person.notes != null && person.notes!.isNotEmpty) {
+          buf.writeln('1 NOTE ${person.notes}');
         }
-      }
-      if (person.notes != null && person.notes!.isNotEmpty) {
-        buf.writeln('1 NOTE ${person.notes}');
       }
     }
 
