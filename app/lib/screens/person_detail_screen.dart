@@ -4,12 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../providers/tree_provider.dart';
+import '../models/life_event.dart';
 import '../models/person.dart';
+import '../providers/tree_provider.dart';
 import 'photo_gallery_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
@@ -376,6 +377,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            if (isEditing)
+              _LifeEventsSection(personId: widget.person!.id),
             const SizedBox(height: 24),
             FilledButton.icon(
               icon: const Icon(Icons.save),
@@ -583,6 +587,361 @@ class _DatePickerTile extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Life Events ────────────────────────────────────────────────────────────────
+
+class _LifeEventsSection extends StatelessWidget {
+  final String personId;
+  const _LifeEventsSection({required this.personId});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<TreeProvider>();
+    final events = provider.lifeEventsFor(personId);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.event, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Life Events',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Event'),
+                  onPressed: () =>
+                      _openEventSheet(context, provider, personId, null),
+                ),
+              ],
+            ),
+            if (events.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'No life events recorded.',
+                  style:
+                      TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              )
+            else ...[
+              const SizedBox(height: 8),
+              ...events.map((event) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor:
+                          colorScheme.tertiaryContainer,
+                      child: Icon(Icons.event,
+                          size: 18,
+                          color: colorScheme.onTertiaryContainer),
+                    ),
+                    title: Text(event.title),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (event.date != null)
+                          Text(DateFormat('d MMMM yyyy')
+                              .format(event.date!)),
+                        if (event.place != null &&
+                            event.place!.isNotEmpty)
+                          Text(event.place!,
+                              style: TextStyle(
+                                  color:
+                                      colorScheme.onSurfaceVariant)),
+                        if (event.notes != null &&
+                            event.notes!.isNotEmpty)
+                          Text(event.notes!,
+                              style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontStyle: FontStyle.italic),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          tooltip: 'Edit',
+                          onPressed: () => _openEventSheet(
+                              context, provider, personId, event),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline,
+                              size: 18,
+                              color: colorScheme.error),
+                          tooltip: 'Delete',
+                          onPressed: () =>
+                              provider.deleteLifeEvent(event.id),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _openEventSheet(
+    BuildContext context,
+    TreeProvider provider,
+    String personId,
+    LifeEvent? existing,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _LifeEventSheet(
+        personId: personId,
+        existing: existing,
+        provider: provider,
+      ),
+    );
+  }
+}
+
+class _LifeEventSheet extends StatefulWidget {
+  final String personId;
+  final LifeEvent? existing;
+  final TreeProvider provider;
+
+  const _LifeEventSheet({
+    required this.personId,
+    required this.existing,
+    required this.provider,
+  });
+
+  @override
+  State<_LifeEventSheet> createState() => _LifeEventSheetState();
+}
+
+class _LifeEventSheetState extends State<_LifeEventSheet> {
+  late TextEditingController _titleController;
+  late TextEditingController _placeController;
+  late TextEditingController _notesController;
+  DateTime? _date;
+  String? _selectedType;
+  bool _useCustomTitle = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    final isCommon = e != null && LifeEvent.commonTypes.contains(e.title);
+    _selectedType = isCommon ? e.title : null;
+    _useCustomTitle = e != null && !isCommon;
+    _titleController = TextEditingController(
+        text: _useCustomTitle ? (e?.title ?? '') : '');
+    _placeController = TextEditingController(text: e?.place ?? '');
+    _notesController = TextEditingController(text: e?.notes ?? '');
+    _date = e?.date;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _placeController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  String get _effectiveTitle =>
+      _useCustomTitle ? _titleController.text.trim() : (_selectedType ?? '');
+
+  Future<void> _save() async {
+    if (_effectiveTitle.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter an event title.')),
+      );
+      return;
+    }
+    final event = LifeEvent(
+      id: widget.existing?.id ?? const Uuid().v4(),
+      personId: widget.personId,
+      title: _effectiveTitle,
+      date: _date,
+      place: _placeController.text.trim().isEmpty
+          ? null
+          : _placeController.text.trim(),
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+    );
+    if (widget.existing == null) {
+      await widget.provider.addLifeEvent(event);
+    } else {
+      await widget.provider.updateLifeEvent(event);
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                widget.existing == null ? 'Add Life Event' : 'Edit Life Event',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!_useCustomTitle) ...[
+            DropdownButtonFormField<String>(
+              value: _selectedType,
+              decoration: const InputDecoration(
+                labelText: 'Event Type',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                ...LifeEvent.commonTypes.map((t) =>
+                    DropdownMenuItem(value: t, child: Text(t))),
+                const DropdownMenuItem(
+                    value: '__custom__', child: Text('Custom…')),
+              ],
+              onChanged: (v) {
+                if (v == '__custom__') {
+                  setState(() => _useCustomTitle = true);
+                } else {
+                  setState(() => _selectedType = v);
+                }
+              },
+            ),
+          ] else ...[
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'Custom Title',
+                border: const OutlineInputBorder(),
+                suffixIcon: TextButton(
+                  child: const Text('Use list'),
+                  onPressed: () => setState(() {
+                    _useCustomTitle = false;
+                    _titleController.clear();
+                  }),
+                ),
+              ),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _date ?? DateTime.now(),
+                firstDate: DateTime(1700),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) setState(() => _date = picked);
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                border:
+                    Border.all(color: colorScheme.outline.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today,
+                      size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _date != null
+                          ? DateFormat('d MMMM yyyy').format(_date!)
+                          : 'Tap to set date (optional)',
+                      style: TextStyle(
+                        color: _date != null
+                            ? null
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (_date != null)
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () => setState(() => _date = null),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _placeController,
+            decoration: const InputDecoration(
+              labelText: 'Place (optional)',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.location_on_outlined),
+            ),
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _notesController,
+            decoration: const InputDecoration(
+              labelText: 'Notes (optional)',
+              border: OutlineInputBorder(),
+            ),
+            minLines: 2,
+            maxLines: 4,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.save),
+              label: Text(widget.existing == null ? 'Save Event' : 'Update Event'),
+              onPressed: _save,
+            ),
+          ),
+        ],
       ),
     );
   }

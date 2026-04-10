@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../models/life_event.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
@@ -38,6 +39,7 @@ class TimelineScreen extends StatelessWidget {
     List<Partnership> myPartnerships,
     TreeProvider provider,
   ) {
+    final myLifeEvents = provider.lifeEventsFor(person.id);
     final events = <_Event>[];
 
     if (person.birthDate != null || person.birthPlace != null) {
@@ -107,6 +109,18 @@ class TimelineScreen extends StatelessWidget {
       ));
     }
 
+    // Add life events
+    for (final le in myLifeEvents) {
+      events.add(_Event(
+        title: le.title,
+        date: le.date,
+        place: le.place,
+        icon: Icons.event,
+        kind: _EventKind.lifeEvent,
+        sources: const [],
+      ));
+    }
+
     // Add other sources as generic events
     final citedEventFacts = {
       'Birth Date', 'Birth Place', 'Death Date', 'Death Place',
@@ -147,7 +161,7 @@ class TimelineScreen extends StatelessWidget {
   }
 }
 
-enum _EventKind { birth, union, endedUnion, death, source }
+enum _EventKind { birth, union, endedUnion, death, source, lifeEvent }
 
 extension _EventKindStyle on _EventKind {
   Color colorOf(ColorScheme cs) => switch (this) {
@@ -156,6 +170,7 @@ extension _EventKindStyle on _EventKind {
         _EventKind.endedUnion => cs.outline,
         _EventKind.death => cs.error,
         _EventKind.source => cs.primary,
+        _EventKind.lifeEvent => cs.tertiary.withOpacity(0.8),
       };
 }
 
