@@ -72,9 +72,9 @@ jobs:
           name: release-ios-paid
           path: app/build/ios/iphoneos/Runner.app
 
-  # ── Windows ────────────────────────────────────────────────────────────────
-  windows:
-    name: Windows EXE + MSI
+  # ── Windows EXE ───────────────────────────────────────────────────────────
+  windows-exe:
+    name: Windows EXE
     runs-on: windows-latest
     permissions:
       contents: read
@@ -89,16 +89,42 @@ jobs:
           flutter pub get
           flutter build windows --release --dart-define=PAID=true
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
-      - run: dotnet tool install --global wix --version 5.0.2
-      - run: cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
-      - working-directory: app/build/windows/x64/runner/Release
-        run: wix build vetviona.wxs -o vetviona-setup.msi
       - uses: actions/upload-artifact@v4
         with:
-          name: release-windows
+          name: release-windows-exe
           path: |
             app/build/windows/x64/runner/Release/vetviona.exe
-            app/build/windows/x64/runner/Release/vetviona-setup.msi
+            app/build/windows/x64/runner/Release/*.dll
+
+  # ── Windows MSI ───────────────────────────────────────────────────────────
+  windows-msi:
+    name: Windows MSI
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter config --enable-windows-desktop
+          flutter create --platforms=windows --org com.koshkikode .
+          flutter pub get
+          flutter build windows --release --dart-define=PAID=true
+      - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
+      - run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext
+      - run: |
+          cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
+          cp packaging/windows/LICENSE.rtf app/build/windows/x64/runner/Release/LICENSE.rtf
+      - working-directory: app/build/windows/x64/runner/Release
+        run: wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-msi
+          path: app/build/windows/x64/runner/Release/vetviona-setup.msi
 
   # ── macOS ──────────────────────────────────────────────────────────────────
   macos:
@@ -177,7 +203,7 @@ jobs:
   # ── Publish GitHub Release ─────────────────────────────────────────────────
   publish:
     name: Publish GitHub Release
-    needs: [android, ios, windows, macos, linux]
+    needs: [android, ios, windows-exe, windows-msi, macos, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -201,8 +227,8 @@ jobs:
 
             | Platform | File | Tier | Notes |
             |----------|------|------|-------|
-            | Windows  | `vetviona-setup.msi` | Desktop Pro | Recommended Windows installer |
-            | Windows  | `vetviona.exe` | Desktop Pro | Standalone executable |
+            | Windows  | `vetviona-setup.msi` (artifact: `release-windows-msi`) | Desktop Pro | Recommended Windows installer |
+            | Windows  | `vetviona.exe` (artifact: `release-windows-exe`) | Desktop Pro | Standalone executable |
             | macOS    | `vetviona-macos.dmg` | Desktop Pro | Disk image |
             | Linux    | `vetviona_*_amd64.deb` | Desktop Pro | Debian/Ubuntu package |
             | Android  | `release-android-free/app-release.apk` | Mobile Free | Manual sync · 100 person limit |

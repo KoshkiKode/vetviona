@@ -1,4 +1,4 @@
-name: Build Windows
+name: Build Windows MSI
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Build Windows EXE + MSI
+    name: Build Windows MSI
     runs-on: windows-latest
     permissions:
       contents: read
@@ -36,10 +36,6 @@ jobs:
         working-directory: app
         run: flutter pub get
 
-      - name: Build Windows (free tier)
-        working-directory: app
-        run: flutter build windows --release
-
       - name: Build Windows (Desktop Pro — paid)
         working-directory: app
         run: flutter build windows --release --dart-define=PAID=true
@@ -49,23 +45,19 @@ jobs:
 
       # ── WiX MSI packaging ─────────────────────────────────────────────────
       - name: Install WiX Toolset
-        run: dotnet tool install --global wix --version 5.0.2
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext
 
-      - name: Copy WiX source
-        run: cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
+      - name: Copy WiX source files
+        run: |
+          cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
+          cp packaging/windows/LICENSE.rtf app/build/windows/x64/runner/Release/LICENSE.rtf
 
       - name: Build MSI
         working-directory: app/build/windows/x64/runner/Release
         run: |
-          wix build vetviona.wxs -o vetviona-setup.msi
-
-      - name: Upload EXE artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: vetviona-windows-exe
-          path: |
-            app/build/windows/x64/runner/Release/vetviona.exe
-            app/build/windows/x64/runner/Release/*.dll
+          wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
 
       - name: Upload MSI installer
         uses: actions/upload-artifact@v4
