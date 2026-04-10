@@ -79,7 +79,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       ..siblingSeparation = 60
       ..levelSeparation = 80
       ..subtreeSeparation = 60
-      ..orientation = BuchheimWalkerConfiguration.orientationTopBottom;
+      ..orientation = BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM;
 
     final algorithm = BuchheimWalkerAlgorithm(
       configuration,
