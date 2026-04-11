@@ -387,7 +387,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         .any((id) => personMap.containsKey(id) && !_visiblePersonIds.contains(id));
     final hasHiddenChildren = person.childIds
         .any((id) => personMap.containsKey(id) && !_visiblePersonIds.contains(id));
-    final hasSiblings = person.parentIds.any((parentId) {
+    final hasHiddenSiblings = person.parentIds.any((parentId) {
       final parent = personMap[parentId];
       if (parent == null) return false;
       return parent.childIds.any(
@@ -472,7 +472,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                   })),
               ]),
               // Expand actions — only shown when there is something to expand
-              if (hasHiddenParents || hasHiddenChildren || hasSiblings) ...[
+              if (hasHiddenParents || hasHiddenChildren || hasHiddenSiblings) ...[
                 const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
@@ -496,7 +496,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                           Navigator.pop(ctx);
                           _expandChildren(person, personMap);
                         }),
-                    if (hasSiblings)
+                    if (hasHiddenSiblings)
                       OutlinedButton.icon(
                         icon: const Icon(Icons.people_outline, size: 16),
                         label: const Text('Show Siblings'),

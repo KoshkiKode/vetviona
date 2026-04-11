@@ -67,11 +67,6 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
     // Initialise focused person if still null after didChangeDependencies.
     _focusedPerson ??= persons.first;
 
-    // Keep controller text in sync when focused person changes programmatically.
-    if (_searchCtrl.text != (_focusedPerson?.name ?? '')) {
-      _searchCtrl.text = _focusedPerson?.name ?? '';
-    }
-
     final personMap = {for (final p in persons) p.id: p};
 
     // Alphabetically sorted list for the dropdown.
@@ -176,8 +171,10 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
                                         person: person,
                                         onReCenter: person == null
                                             ? null
-                                            : () => setState(
-                                                () => _focusedPerson = person),
+                                            : () => setState(() {
+                                                _focusedPerson = person;
+                                                _searchCtrl.text = person.name;
+                                              }),
                                       ),
                                     ),
                                   ),
