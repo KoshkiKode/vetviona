@@ -2,12 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
 import '../models/device.dart';
 import '../providers/tree_provider.dart';
 import '../services/bluetooth_sync_service.dart';
+import '../services/share_sync_service.dart';
 import '../services/sync_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -81,6 +83,10 @@ class _SyncScreenState extends State<SyncScreen> {
               label: Text('Go Online', style: TextStyle(color: cs.onPrimary)),
               onPressed: wifiEnabled
                   ? () async {
+                      if (!isProTier) {
+                        _showUpgradeDialog(context);
+                        return;
+                      }
                       await sync.startServer();
                       if (bluetoothEnabled && sync.isServerRunning) {
                         await ble.startAdvertising(
@@ -172,11 +178,19 @@ class _SyncScreenState extends State<SyncScreen> {
                     child: const Text('Stop'),
                   )
                 : TextButton(
-                    onPressed: wifiEnabled ? () => sync.startDiscovery() : null,
+                    onPressed: wifiEnabled && isProTier
+                        ? () => sync.startDiscovery()
+                        : null,
                     child: const Text('Scan'),
                   ),
             children: [
-              if (sync.discoveredPeers.isEmpty)
+              if (!isProTier)
+                _ProGateBanner(
+                  message:
+                      'WiFi Auto-Scan requires Mobile Paid or Desktop Pro.',
+                  onUpgrade: () => _showUpgradeDialog(context),
+                )
+              else if (sync.discoveredPeers.isEmpty)
                 Text(
                   !wifiEnabled
                       ? 'WiFi Auto-Sync is disabled in Settings.'
@@ -211,51 +225,86 @@ class _SyncScreenState extends State<SyncScreen> {
                       child: const Text('Stop'),
                     )
                   : TextButton(
-                      onPressed: () => ble.startScan(),
+                      onPressed: isProTier ? () => ble.startScan() : null,
                       child: const Text('Scan'),
                     ),
               children: [
-                if (ble.statusMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      ble.statusMessage!,
+                if (!isProTier)
+                  _ProGateBanner(
+                    message:
+                        'Bluetooth Sync requires Mobile Paid or Desktop Pro.',
+                    onUpgrade: () => _showUpgradeDialog(context),
+                  )
+                else ...[
+                  if (ble.statusMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        ble.statusMessage!,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    ),
+                  if (ble.discoveredPeers.isEmpty)
+                    Text(
+                      ble.isScanning
+                          ? 'Scanning for nearby Vetviona devices\u2026'
+                          : 'No BLE devices found. Tap Scan to search.',
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
                           ?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                  ),
-                if (ble.discoveredPeers.isEmpty)
-                  Text(
-                    ble.isScanning
-                        ? 'Scanning for nearby Vetviona devices\u2026'
-                        : 'No BLE devices found. Tap Scan to search.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
-                  )
-                else
-                  ...ble.discoveredPeers.map(
-                    (peer) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.bluetooth),
-                      title: Text(peer.deviceName.isNotEmpty
-                          ? peer.deviceName
-                          : peer.deviceId),
-                      subtitle: Text('${peer.host}:${peer.port}'),
-                      trailing: FilledButton.tonal(
-                        onPressed: () =>
-                            _syncWithBlePeer(context, ble, tree, peer),
-                        child: const Text('Sync'),
+                    )
+                  else
+                    ...ble.discoveredPeers.map(
+                      (peer) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.bluetooth),
+                        title: Text(peer.deviceName.isNotEmpty
+                            ? peer.deviceName
+                            : peer.deviceId),
+                        subtitle: Text('${peer.host}:${peer.port}'),
+                        trailing: FilledButton.tonal(
+                          onPressed: () =>
+                              _syncWithBlePeer(context, ble, tree, peer),
+                          child: const Text('Sync'),
+                        ),
                       ),
                     ),
-                  ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
           ],
+
+          // ── AirDrop / Nearby Share / file share ──────────────────────
+          _SyncCard(
+            icon: Icons.share_outlined,
+            title: 'AirDrop · Nearby Share · File Share',
+            children: [
+              Text(
+                'Export your tree as a .vetviona file and send it to another '
+                'device using your system share sheet.\n\n'
+                '• iOS / macOS: AirDrop\n'
+                '• Android: Nearby Share, Google Drive, email\u2026\n'
+                '• Desktop: email, Dropbox, USB drive\u2026\n\n'
+                'The recipient opens the file in Vetviona to merge it.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                icon: const Icon(Icons.ios_share),
+                label: const Text('Share Family Tree\u2026'),
+                onPressed: () => _shareTree(context, tree),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
           // ── Manual connect ───────────────────────────────────────────
           _SyncCard(
@@ -357,6 +406,20 @@ class _SyncScreenState extends State<SyncScreen> {
                 ),
               ],
             ),
+
+            // ── Tailscale info ────────────────────────────────────────
+            const SizedBox(height: 12),
+            _TailscaleCard(
+              tailscaleIp: sync.tailscaleIp,
+              serverPort: sync.serverPort,
+            ),
+
+            // ── QR code ───────────────────────────────────────────────
+            const SizedBox(height: 12),
+            _QrCodeCard(
+              sync: sync,
+              tree: tree,
+            ),
           ],
 
           const SizedBox(height: 24),
@@ -366,6 +429,36 @@ class _SyncScreenState extends State<SyncScreen> {
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────────
+
+  Future<void> _shareTree(BuildContext context, TreeProvider tree) async {
+    final success = await ShareSyncService.instance.shareTree(tree);
+    if (!success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not share tree file.')),
+      );
+    }
+  }
+
+  void _showUpgradeDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pro Feature'),
+        content: const Text(
+          'WiFi Auto-Sync (mDNS advertising/discovery) and Bluetooth peer '
+          'discovery require the Mobile Paid or Desktop Pro tier.\n\n'
+          'You can still use Manual Connect (including Tailscale addresses) '
+          'and AirDrop / Nearby Share without upgrading.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _generatePairingCode(
       BuildContext context, TreeProvider tree) async {
@@ -887,6 +980,287 @@ class _TierBadge extends StatelessWidget {
         style: TextStyle(
             fontSize: 11, color: color, fontWeight: FontWeight.w600),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pro-gate banner
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shown inside a [_SyncCard] when a feature requires a paid tier.
+class _ProGateBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onUpgrade;
+
+  const _ProGateBanner({required this.message, required this.onUpgrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.secondary.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_outline, size: 16, color: cs.secondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSecondaryContainer),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onUpgrade,
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tailscale info card
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shows Tailscale connection details when the server is running.
+///
+/// If a Tailscale IP is detected, it displays the address so users can
+/// connect from any device on their Tailscale network.  If no Tailscale
+/// interface is found, it shows guidance on how to set it up.
+class _TailscaleCard extends StatelessWidget {
+  final String? tailscaleIp;
+  final int serverPort;
+
+  const _TailscaleCard({
+    required this.tailscaleIp,
+    required this.serverPort,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasTs = tailscaleIp != null;
+
+    return _SyncCard(
+      icon: Icons.vpn_lock_outlined,
+      title: 'Tailscale',
+      children: [
+        if (hasTs) ...[
+          Text(
+            'Tailscale is active. Remote devices on your Tailscale network '
+            'can connect using the address below.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$tailscaleIp:$serverPort',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  tooltip: 'Copy address',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(
+                        text: '$tailscaleIp:$serverPort'));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Tailscale address copied')),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Enter this in Manual Connect on the remote device along '
+            'with your pairing code.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant, fontSize: 11),
+          ),
+        ] else ...[
+          Text(
+            'No Tailscale interface detected on this device.\n\n'
+            'Install Tailscale to sync over the internet without port '
+            'forwarding. Once Tailscale is running, restart the server '
+            'to see your Tailscale address here.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QR Code card
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Displays a QR code encoding the server connection info so that another
+/// device can scan it to auto-fill the Manual Connect fields.
+///
+/// QR payload format: `vetviona://<host>:<port>?secret=<sharedSecret>`
+///
+/// If the device has no paired devices yet, instructs the user to generate
+/// a pairing code first.
+class _QrCodeCard extends StatefulWidget {
+  final SyncService sync;
+  final TreeProvider tree;
+
+  const _QrCodeCard({required this.sync, required this.tree});
+
+  @override
+  State<_QrCodeCard> createState() => _QrCodeCardState();
+}
+
+class _QrCodeCardState extends State<_QrCodeCard> {
+  String? _selectedSecret;
+  Map<String, List<String>>? _localIps;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIps();
+    if (widget.tree.pairedDevices.isNotEmpty) {
+      _selectedSecret = widget.tree.pairedDevices.first.sharedSecret;
+    }
+  }
+
+  Future<void> _loadIps() async {
+    final ips = await SyncService.getAllLocalIps();
+    if (mounted) setState(() => _localIps = ips);
+  }
+
+  String? get _primaryIp {
+    if (_localIps == null) return null;
+    final ts = _localIps!['tailscale'] ?? [];
+    if (ts.isNotEmpty) return ts.first;
+    final lan = _localIps!['lan'] ?? [];
+    if (lan.isNotEmpty) return lan.first;
+    return null;
+  }
+
+  String? get _qrData {
+    final ip = _primaryIp;
+    final secret = _selectedSecret;
+    if (ip == null || secret == null) return null;
+    return 'vetviona://$ip:${widget.sync.serverPort}?secret=$secret';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final devices = widget.tree.pairedDevices;
+    final qrData = _qrData;
+
+    return _SyncCard(
+      icon: Icons.qr_code,
+      title: 'QR Code Pairing',
+      children: [
+        Text(
+          'Scan this QR code on another device to auto-fill the connection '
+          'details in Manual Connect.',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        if (devices.isEmpty)
+          Text(
+            'Generate a pairing code first, then return here to get a QR code.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.error),
+          )
+        else ...[
+          if (devices.length > 1) ...[
+            DropdownButtonFormField<String>(
+              value: _selectedSecret,
+              decoration:
+                  const InputDecoration(labelText: 'Pairing code to encode'),
+              items: devices
+                  .map((d) => DropdownMenuItem(
+                        value: d.sharedSecret,
+                        child: Text(
+                          d.id.startsWith('pending_')
+                              ? 'Pending — ${d.sharedSecret.substring(0, 8)}\u2026'
+                              : '${d.id.substring(0, 8)}\u2026',
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedSecret = v),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (qrData != null) ...[
+            Center(
+              child: QrImageView(
+                data: qrData,
+                version: QrVersions.auto,
+                size: 200,
+                backgroundColor: Colors.white,
+                padding: const EdgeInsets.all(8),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_primaryIp != null)
+              Center(
+                child: Text(
+                  '$_primaryIp:${widget.sync.serverPort}',
+                  style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+          ] else
+            Text(
+              _localIps == null
+                  ? 'Detecting local IP address\u2026'
+                  : 'Could not determine local IP address.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+        ],
+      ],
     );
   }
 }
