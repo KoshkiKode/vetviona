@@ -410,7 +410,7 @@ class GEDCOMParser {
     // GEDCOM uses all-caps month abbreviations (JAN, FEB, …).
     // intl's DateFormat expects title-case (Jan, Feb, …); normalise first.
     final normalized = dateStr.replaceAllMapped(
-      RegExp(r'\b([A-Z]{3})\b'),
+      RegExp(r'\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b'),
       (m) => m.group(1)![0] + m.group(1)!.substring(1).toLowerCase(),
     );
     final formats = [
