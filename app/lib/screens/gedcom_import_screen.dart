@@ -538,7 +538,7 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel Import?'),
         content: const Text(
-            'Your progress will be lost. The import can be resumed next time you open this file.'),
+            'Cancelling will discard all progress. You will need to start the import again from the beginning.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
