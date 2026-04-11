@@ -93,6 +93,10 @@ class SyncService extends ChangeNotifier {
   int _serverPort = 0;
   int get serverPort => _serverPort;
 
+  /// Cached Tailscale IP (100.x.x.x), populated when the server starts.
+  String? _tailscaleIp;
+  String? get tailscaleIp => _tailscaleIp;
+
   BonsoirBroadcast? _broadcast;
   BonsoirDiscovery? _discovery;
   StreamSubscription<BonsoirDiscoveryEvent>? _discoverySubscription;
@@ -134,8 +138,16 @@ class SyncService extends ChangeNotifier {
   // ── Server lifecycle ────────────────────────────────────────────────────────
 
   /// Starts the shelf HTTP server on a random port and begins mDNS advertisement.
+  ///
+  /// Requires a paid tier ([isProTier]).  Free-mobile users may only use
+  /// manual connect.
   Future<void> startServer() async {
     if (_isServerRunning) return;
+    if (!isProTier) {
+      _setStatus(SyncStatus.error,
+          'WiFi Auto-Sync requires the Pro or Paid Mobile tier.');
+      return;
+    }
     if (!_wifiSyncEnabled) {
       _setStatus(SyncStatus.error, 'WiFi sync is disabled in Settings.');
       return;
@@ -158,6 +170,9 @@ class SyncService extends ChangeNotifier {
       _serverPort = _httpServer!.port;
       _isServerRunning = true;
 
+      // Detect Tailscale IP now so it's available in the UI.
+      _tailscaleIp = await _detectTailscaleIp();
+
       await _startBroadcast(tp.localDeviceId, tp.currentAppTierString);
       _setStatus(SyncStatus.advertising,
           'Accepting connections on port $_serverPort');
@@ -173,6 +188,7 @@ class SyncService extends ChangeNotifier {
     await _httpServer?.close(force: true);
     _httpServer = null;
     _serverPort = 0;
+    _tailscaleIp = null;
     _isServerRunning = false;
     if (_status == SyncStatus.advertising) {
       _setStatus(SyncStatus.idle, null);
@@ -204,8 +220,15 @@ class SyncService extends ChangeNotifier {
   // ── mDNS discovery ──────────────────────────────────────────────────────────
 
   /// Starts mDNS discovery; populates [discoveredPeers] as devices appear.
+  ///
+  /// Requires a paid tier ([isProTier]).
   Future<void> startDiscovery() async {
     if (_isDiscovering) return;
+    if (!isProTier) {
+      _setStatus(SyncStatus.error,
+          'WiFi Auto-Sync discovery requires the Pro or Paid Mobile tier.');
+      return;
+    }
     if (!_wifiSyncEnabled) {
       _setStatus(SyncStatus.error, 'WiFi sync is disabled in Settings.');
       return;
@@ -418,6 +441,76 @@ class SyncService extends ChangeNotifier {
       _setStatus(SyncStatus.error, 'Sync error: $e');
       return false;
     }
+  }
+
+  // ── Tailscale detection ──────────────────────────────────────────────────────
+
+  /// Returns all local IPv4 addresses grouped by type.
+  ///
+  /// Keys:
+  /// - `'lan'`       — standard private-range addresses (192.168.x.x, 10.x.x.x,
+  ///                   172.16-31.x.x)
+  /// - `'tailscale'` — Tailscale virtual addresses (100.64.0.0/10 range)
+  /// - `'other'`     — everything else (e.g. bridge/VM adapters)
+  static Future<Map<String, List<String>>> getAllLocalIps() async {
+    final result = <String, List<String>>{
+      'lan': [],
+      'tailscale': [],
+      'other': [],
+    };
+    if (kIsWeb) return result;
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+      for (final iface in interfaces) {
+        final name = iface.name.toLowerCase();
+        // Skip loopback.
+        if (name.startsWith('lo') || name == 'loopback') continue;
+        for (final addr in iface.addresses) {
+          if (addr.isLoopback) continue;
+          final ip = addr.address;
+          if (_isTailscaleIp(ip)) {
+            result['tailscale']!.add(ip);
+          } else if (_isLanIp(ip)) {
+            result['lan']!.add(ip);
+          } else {
+            result['other']!.add(ip);
+          }
+        }
+      }
+    } catch (_) {}
+    return result;
+  }
+
+  /// Returns `true` if [ip] falls in the Tailscale CGNAT range 100.64.0.0/10.
+  static bool _isTailscaleIp(String ip) {
+    final parts = ip.split('.');
+    if (parts.length != 4) return false;
+    final first = int.tryParse(parts[0]) ?? 0;
+    final second = int.tryParse(parts[1]) ?? 0;
+    // 100.64.0.0/10 covers 100.64.x.x – 100.127.x.x
+    return first == 100 && second >= 64 && second <= 127;
+  }
+
+  /// Returns `true` if [ip] is a typical private LAN address.
+  static bool _isLanIp(String ip) {
+    final parts = ip.split('.');
+    if (parts.length != 4) return false;
+    final a = int.tryParse(parts[0]) ?? 0;
+    final b = int.tryParse(parts[1]) ?? 0;
+    if (a == 10) return true;
+    if (a == 172 && b >= 16 && b <= 31) return true;
+    if (a == 192 && b == 168) return true;
+    return false;
+  }
+
+  /// Detects the primary Tailscale IP address, if any.
+  static Future<String?> _detectTailscaleIp() async {
+    final ips = await getAllLocalIps();
+    final tailscale = ips['tailscale'] ?? [];
+    return tailscale.isNotEmpty ? tailscale.first : null;
   }
 
   // ── Encryption ──────────────────────────────────────────────────────────────

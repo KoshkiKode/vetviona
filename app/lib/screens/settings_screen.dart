@@ -492,7 +492,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           Text(
-            'Automatically syncs when your devices are on the same WiFi network — no button press needed.',
+            'Automatically syncs when your devices are on the same WiFi network '
+            'or Tailscale virtual network — no button press needed.',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
@@ -500,7 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SwitchListTile(
             title: const Text('WiFi Auto-Sync'),
-            subtitle: const Text('Sync automatically on home network'),
+            subtitle: const Text('Sync automatically on home network or Tailscale'),
             value: _wifiSync,
             contentPadding: EdgeInsets.zero,
             onChanged: (v) async {
@@ -522,8 +523,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           Text(
             _bluetoothSupported
-                ? 'Tap to sync on demand — works over Bluetooth or any local connection you initiate.'
-                : 'Tap to sync on demand — works over WiFi on your local network.',
+                ? 'Tap to sync on demand — works over Bluetooth, WiFi, Tailscale, '
+                    'AirDrop (iOS/macOS), or Nearby Share (Android).'
+                : 'Tap to sync on demand — works over WiFi, Tailscale, '
+                    'AirDrop (macOS), or any local connection you initiate.',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
@@ -540,6 +543,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 await syncService.setBluetoothSyncEnabled(v);
               },
             ),
+          const Divider(height: 16),
+          Text(
+            'AirDrop (iOS/macOS) and Nearby Share (Android) are available '
+            'via the Share button on the Sync screen — no extra setup needed.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: onSurfaceVariant),
+          ),
           if (currentAppTier == AppTier.desktopPro) ...[
             const Divider(height: 16),
             Text(

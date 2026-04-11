@@ -40,3 +40,9 @@ const int freeMobilePersonLimit = 100;
 
 /// Whether this build is the paid desktop version (used for the lock screen).
 bool get isPaidDesktop => _isPaidDesktop;
+
+/// Whether the current tier is a paid / pro tier (mobilePaid or desktopPro).
+/// Free mobile users only have access to manual sync; all advanced sync modes
+/// (WiFi Auto, Bluetooth, Tailscale, QR pairing, AirDrop/Nearby Share) require
+/// this to return `true`.
+bool get isProTier => currentAppTier != AppTier.mobileFree;
