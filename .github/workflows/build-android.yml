@@ -31,9 +31,9 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Scaffold Android platform
+      - name: Scaffold Android + iOS platform
         working-directory: app
-        run: flutter create --platforms=android --org com.koshkikode .
+        run: flutter create --platforms=android,ios --org com.koshkikode .
 
       - name: Install dependencies
         working-directory: app
