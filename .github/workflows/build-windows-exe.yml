@@ -51,6 +51,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vetviona-windows-exe
-          path: |
-            app/build/windows/x64/runner/Release/vetviona.exe
-            app/build/windows/x64/runner/Release/*.dll
+          path: app/build/windows/x64/runner/Release/

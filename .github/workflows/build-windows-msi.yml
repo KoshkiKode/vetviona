@@ -47,21 +47,26 @@ jobs:
       - name: Rename executable for packaging
         run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
 
-      # ── WiX MSI packaging ─────────────────────────────────────────────────
+      # ── WiX MSI packaging ─────────────────────────────────────────────────────
       - name: Install WiX Toolset
         run: |
           dotnet tool install --global wix --version 5.0.2
-          wix extension add -g WixToolset.UI.wixext
+          wix extension add -g WixToolset.UI.wixext/5.0.2
 
       - name: Copy WiX source files
         run: |
           cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
           cp packaging/windows/LICENSE.rtf app/build/windows/x64/runner/Release/LICENSE.rtf
 
+      - name: Harvest release directory
+        working-directory: app/build/windows/x64/runner/Release
+        run: |
+          wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
+
       - name: Build MSI
         working-directory: app/build/windows/x64/runner/Release
         run: |
-          wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
+          wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
 
       - name: Upload MSI installer
         uses: actions/upload-artifact@v4
