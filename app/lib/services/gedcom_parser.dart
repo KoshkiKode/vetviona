@@ -4,16 +4,19 @@ import 'package:uuid/uuid.dart';
 import '../models/life_event.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
+import '../models/source.dart';
 
 /// Return value from [GEDCOMParser.parse].
 class GedcomResult {
   final List<Person> persons;
   final List<Partnership> partnerships;
   final List<LifeEvent> lifeEvents;
+  final List<Source> sources;
   const GedcomResult({
     required this.persons,
     required this.partnerships,
     this.lifeEvents = const [],
+    this.sources = const [],
   });
 }
 
@@ -56,13 +59,21 @@ class GEDCOMParser {
     final families = <String, Map<String, dynamic>>{};
     final builtLifeEvents = <LifeEvent>[];
 
+    // SOUR record definitions: gedcom source id → {title, auth, publ}
+    final sourceDefs = <String, Map<String, String>>{};
+    // Person→Source references: {personId, sourceId, page?}
+    final sourRefs = <Map<String, String?>>[];
+
     String? currentId;
     String? currentTag;
     Person? currentPerson;
     Map<String, dynamic>? currentFamily;
+    Map<String, String>? currentSourceDef;
 
     // Pending life event being built while scanning level-2 sub-tags.
     Map<String, dynamic>? pendingEvent;
+    // Pending SOUR reference from a 1 SOUR @Sx@ in an INDI record.
+    Map<String, String?>? pendingSourRef;
 
     void _flushPendingEvent(String personId) {
       if (pendingEvent == null) return;
@@ -100,6 +111,8 @@ class GEDCOMParser {
         currentTag = null;
         currentId = null;
         pendingEvent = null;
+        pendingSourRef = null;
+        currentSourceDef = null;
 
         if (value == 'INDI') {
           currentId = tag.replaceAll('@', '');
@@ -109,11 +122,17 @@ class GEDCOMParser {
           families[famId] = {'children': <String>[]};
           currentFamily = families[famId];
           currentId = famId;
+        } else if (value == 'SOUR') {
+          final srcId = tag.replaceAll('@', '');
+          sourceDefs[srcId] = {};
+          currentSourceDef = sourceDefs[srcId];
+          currentId = srcId;
         }
       } else if (level == 1 && currentPerson != null) {
         // Flush any pending event when we start a new level-1 tag.
         if (pendingEvent != null) _flushPendingEvent(currentId!);
         pendingEvent = null;
+        pendingSourRef = null;
         currentTag = tag;
 
         if (tag == 'NAME') {
@@ -130,6 +149,22 @@ class GEDCOMParser {
           if (_gedcomEventTags.containsKey(tag)) {
             pendingEvent = {'tag': tag};
           }
+        } else if (tag == 'SOUR') {
+          // Reference to a source record: value is @S1@ or inline title.
+          final refId = value.replaceAll('@', '').trim();
+          if (refId.isNotEmpty) {
+            pendingSourRef = {'personId': currentId!, 'sourceId': refId};
+            sourRefs.add(pendingSourRef!);
+          }
+        }
+      } else if (level == 1 && currentSourceDef != null) {
+        currentTag = tag;
+        if (tag == 'TITL') {
+          currentSourceDef!['title'] = value;
+        } else if (tag == 'AUTH') {
+          currentSourceDef!['auth'] = value;
+        } else if (tag == 'PUBL') {
+          currentSourceDef!['publ'] = value;
         }
       } else if (level == 1 && currentFamily != null) {
         currentTag = tag;
@@ -167,6 +202,9 @@ class GEDCOMParser {
           } else if (tag == 'TYPE') {
             pendingEvent!['type'] = value;
           }
+        } else if (currentTag == 'SOUR' && pendingSourRef != null && tag == 'PAGE') {
+          // Page/citation reference for a source.
+          pendingSourRef!['page'] = value;
         }
       } else if (level == 2 && currentFamily != null) {
         if (currentTag == 'MARR' && tag == 'DATE') {
@@ -245,7 +283,35 @@ class GEDCOMParser {
       persons: persons.values.toList(),
       partnerships: builtPartnerships,
       lifeEvents: builtLifeEvents,
+      sources: _buildSources(sourRefs, sourceDefs),
     );
+  }
+
+  /// Build [Source] objects from the collected SOUR definitions and
+  /// per-person references gathered during parsing.
+  static List<Source> _buildSources(
+    List<Map<String, String?>> refs,
+    Map<String, Map<String, String>> defs,
+  ) {
+    final built = <Source>[];
+    for (final ref in refs) {
+      final personId = ref['personId'];
+      final sourceId = ref['sourceId'];
+      if (personId == null || sourceId == null) continue;
+      final def = defs[sourceId];
+      final title = def?['title'] ?? sourceId;
+      built.add(Source(
+        id: _uuid.v4(),
+        personId: personId,
+        title: title,
+        type: 'GEDCOM Record',
+        url: '',
+        author: def?['auth'],
+        publisher: def?['publ'],
+        volumePage: ref['page'],
+      ));
+    }
+    return built;
   }
 
   Future<void> export(

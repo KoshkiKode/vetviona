@@ -896,6 +896,12 @@ class TreeProvider extends ChangeNotifier {
         await addLifeEvent(treeEvent);
       }
     }
+    for (final source in result.sources) {
+      if (persons.any((p) => p.id == source.personId)) {
+        source.treeId = currentTreeId;
+        await addSource(source);
+      }
+    }
   }
 
   Future<void> exportGEDCOM(String path,

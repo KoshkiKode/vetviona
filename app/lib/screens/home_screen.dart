@@ -16,6 +16,7 @@ import '../utils/page_routes.dart';
 import 'calendar_screen.dart';
 import 'conflict_resolver_screen.dart';
 import 'descendants_screen.dart';
+import 'gedcom_import_screen.dart';
 import 'login_screen.dart';
 import 'medical_history_screen.dart';
 import 'pedigree_screen.dart';
@@ -723,6 +724,15 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.merge_outlined),
+            title: const Text('Combine GEDCOM'),
+            subtitle: const Text('Merge into existing tree (deduplicates)'),
+            onTap: () {
+              Navigator.pop(context);
+              _combineGEDCOM(context, provider);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.download_outlined),
             title: const Text('Export GEDCOM'),
             onTap: () {
@@ -1305,20 +1315,35 @@ class _HomeScreenState extends State<HomeScreen> {
       type: FileType.custom,
       allowedExtensions: ['ged', 'gedcom'],
     );
-    if (result != null && result.files.single.path != null) {
-      try {
-        await provider.importGEDCOM(result.files.single.path!);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('GEDCOM imported successfully')));
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Import failed: $e')));
-        }
-      }
+    if (result != null && result.files.single.path != null && context.mounted) {
+      Navigator.push(
+        context,
+        fadeSlideRoute(
+          builder: (_) => GedcomImportScreen(
+            filePath: result.files.single.path!,
+            mergeMode: false,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _combineGEDCOM(
+      BuildContext context, TreeProvider provider) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['ged', 'gedcom'],
+    );
+    if (result != null && result.files.single.path != null && context.mounted) {
+      Navigator.push(
+        context,
+        fadeSlideRoute(
+          builder: (_) => GedcomImportScreen(
+            filePath: result.files.single.path!,
+            mergeMode: true,
+          ),
+        ),
+      );
     }
   }
 
