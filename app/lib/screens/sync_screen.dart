@@ -681,14 +681,19 @@ class _QrScannerCardState extends State<_QrScannerCard> {
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<void> _onDetect(BarcodeCapture capture) async {
     for (final barcode in capture.barcodes) {
       final raw = barcode.rawValue;
       if (raw == null) continue;
       final parsed = _parseVetvionaUrl(raw);
       if (parsed == null) continue;
 
-      _cameraController.stop();
+      try {
+        await _cameraController.stop();
+      } catch (_) {
+        // Ignore stop errors — the camera may already be stopped.
+      }
+      if (!mounted) return;
       setState(() {
         _scanning = false;
         _lastResult = raw;
@@ -698,14 +703,12 @@ class _QrScannerCardState extends State<_QrScannerCard> {
       widget.portController.text = parsed['port']!;
       widget.secretController.text = parsed['secret']!;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'QR scanned! Fields filled — tap Sync Now in Manual Connect.'),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'QR scanned! Fields filled — tap Sync Now in Manual Connect.'),
+        ),
+      );
       return;
     }
   }
@@ -724,6 +727,15 @@ class _QrScannerCardState extends State<_QrScannerCard> {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<void> _stopScanning() async {
+    try {
+      await _cameraController.stop();
+    } catch (_) {
+      // Ignore stop errors — the camera may already be stopped.
+    }
+    if (mounted) setState(() => _scanning = false);
   }
 
   @override
@@ -758,10 +770,7 @@ class _QrScannerCardState extends State<_QrScannerCard> {
           OutlinedButton.icon(
             icon: const Icon(Icons.stop),
             label: const Text('Stop Scanning'),
-            onPressed: () {
-              _cameraController.stop();
-              setState(() => _scanning = false);
-            },
+            onPressed: _stopScanning,
           ),
         ] else ...[
           if (_lastResult != null)
@@ -775,9 +784,19 @@ class _QrScannerCardState extends State<_QrScannerCard> {
           FilledButton.icon(
             icon: const Icon(Icons.qr_code_scanner),
             label: const Text('Start Camera Scan'),
-            onPressed: () {
-              _cameraController.start();
+            onPressed: () async {
+              // Show scanning state immediately, then await camera start.
               setState(() => _scanning = true);
+              try {
+                await _cameraController.start();
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _scanning = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Camera unavailable: $e')),
+                  );
+                }
+              }
             },
           ),
         ],
