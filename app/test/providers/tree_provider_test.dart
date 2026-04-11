@@ -631,45 +631,34 @@ void main() {
 
   // ── importFromSync session cap ─────────────────────────────────────────────
   group('TreeProvider.exportForSync senderTier', () {
-    test('exportForSync payload includes senderTier when set by SyncService',
+    test('exportForSync payload does not embed senderTier (added by SyncService)',
         () {
       // exportForSync itself does not embed senderTier — SyncService adds it
-      // before sending.  Verify the key is absent from the raw export so
-      // importFromSync must tolerate a missing senderTier.
+      // before sending.  importFromSync must tolerate a missing senderTier key.
       final provider = TreeProvider();
       provider.persons = [Person(id: 'p1', name: 'Alice')];
       provider.partnerships = [];
       provider.sources = [];
       final data = provider.exportForSync();
-      // The raw export should NOT have senderTier; it is appended by SyncService.
       expect(data.containsKey('senderTier'), false);
     });
 
-    test('importFromSync without senderTier applies no session cap', () async {
+    test(
+        'session cap is null (no limit) when senderTier is absent or non-free',
+        () {
+      // Verify that the session-cap logic inside importFromSync correctly
+      // evaluates to no cap when the senderTier key is absent.
+      //
+      // We test this indirectly by checking that the desktop provider reports
+      // isAtPersonLimit = false for any number of persons (confirming it uses
+      // null as the cap), which is what importFromSync relies on when
+      // senderTier is absent.
       final provider = TreeProvider();
-      // Start with an empty tree (desktop tier, no receiver limit).
-      provider.persons = [];
-      provider.partnerships = [];
-      provider.sources = [];
-      provider.lifeEvents = [];
-
-      // Build a payload representing 150 persons but NO senderTier key.
-      final incomingPersons = List.generate(
-        150,
-        (i) => Person(id: 'in$i', name: 'Person $i').toMap(),
-      );
-      final data = <String, dynamic>{
-        'persons': incomingPersons,
-        'partnerships': [],
-        'sources': [],
-        'lifeEvents': [],
-        // no 'senderTier'
-      };
-
-      // importFromSync requires a real DB; but we can verify the pure-logic
-      // session-cap is correctly set to null when senderTier is absent.
-      // We test indirectly via exportForSync round-trip at the data level.
-      expect(data['senderTier'], isNull);
+      provider.persons =
+          List.generate(200, (i) => Person(id: 'p$i', name: 'P$i'));
+      // On the test runner (Linux == desktopPro), personLimit is null.
+      expect(provider.personLimit, isNull);
+      expect(provider.isAtPersonLimit, false);
     });
   });
 

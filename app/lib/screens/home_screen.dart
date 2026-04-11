@@ -1374,19 +1374,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
-      builder: (ctx) {
-        final purchaseService = ctx.watch<PurchaseService>();
-        return AlertDialog(
-          icon: Icon(Icons.rocket_launch_outlined,
-              color: colorScheme.primary, size: 40),
-          title: const Text('Upgrade Vetviona'),
-          content: Column(
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.rocket_launch_outlined,
+            color: colorScheme.primary, size: 40),
+        title: const Text('Upgrade Vetviona'),
+        content: Consumer<PurchaseService>(
+          builder: (consumerCtx, purchaseService, _) => Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 "You've reached the free tier limit of $freeMobilePersonLimit people.",
-                style: Theme.of(ctx).textTheme.bodyMedium,
+                style: Theme.of(consumerCtx).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
               _UpgradeTierRow(
@@ -1415,7 +1414,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Mobile Paid: ${purchaseService.product!.price}',
-                  style: Theme.of(ctx)
+                  style: Theme.of(consumerCtx)
                       .textTheme
                       .bodySmall
                       ?.copyWith(color: colorScheme.onSurfaceVariant),
@@ -1423,48 +1422,58 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Not Now'),
-            ),
-            if (!purchaseService.isPurchased) ...[
-              OutlinedButton(
-                onPressed: purchaseService.isLoading
-                    ? null
-                    : () async {
-                        await purchaseService.restorePurchases();
-                      },
-                child: const Text('Restore'),
-              ),
-              FilledButton.icon(
-                icon: purchaseService.isLoading
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child:
-                            CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.shopping_cart_outlined, size: 16),
-                label: const Text('Upgrade'),
-                onPressed: purchaseService.isLoading
-                    ? null
-                    : () async {
-                        if (purchaseService.product == null) {
-                          await purchaseService.loadProduct();
-                        }
-                        await purchaseService.buyMobilePaid();
-                      },
-              ),
-            ] else
-              FilledButton.icon(
-                icon: const Icon(Icons.check_circle_outline, size: 16),
-                label: const Text('Purchased'),
-                onPressed: () => Navigator.pop(ctx),
-              ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Not Now'),
+          ),
+          Consumer<PurchaseService>(
+            builder: (consumerCtx, purchaseService, _) {
+              if (purchaseService.isPurchased) {
+                return FilledButton.icon(
+                  icon:
+                      const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('Purchased'),
+                  onPressed: () => Navigator.pop(ctx),
+                );
+              }
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: purchaseService.isLoading
+                        ? null
+                        : () => purchaseService.restorePurchases(),
+                    child: const Text('Restore'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    icon: purchaseService.isLoading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.shopping_cart_outlined, size: 16),
+                    label: const Text('Upgrade'),
+                    onPressed: purchaseService.isLoading
+                        ? null
+                        : () async {
+                            if (purchaseService.product == null) {
+                              await purchaseService.loadProduct();
+                            }
+                            await purchaseService.buyMobilePaid();
+                          },
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

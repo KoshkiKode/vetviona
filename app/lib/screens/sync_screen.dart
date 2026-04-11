@@ -500,9 +500,10 @@ class _SyncScreenState extends State<SyncScreen> {
   ) async {
     // Find the matching paired device by device ID prefix.
     final device = tree.pairedDevices.where((d) {
+      final prefixLen = d.id.length.clamp(0, 8);
       return d.id == peer.deviceId ||
           d.id.startsWith(peer.deviceId) ||
-          peer.deviceId.startsWith(d.id.substring(0, 8.clamp(0, d.id.length)));
+          peer.deviceId.startsWith(d.id.substring(0, prefixLen));
     }).firstOrNull;
 
     if (device == null) {
