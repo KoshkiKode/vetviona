@@ -234,6 +234,86 @@ void main() {
         expect(p.id, '42');
         expect(p.status, 'married');
       });
+
+      test('notes and witnesses survive roundtrip', () {
+        final original = Partnership(
+          id: 'pt1',
+          person1Id: 'a',
+          person2Id: 'b',
+          notes: 'Ceremony in Prague',
+          witnesses: 'Jan Novák, Eva Nováková',
+        );
+        final r = Partnership.fromMap(original.toMap());
+        expect(r.notes, 'Ceremony in Prague');
+        expect(r.witnesses, 'Jan Novák, Eva Nováková');
+      });
+
+      test('null notes and witnesses survive roundtrip', () {
+        final original = Partnership(id: 'pt1', person1Id: 'a', person2Id: 'b');
+        final r = Partnership.fromMap(original.toMap());
+        expect(r.notes, isNull);
+        expect(r.witnesses, isNull);
+      });
+
+      test('ceremonyType survive roundtrip', () {
+        for (final type in Partnership.allCeremonyTypes) {
+          final p = Partnership(
+            id: 'pt',
+            person1Id: 'a',
+            person2Id: 'b',
+            ceremonyType: type,
+          );
+          expect(Partnership.fromMap(p.toMap()).ceremonyType, type);
+        }
+      });
+
+      test('null ceremonyType survives roundtrip', () {
+        final p = Partnership(id: 'pt', person1Id: 'a', person2Id: 'b');
+        expect(Partnership.fromMap(p.toMap()).ceremonyType, isNull);
+      });
+
+      test('sourceIds serialise with comma separator and roundtrip correctly', () {
+        final p = Partnership(
+          id: 'pt',
+          person1Id: 'a',
+          person2Id: 'b',
+          sourceIds: ['s1', 's2', 's3'],
+        );
+        final map = p.toMap();
+        expect(map['sourceIds'], 's1,s2,s3');
+        final r = Partnership.fromMap(map);
+        expect(r.sourceIds, ['s1', 's2', 's3']);
+      });
+
+      test('empty sourceIds serialise to empty string and deserialise correctly',
+          () {
+        final p = Partnership(id: 'pt', person1Id: 'a', person2Id: 'b');
+        final map = p.toMap();
+        expect(map['sourceIds'], '');
+        expect(Partnership.fromMap(map).sourceIds, isEmpty);
+      });
+
+      test('fromMap with null sourceIds returns empty list', () {
+        final map = <String, dynamic>{
+          'id': 'pt',
+          'person1Id': 'a',
+          'person2Id': 'b',
+        };
+        expect(Partnership.fromMap(map).sourceIds, isEmpty);
+      });
+    });
+
+    group('allCeremonyTypes', () {
+      test('contains all five expected types', () {
+        expect(
+          Partnership.allCeremonyTypes,
+          containsAll(['civil', 'religious', 'traditional', 'common-law', 'other']),
+        );
+      });
+
+      test('has exactly 5 entries', () {
+        expect(Partnership.allCeremonyTypes.length, 5);
+      });
     });
   });
 }

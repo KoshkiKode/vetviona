@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vetviona_app/models/geo_coord.dart';
 import 'package:vetviona_app/models/person.dart';
 
 void main() {
@@ -174,6 +175,271 @@ void main() {
         final map = p.toMap();
         expect(map['parentIds'], 'par1,par2');
         expect(map['sourceIds'], 'src1,src2');
+      });
+    });
+
+    group('new optional fields — defaults', () {
+      test('occupation, nationality, maidenName default to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.occupation, isNull);
+        expect(p.nationality, isNull);
+        expect(p.maidenName, isNull);
+      });
+
+      test('burialDate, burialPlace default to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.burialDate, isNull);
+        expect(p.burialPlace, isNull);
+      });
+
+      test('coord fields default to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.birthCoord, isNull);
+        expect(p.deathCoord, isNull);
+        expect(p.burialCoord, isNull);
+      });
+
+      test('postal code fields default to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.birthPostalCode, isNull);
+        expect(p.deathPostalCode, isNull);
+        expect(p.burialPostalCode, isNull);
+      });
+
+      test('isPrivate defaults to false', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.isPrivate, false);
+      });
+
+      test('v7 extended fields default to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.causeOfDeath, isNull);
+        expect(p.bloodType, isNull);
+        expect(p.eyeColour, isNull);
+        expect(p.hairColour, isNull);
+        expect(p.height, isNull);
+        expect(p.religion, isNull);
+        expect(p.education, isNull);
+      });
+
+      test('aliases defaults to empty list', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.aliases, isEmpty);
+      });
+
+      test('preferredSourceIds defaults to empty map', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.preferredSourceIds, isEmpty);
+      });
+    });
+
+    group('allBloodTypes', () {
+      test('contains all expected ABO/Rh types', () {
+        expect(
+          Person.allBloodTypes,
+          containsAll(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown']),
+        );
+      });
+
+      test('has exactly 9 entries', () {
+        expect(Person.allBloodTypes.length, 9);
+      });
+    });
+
+    group('toMap / fromMap — extended fields', () {
+      test('occupation, nationality, maidenName survive roundtrip', () {
+        final p = Person(
+          id: 'x',
+          name: 'Alice',
+          occupation: 'Nurse',
+          nationality: 'British',
+          maidenName: 'Jones',
+        );
+        final r = Person.fromMap(p.toMap());
+        expect(r.occupation, 'Nurse');
+        expect(r.nationality, 'British');
+        expect(r.maidenName, 'Jones');
+      });
+
+      test('burialDate and burialPlace survive roundtrip', () {
+        final p = Person(
+          id: 'x',
+          name: 'Bob',
+          burialDate: DateTime(1980, 4, 12),
+          burialPlace: 'Highgate Cemetery',
+        );
+        final r = Person.fromMap(p.toMap());
+        expect(r.burialDate, DateTime(1980, 4, 12));
+        expect(r.burialPlace, 'Highgate Cemetery');
+      });
+
+      test('isPrivate serialises as 1 and deserialises as true', () {
+        final p = Person(id: 'x', name: 'Private', isPrivate: true);
+        final map = p.toMap();
+        expect(map['isPrivate'], 1);
+        expect(Person.fromMap(map).isPrivate, true);
+      });
+
+      test('isPrivate false serialises as 0 and deserialises as false', () {
+        final p = Person(id: 'x', name: 'Public');
+        final map = p.toMap();
+        expect(map['isPrivate'], 0);
+        expect(Person.fromMap(map).isPrivate, false);
+      });
+
+      test('fromMap with null isPrivate defaults to false', () {
+        final map = <String, dynamic>{'id': 'x', 'name': 'T', 'isPrivate': null};
+        expect(Person.fromMap(map).isPrivate, false);
+      });
+
+      test('v7 extended fields survive roundtrip', () {
+        final p = Person(
+          id: 'x',
+          name: 'Alice',
+          causeOfDeath: 'cardiac arrest',
+          bloodType: 'A+',
+          eyeColour: 'brown',
+          hairColour: 'auburn',
+          height: '172 cm',
+          religion: 'Catholic',
+          education: "Bachelor's degree",
+        );
+        final r = Person.fromMap(p.toMap());
+        expect(r.causeOfDeath, 'cardiac arrest');
+        expect(r.bloodType, 'A+');
+        expect(r.eyeColour, 'brown');
+        expect(r.hairColour, 'auburn');
+        expect(r.height, '172 cm');
+        expect(r.religion, 'Catholic');
+        expect(r.education, "Bachelor's degree");
+      });
+
+      test('aliases serialise with semicolon separator', () {
+        final p = Person(
+          id: 'x',
+          name: 'Alice',
+          aliases: ['Ally', 'Ali'],
+        );
+        final map = p.toMap();
+        expect(map['aliases'], 'Ally;Ali');
+        final r = Person.fromMap(map);
+        expect(r.aliases, ['Ally', 'Ali']);
+      });
+
+      test('empty aliases serialises to empty string and deserialises correctly',
+          () {
+        final p = Person(id: 'x', name: 'X');
+        final map = p.toMap();
+        expect(map['aliases'], '');
+        expect(Person.fromMap(map).aliases, isEmpty);
+      });
+
+      test('fromMap with null aliases returns empty list', () {
+        final map = <String, dynamic>{'id': 'x', 'name': 'T'};
+        expect(Person.fromMap(map).aliases, isEmpty);
+      });
+
+      test('preferredSourceIds survive roundtrip', () {
+        final p = Person(
+          id: 'x',
+          name: 'Alice',
+          preferredSourceIds: {'Birth Date': 'src1', 'Death Place': 'src2'},
+        );
+        final r = Person.fromMap(p.toMap());
+        expect(r.preferredSourceIds['Birth Date'], 'src1');
+        expect(r.preferredSourceIds['Death Place'], 'src2');
+      });
+
+      test('preferredSourceIds empty map roundtrip', () {
+        final p = Person(id: 'x', name: 'X');
+        final r = Person.fromMap(p.toMap());
+        expect(r.preferredSourceIds, isEmpty);
+      });
+
+      test('postal code fields survive roundtrip', () {
+        final p = Person(
+          id: 'x',
+          name: 'Alice',
+          birthPostalCode: 'EC1A 1BB',
+          deathPostalCode: '75001',
+          burialPostalCode: 'N6 6PJ',
+        );
+        final r = Person.fromMap(p.toMap());
+        expect(r.birthPostalCode, 'EC1A 1BB');
+        expect(r.deathPostalCode, '75001');
+        expect(r.burialPostalCode, 'N6 6PJ');
+      });
+
+      test('coord fields survive roundtrip via GeoCoord.toDbString', () {
+        const coord = GeoCoord(lat: 51.5074, lng: -0.1278, city: 'London');
+        final p = Person(id: 'x', name: 'Alice', birthCoord: coord);
+        final r = Person.fromMap(p.toMap());
+        expect(r.birthCoord, isNotNull);
+        expect(r.birthCoord!.lat, closeTo(51.5074, 0.0001));
+        expect(r.birthCoord!.lng, closeTo(-0.1278, 0.0001));
+        expect(r.birthCoord!.city, 'London');
+      });
+
+      test('null coord fields roundtrip to null', () {
+        final p = Person(id: 'x', name: 'X');
+        final r = Person.fromMap(p.toMap());
+        expect(r.birthCoord, isNull);
+        expect(r.deathCoord, isNull);
+        expect(r.burialCoord, isNull);
+      });
+
+      test('full extended-field roundtrip preserves every field', () {
+        const coord = GeoCoord(lat: 48.8566, lng: 2.3522, city: 'Paris');
+        final original = Person(
+          id: 'full-001',
+          name: 'Marie Dupont',
+          birthDate: DateTime(1945, 6, 1),
+          birthPlace: 'Paris',
+          deathDate: DateTime(2010, 11, 15),
+          deathPlace: 'Lyon',
+          gender: 'F',
+          parentIds: ['p1'],
+          childIds: ['c1'],
+          parentRelTypes: {'p1': 'biological'},
+          photoPaths: ['photo.jpg'],
+          sourceIds: ['s1'],
+          notes: 'Lived in Paris',
+          treeId: 'tree1',
+          occupation: 'Teacher',
+          nationality: 'French',
+          maidenName: 'Martin',
+          burialDate: DateTime(2010, 11, 18),
+          burialPlace: 'Père Lachaise',
+          birthCoord: coord,
+          birthPostalCode: '75001',
+          isPrivate: false,
+          causeOfDeath: 'natural causes',
+          bloodType: 'B+',
+          eyeColour: 'green',
+          hairColour: 'black',
+          height: '165 cm',
+          religion: 'Catholic',
+          education: "Master's degree",
+          aliases: ['Marie Martin', 'Mme Dupont'],
+          preferredSourceIds: {'Birth Date': 's1'},
+        );
+        final r = Person.fromMap(original.toMap());
+        expect(r.occupation, original.occupation);
+        expect(r.nationality, original.nationality);
+        expect(r.maidenName, original.maidenName);
+        expect(r.burialDate, original.burialDate);
+        expect(r.burialPlace, original.burialPlace);
+        expect(r.birthPostalCode, original.birthPostalCode);
+        expect(r.isPrivate, original.isPrivate);
+        expect(r.causeOfDeath, original.causeOfDeath);
+        expect(r.bloodType, original.bloodType);
+        expect(r.eyeColour, original.eyeColour);
+        expect(r.hairColour, original.hairColour);
+        expect(r.height, original.height);
+        expect(r.religion, original.religion);
+        expect(r.education, original.education);
+        expect(r.aliases, original.aliases);
+        expect(r.preferredSourceIds, original.preferredSourceIds);
       });
     });
   });
