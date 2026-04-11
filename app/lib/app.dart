@@ -6,6 +6,7 @@ import 'providers/tree_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/splash_screen.dart';
 import 'config/build_metadata.dart';
 import 'services/bluetooth_sync_service.dart';
 import 'services/purchase_service.dart';
@@ -100,16 +101,29 @@ class _StartupRouterState extends State<_StartupRouter> {
     }
   }
 
+  /// Returns the correct destination widget once both the onboarding check
+  /// and the data load have completed.  Only called when [_onboardingDone]
+  /// is non-null.
+  Widget _destination() {
+    if (!_onboardingDone!) {
+      return const OnboardingScreen(key: ValueKey('onboarding'));
+    }
+    return const HomeScreen(key: ValueKey('home'));
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_onboardingDone == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (!_onboardingDone!) {
-      return const OnboardingScreen();
-    }
-    return const HomeScreen();
+    final provider = context.watch<TreeProvider>();
+
+    // Show the splash screen until both the tree data AND the onboarding
+    // check have finished.
+    final ready = provider.isLoaded && _onboardingDone != null;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: ready
+          ? _destination()
+          : const SplashScreen(key: ValueKey('splash')),
+    );
   }
 }
