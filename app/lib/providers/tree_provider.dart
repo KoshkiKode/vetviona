@@ -58,6 +58,16 @@ class TreeProvider extends ChangeNotifier {
   String _dateFormat = 'dd MMM yyyy';
   String get dateFormat => _dateFormat;
 
+  // ── Loading progress ───────────────────────────────────────────────────────
+  /// True once [loadPersons] has completed its first full load.
+  bool isLoaded = false;
+
+  /// Human-readable description of the current load step.
+  String loadingMessage = 'Starting…';
+
+  /// Fractional progress 0.0 → 1.0 during [loadPersons].
+  double loadingProgress = 0.0;
+
   Database? _db;
   static const _uuid = Uuid();
   static const _dbName = 'vetviona.db';
@@ -369,7 +379,16 @@ class TreeProvider extends ChangeNotifier {
 
   // ── Load ───────────────────────────────────────────────────────────────────
   Future<void> loadPersons() async {
+    void _step(String message, double progress) {
+      loadingMessage = message;
+      loadingProgress = progress;
+      notifyListeners();
+    }
+
+    _step('Opening database…', 0.0);
     final db = await _database;
+
+    _step('Loading family trees…', 0.05);
     final treeMaps = await db.query('trees');
     trees = treeMaps
         .map((m) => {
@@ -384,6 +403,7 @@ class TreeProvider extends ChangeNotifier {
       ];
     }
 
+    _step('Loading people…', 0.15);
     final personMaps = await db.query(
       'persons',
       where: 'treeId = ?',
@@ -391,12 +411,14 @@ class TreeProvider extends ChangeNotifier {
     );
     persons = personMaps.map(Person.fromMap).toList();
 
+    _step('Loading sources…', 0.35);
     final sourceMaps = await db.rawQuery(
       'SELECT s.* FROM sources s INNER JOIN persons p ON s.personId = p.id WHERE p.treeId = ?',
       [currentTreeId],
     );
     sources = sourceMaps.map(Source.fromMap).toList();
 
+    _step('Loading partnerships…', 0.50);
     final partnershipMaps = await db.query(
       'partnerships',
       where: 'treeId = ?',
@@ -404,18 +426,21 @@ class TreeProvider extends ChangeNotifier {
     );
     partnerships = partnershipMaps.map(Partnership.fromMap).toList();
 
+    _step('Loading life events…', 0.62);
     final lifeEventMaps = await db.rawQuery(
       'SELECT le.* FROM life_events le INNER JOIN persons p ON le.personId = p.id WHERE p.treeId = ?',
       [currentTreeId],
     );
     lifeEvents = lifeEventMaps.map(LifeEvent.fromMap).toList();
 
+    _step('Loading medical history…', 0.74);
     final medicalMaps = await db.rawQuery(
       'SELECT mc.* FROM medical_conditions mc INNER JOIN persons p ON mc.personId = p.id WHERE p.treeId = ?',
       [currentTreeId],
     );
     medicalConditions = medicalMaps.map(MedicalCondition.fromMap).toList();
 
+    _step('Loading research tasks…', 0.84);
     final taskMaps = await db.query(
       'research_tasks',
       where: 'treeId = ?',
@@ -423,9 +448,11 @@ class TreeProvider extends ChangeNotifier {
     );
     researchTasks = taskMaps.map(ResearchTask.fromMap).toList();
 
+    _step('Loading devices…', 0.92);
     final deviceMaps = await db.query('devices');
     pairedDevices = deviceMaps.map(Device.fromMap).toList();
 
+    _step('Loading preferences…', 0.96);
     final prefs = await SharedPreferences.getInstance();
     _dateFormat = prefs.getString('dateFormat') ?? 'dd MMM yyyy';
     colonizationLevel = prefs.getInt('colonizationLevel') ?? 0;
@@ -437,6 +464,9 @@ class TreeProvider extends ChangeNotifier {
       await prefs.setString('localDeviceId', _localDeviceId);
     }
 
+    loadingMessage = 'Ready';
+    loadingProgress = 1.0;
+    isLoaded = true;
     notifyListeners();
   }
 

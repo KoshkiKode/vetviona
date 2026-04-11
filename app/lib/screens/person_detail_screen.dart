@@ -15,6 +15,7 @@ import '../providers/tree_provider.dart';
 import 'map_picker_screen.dart';
 import 'medical_history_screen.dart';
 import 'photo_gallery_screen.dart';
+import 'relationship_screen.dart';
 import 'research_tasks_screen.dart';
 import 'descendants_screen.dart';
 
@@ -585,6 +586,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             ),
             const SizedBox(height: 16),
             if (isEditing) ...[
+              _RelationshipsSection(person: widget.person!),
+              const SizedBox(height: 8),
               _LifeEventsSection(personId: widget.person!.id),
               const SizedBox(height: 8),
               _QuickLinkCard(
@@ -831,6 +834,40 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         }
         return;
       }
+      // Offer to set up family relationships right after creating a new person.
+      if (mounted) {
+        final addRelationships = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.family_restroom),
+            title: Text('Add relationships for ${person.name}?'),
+            content: const Text(
+              'Would you like to add parents, partners, or other family links now?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Later'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Add Now'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (addRelationships == true) {
+          // Replace this screen with the relationships screen so Back goes to
+          // wherever the user came from.
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => RelationshipScreen(person: person),
+            ),
+          );
+          return;
+        }
+      }
     } else {
       await provider.updatePerson(person);
     }
@@ -1055,6 +1092,175 @@ class _DatePickerTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Relationships section (inline summary + quick manage) ─────────────────────
+
+class _RelationshipsSection extends StatelessWidget {
+  final Person person;
+  const _RelationshipsSection({required this.person});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<TreeProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final parents = person.parentIds
+        .map((id) => provider.persons.where((p) => p.id == id).firstOrNull)
+        .whereType<Person>()
+        .toList();
+
+    final partnerships = provider.partnershipsFor(person.id);
+    final partners = partnerships
+        .map((pt) {
+          final otherId = pt.person1Id == person.id ? pt.person2Id : pt.person1Id;
+          return provider.persons.where((p) => p.id == otherId).firstOrNull;
+        })
+        .whereType<Person>()
+        .toList();
+
+    final children = provider.persons
+        .where((p) => p.parentIds.contains(person.id))
+        .toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                Icon(Icons.family_restroom,
+                    size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Family Relationships',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                  ),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Manage'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RelationshipScreen(person: person),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // ── Parents ──────────────────────────────────────────────────
+            _RelRow(
+              icon: Icons.arrow_upward,
+              label: 'Parents',
+              count: parents.length,
+              names: parents.map((p) => p.name).toList(),
+              emptyHint: 'No parents recorded',
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(height: 8),
+            // ── Partners ─────────────────────────────────────────────────
+            _RelRow(
+              icon: Icons.favorite_outline,
+              label: 'Partners',
+              count: partners.length,
+              names: partners.map((p) => p.name).toList(),
+              emptyHint: 'No partners recorded',
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(height: 8),
+            // ── Children ─────────────────────────────────────────────────
+            _RelRow(
+              icon: Icons.arrow_downward,
+              label: 'Children',
+              count: children.length,
+              names: children.map((p) => p.name).toList(),
+              emptyHint: 'No children recorded',
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add / Change Relationships'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RelationshipScreen(person: person),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RelRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int count;
+  final List<String> names;
+  final String emptyHint;
+  final ColorScheme colorScheme;
+
+  const _RelRow({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.names,
+    required this.emptyHint,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: Theme.of(context).textTheme.bodySmall,
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface),
+                ),
+                TextSpan(
+                  text: count == 0
+                      ? emptyHint
+                      : names.join(', '),
+                  style: TextStyle(
+                    color: count == 0
+                        ? colorScheme.onSurfaceVariant
+                        : colorScheme.onSurface,
+                    fontStyle:
+                        count == 0 ? FontStyle.italic : FontStyle.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
