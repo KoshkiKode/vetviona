@@ -188,9 +188,7 @@ class ThemeProvider with ChangeNotifier {
         shadowColor: primary.withOpacity(0.3),
         surfaceTintColor: primary,
         centerTitle: false,
-        systemOverlayStyle: isDark
-            ? SystemUiOverlayStyle.light
-            : SystemUiOverlayStyle.light,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         iconTheme: IconThemeData(color: scheme.onPrimary),
         actionsIconTheme: IconThemeData(color: scheme.onPrimary),
         titleTextStyle: TextStyle(
