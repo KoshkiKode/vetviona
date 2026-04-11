@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,104 +68,187 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
     final isLastPage = _currentPage == _pages.length - 1;
 
     return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            if (!isLastPage)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: TextButton(
-                  onPressed: _finish,
-                  child: const Text('Skip'),
-                ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── Gradient background ──────────────────────────────────────────
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? [
+                        colorScheme.primary.withOpacity(0.2),
+                        colorScheme.surface,
+                      ]
+                    : [
+                        colorScheme.primary.withOpacity(0.08),
+                        colorScheme.surface,
+                      ],
               ),
-            Column(
+            ),
+          ),
+          // ── Decorative orb ───────────────────────────────────────────────
+          Positioned(
+            top: -100,
+            right: -80,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.tertiary
+                    .withOpacity(isDark ? 0.12 : 0.07),
+              ),
+            ),
+          ),
+          // ── Main content ─────────────────────────────────────────────────
+          SafeArea(
+            child: Stack(
               children: [
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: _pages.length,
-                    onPageChanged: (i) => setState(() => _currentPage = i),
-                    itemBuilder: (context, i) {
-                      final page = _pages[i];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 40),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              page.icon,
-                              size: 80,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(height: 32),
-                            Text(
-                              page.title,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.onSurface,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              page.subtitle,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                if (!isLastPage)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: TextButton(
+                      onPressed: _finish,
+                      child: const Text('Skip'),
+                    ),
                   ),
-                ),
-                // Page dots indicator
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    _pages.length,
-                    (i) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: _currentPage == i ? 20 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: _currentPage == i
-                            ? colorScheme.primary
-                            : colorScheme.primary.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(4),
+                Column(
+                  children: [
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: _pages.length,
+                        onPageChanged: (i) =>
+                            setState(() => _currentPage = i),
+                        itemBuilder: (context, i) {
+                          final page = _pages[i];
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 40),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Glass-style icon container
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(32),
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(
+                                        sigmaX: 8, sigmaY: 8),
+                                    child: Container(
+                                      width: 112,
+                                      height: 112,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            colorScheme.primary
+                                                .withOpacity(0.8),
+                                            colorScheme.primary,
+                                          ],
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(32),
+                                        border: Border.all(
+                                          color: colorScheme.onPrimary
+                                              .withOpacity(0.2),
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: colorScheme.primary
+                                                .withOpacity(0.3),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        page.icon,
+                                        size: 52,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 36),
+                                Text(
+                                  page.title,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  page.subtitle,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                        height: 1.5,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _nextPage,
-                      child: Text(isLastPage ? 'Get Started' : 'Next'),
+                    // Page dots indicator
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        _pages.length,
+                        (i) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          width: _currentPage == i ? 24 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _currentPage == i
+                                ? colorScheme.primary
+                                : colorScheme.primary.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 28),
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 40),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: _nextPage,
+                          child: Text(
+                              isLastPage ? 'Get Started' : 'Next'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 36),
+                  ],
                 ),
-                const SizedBox(height: 32),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

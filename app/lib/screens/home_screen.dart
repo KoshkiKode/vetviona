@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +38,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   String _searchQuery = '';
   String? _filterGender;
   bool? _filterLiving;
@@ -135,87 +137,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final filteredPersons = _applyFiltersAndSort(provider.persons);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.account_tree, size: 22, color: colorScheme.onPrimary),
-            const SizedBox(width: 8),
-            const Text(
-              'Vetviona',
-              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_tree),
-            tooltip: 'Tree Diagram',
-            onPressed: () => Navigator.push(
-              context,
-              fadeSlideRoute(builder: (_) => const TreeDiagramScreen()),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.family_restroom),
-            tooltip: 'Descendants Chart',
-            onPressed: () => Navigator.push(
-              context,
-              fadeSlideRoute(builder: (_) => const DescendantsScreen()),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.list_alt),
-            tooltip: 'Tree List',
-            onPressed: () => Navigator.push(
-              context,
-              fadeSlideRoute(builder: (_) => const TreeScreen()),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: () => Navigator.push(
-              context,
-              fadeSlideRoute(builder: (_) => const SettingsScreen()),
-            ),
-          ),
-          _buildAuthButton(context, provider),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search people\u2026',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: colorScheme.onPrimary.withOpacity(0.15),
-                hintStyle: TextStyle(
-                    color: colorScheme.onPrimary.withOpacity(0.7)),
-                prefixIconColor: colorScheme.onPrimary.withOpacity(0.8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  borderSide: BorderSide(
-                      color: colorScheme.onPrimary.withOpacity(0.5)),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
-              style: TextStyle(color: colorScheme.onPrimary),
-              onChanged: (v) => setState(() => _searchQuery = v),
-            ),
-          ),
-        ),
-      ),
+      key: _scaffoldKey,
+      extendBodyBehindAppBar: false,
+      appBar: _buildGlassAppBar(context, colorScheme, provider),
       drawer: _buildDrawer(context, provider),
       body: filteredPersons.isEmpty
           ? _buildEmptyState(context, provider)
@@ -233,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildFilterSortBar(context),
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 80),
+                    padding: const EdgeInsets.only(bottom: 100),
                     itemCount: filteredPersons.length,
                     itemBuilder: (context, i) {
                       final person = filteredPersons[i];
@@ -257,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+      bottomNavigationBar: _buildNavBar(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: provider.isAtPersonLimit
             ? () => _showUpgradeDialog(context)
@@ -273,6 +198,139 @@ class _HomeScreenState extends State<HomeScreen> {
         label: Text(
             provider.isAtPersonLimit ? 'Limit Reached' : 'Add Person'),
       ),
+    );
+  }
+
+  // ── Glass AppBar ─────────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildGlassAppBar(
+    BuildContext context,
+    ColorScheme colorScheme,
+    TreeProvider provider,
+  ) {
+    final primary = colorScheme.primary;
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight + 60),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: AppBar(
+            backgroundColor: primary.withOpacity(0.92),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.account_tree, size: 22, color: colorScheme.onPrimary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Vetviona',
+                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.account_tree_outlined),
+                tooltip: 'Tree Diagram',
+                onPressed: () => Navigator.push(
+                  context,
+                  fadeSlideRoute(builder: (_) => const TreeDiagramScreen()),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.family_restroom),
+                tooltip: 'Descendants Chart',
+                onPressed: () => Navigator.push(
+                  context,
+                  fadeSlideRoute(builder: (_) => const DescendantsScreen()),
+                ),
+              ),
+              _buildAuthButton(context, provider),
+            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(60),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search people\u2026',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: colorScheme.onPrimary.withOpacity(0.13),
+                    hintStyle: TextStyle(
+                        color: colorScheme.onPrimary.withOpacity(0.7)),
+                    prefixIconColor: colorScheme.onPrimary.withOpacity(0.8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      borderSide: BorderSide(
+                          color: colorScheme.onPrimary.withOpacity(0.5)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  ),
+                  style: TextStyle(color: colorScheme.onPrimary),
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bottom Navigation Bar ────────────────────────────────────────────────
+
+  Widget _buildNavBar(BuildContext context) {
+    return NavigationBar(
+      selectedIndex: 0,
+      onDestinationSelected: (index) {
+        switch (index) {
+          case 0:
+            // Already on People tab — scroll to top is handled by list itself
+            break;
+          case 1:
+            Navigator.push(
+              context,
+              fadeSlideRoute(builder: (_) => const TreeDiagramScreen()),
+            );
+          case 2:
+            Navigator.push(
+              context,
+              fadeSlideRoute(builder: (_) => const CalendarScreen()),
+            );
+          case 3:
+            _scaffoldKey.currentState?.openDrawer();
+        }
+      },
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.people_outline),
+          selectedIcon: Icon(Icons.people),
+          label: 'People',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.account_tree_outlined),
+          selectedIcon: Icon(Icons.account_tree),
+          label: 'Tree',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.calendar_month_outlined),
+          selectedIcon: Icon(Icons.calendar_month),
+          label: 'Calendar',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.menu),
+          selectedIcon: Icon(Icons.menu_open),
+          label: 'More',
+        ),
+      ],
     );
   }
 
@@ -1626,7 +1684,7 @@ class _PersonCard extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap ??
             () => Navigator.push(
                   context,
