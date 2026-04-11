@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 import '../config/build_metadata.dart';
+import '../models/person.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
 import '../services/sound_service.dart';
@@ -209,6 +210,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         .setColonizationLevel(v);
                 },
               ),
+              if (treeProvider.persons.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Home Person',
+                  style: TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                _PersonSearchDropdown(
+                  persons: treeProvider.persons,
+                  selectedId: treeProvider.homePersonId,
+                  label: 'Tree focal point',
+                  onSelected: (id) =>
+                      context.read<TreeProvider>().setHomePersonId(id),
+                ),
+              ],
             ],
           ),
 
@@ -729,6 +745,79 @@ class _SectionCard extends StatelessWidget {
             ...children,
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A searchable person picker that sorts names alphabetically and filters as
+/// the user types. Used wherever a person needs to be selected from a list.
+class _PersonSearchDropdown extends StatefulWidget {
+  final List<Person> persons;
+  final String? selectedId;
+  final String label;
+  final ValueChanged<String?> onSelected;
+
+  const _PersonSearchDropdown({
+    required this.persons,
+    required this.selectedId,
+    required this.label,
+    required this.onSelected,
+  });
+
+  @override
+  State<_PersonSearchDropdown> createState() => _PersonSearchDropdownState();
+}
+
+class _PersonSearchDropdownState extends State<_PersonSearchDropdown> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.persons
+        .where((p) => p.id == widget.selectedId)
+        .map((p) => p.name)
+        .firstOrNull ?? '';
+    _controller = TextEditingController(text: initial);
+  }
+
+  @override
+  void didUpdateWidget(_PersonSearchDropdown old) {
+    super.didUpdateWidget(old);
+    if (old.selectedId != widget.selectedId) {
+      final name = widget.persons
+          .where((p) => p.id == widget.selectedId)
+          .map((p) => p.name)
+          .firstOrNull ?? '';
+      _controller.text = name;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...widget.persons]..sort((a, b) => a.name.compareTo(b.name));
+    return LayoutBuilder(
+      builder: (context, constraints) => DropdownMenu<String>(
+        controller: _controller,
+        width: constraints.maxWidth,
+        enableFilter: true,
+        enableSearch: true,
+        label: Text(widget.label),
+        initialSelection: widget.selectedId,
+        dropdownMenuEntries: [
+          const DropdownMenuEntry<String>(value: '', label: '— None —'),
+          ...sorted.map(
+            (p) => DropdownMenuEntry<String>(value: p.id, label: p.name),
+          ),
+        ],
+        onSelected: (id) => widget.onSelected(id?.isEmpty ?? true ? null : id),
       ),
     );
   }

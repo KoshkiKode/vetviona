@@ -19,10 +19,37 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
   Person? _focusedPerson;
   int _maxGenerations = 4;
 
+  // Controller for the searchable name field.
+  final TextEditingController _searchCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _focusedPerson = widget.initialPerson;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Default to home person if not already set.
+    if (_focusedPerson == null) {
+      final provider = context.read<TreeProvider>();
+      final persons = provider.persons;
+      if (persons.isNotEmpty) {
+        final homeId = provider.homePersonId;
+        _focusedPerson = homeId != null
+            ? persons.firstWhere((p) => p.id == homeId,
+                orElse: () => persons.first)
+            : persons.first;
+        _searchCtrl.text = _focusedPerson!.name;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -37,9 +64,18 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
       );
     }
 
+    // Initialise focused person if still null after didChangeDependencies.
     _focusedPerson ??= persons.first;
 
+    // Keep controller text in sync when focused person changes programmatically.
+    if (_searchCtrl.text != (_focusedPerson?.name ?? '')) {
+      _searchCtrl.text = _focusedPerson?.name ?? '';
+    }
+
     final personMap = {for (final p in persons) p.id: p};
+
+    // Alphabetically sorted list for the dropdown.
+    final sortedPersons = [...persons]..sort((a, b) => a.name.compareTo(b.name));
 
     // Build generation lists — generation[0] = [focusedPerson], generation[1] = parents, etc.
     final generations = <List<Person?>>[];
@@ -61,7 +97,7 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
     }
 
     // Chart height: rightmost generation has 2^(maxGenerations-1) slots, each 80dp tall.
-    final slotHeight = 80.0;
+    const slotHeight = 80.0;
     final rightmostCount = 1 << (_maxGenerations - 1);
     final chartHeight = slotHeight * rightmostCount;
 
@@ -87,19 +123,29 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Person selector dropdown
+          // Searchable person picker
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: DropdownButtonFormField<String>(
-              decoration:
-                  const InputDecoration(labelText: 'Focus person'),
-              value: _focusedPerson?.id,
-              items: persons
-                  .map((p) =>
-                      DropdownMenuItem(value: p.id, child: Text(p.name)))
-                  .toList(),
-              onChanged: (id) => setState(
-                  () => _focusedPerson = persons.firstWhere((p) => p.id == id)),
+            child: LayoutBuilder(
+              builder: (context, constraints) => DropdownMenu<String>(
+                controller: _searchCtrl,
+                width: constraints.maxWidth,
+                enableFilter: true,
+                enableSearch: true,
+                label: const Text('Focus person'),
+                initialSelection: _focusedPerson?.id,
+                dropdownMenuEntries: sortedPersons
+                    .map((p) => DropdownMenuEntry<String>(
+                          value: p.id,
+                          label: p.name,
+                        ))
+                    .toList(),
+                onSelected: (id) {
+                  if (id == null) return;
+                  final person = persons.firstWhere((p) => p.id == id);
+                  setState(() => _focusedPerson = person);
+                },
+              ),
             ),
           ),
           Expanded(

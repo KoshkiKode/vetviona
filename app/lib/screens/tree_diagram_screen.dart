@@ -232,6 +232,140 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String? _selectedPersonId;
   bool _showLegend = false;
 
+  /// IDs of persons currently rendered in the tree.
+  Set<String> _visiblePersonIds = {};
+
+  /// Tracks the last known home person ID so we can reset when it changes.
+  String? _lastHomePersonId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = context.read<TreeProvider>();
+    final effectiveHomeId = provider.homePersonId ??
+        (provider.persons.isNotEmpty ? provider.persons.first.id : null);
+
+    if (effectiveHomeId != _lastHomePersonId || _visiblePersonIds.isEmpty) {
+      _lastHomePersonId = effectiveHomeId;
+      if (effectiveHomeId != null) {
+        _visiblePersonIds = _buildInitialFamily(
+          effectiveHomeId,
+          provider.persons,
+          provider.partnerships,
+        );
+      }
+    }
+  }
+
+  /// Returns the IDs of the immediate family unit centred on [homeId]:
+  /// the home person, their parents (+ each parent's partner), their own
+  /// partners, and their children.
+  static Set<String> _buildInitialFamily(
+    String homeId,
+    List<Person> persons,
+    List<Partnership> partnerships,
+  ) {
+    final personMap = {for (final p in persons) p.id: p};
+    final visible = <String>{homeId};
+    final home = personMap[homeId];
+    if (home == null) return visible;
+
+    // Partners of the home person
+    for (final part in partnerships) {
+      if (part.person1Id == homeId && personMap.containsKey(part.person2Id)) {
+        visible.add(part.person2Id);
+      } else if (part.person2Id == homeId &&
+          personMap.containsKey(part.person1Id)) {
+        visible.add(part.person1Id);
+      }
+    }
+
+    // Parents of the home person (and their partners)
+    for (final parentId in home.parentIds) {
+      if (!personMap.containsKey(parentId)) continue;
+      visible.add(parentId);
+      for (final part in partnerships) {
+        if (part.person1Id == parentId &&
+            personMap.containsKey(part.person2Id)) {
+          visible.add(part.person2Id);
+        } else if (part.person2Id == parentId &&
+            personMap.containsKey(part.person1Id)) {
+          visible.add(part.person1Id);
+        }
+      }
+    }
+
+    // Children of the home person
+    for (final childId in home.childIds) {
+      if (personMap.containsKey(childId)) visible.add(childId);
+    }
+
+    return visible;
+  }
+
+  void _resetToHome(List<Person> persons, List<Partnership> partnerships) {
+    final effectiveHomeId = context.read<TreeProvider>().homePersonId ??
+        (persons.isNotEmpty ? persons.first.id : null);
+    if (effectiveHomeId == null) return;
+    setState(() {
+      _visiblePersonIds =
+          _buildInitialFamily(effectiveHomeId, persons, partnerships);
+    });
+    _resetView();
+  }
+
+  /// Adds [person]'s parents (and their partners) to the visible set.
+  void _expandParents(
+    Person person,
+    Map<String, Person> personMap,
+    List<Partnership> partnerships,
+  ) {
+    final newIds = <String>{};
+    for (final parentId in person.parentIds) {
+      if (!personMap.containsKey(parentId)) continue;
+      newIds.add(parentId);
+      for (final part in partnerships) {
+        if (part.person1Id == parentId &&
+            personMap.containsKey(part.person2Id)) {
+          newIds.add(part.person2Id);
+        } else if (part.person2Id == parentId &&
+            personMap.containsKey(part.person1Id)) {
+          newIds.add(part.person1Id);
+        }
+      }
+    }
+    if (newIds.isNotEmpty) {
+      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+    }
+  }
+
+  /// Adds [person]'s children to the visible set.
+  void _expandChildren(Person person, Map<String, Person> personMap) {
+    final newIds = person.childIds
+        .where((id) => personMap.containsKey(id))
+        .toSet();
+    if (newIds.isNotEmpty) {
+      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+    }
+  }
+
+  /// Adds [person]'s siblings (children of the same parents) to the visible set.
+  void _expandSiblings(Person person, Map<String, Person> personMap) {
+    final newIds = <String>{};
+    for (final parentId in person.parentIds) {
+      final parent = personMap[parentId];
+      if (parent == null) continue;
+      for (final sibId in parent.childIds) {
+        if (sibId != person.id && personMap.containsKey(sibId)) {
+          newIds.add(sibId);
+        }
+      }
+    }
+    if (newIds.isNotEmpty) {
+      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+    }
+  }
+
   @override
   void dispose() { _txCtrl.dispose(); super.dispose(); }
 
@@ -242,11 +376,28 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   }
   void _resetView() => _txCtrl.value = Matrix4.identity();
 
-  void _showPersonSheet(BuildContext context, Person person) {
+  void _showPersonSheet(
+    BuildContext context,
+    Person person,
+    Map<String, Person> personMap,
+    List<Partnership> partnerships,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
+    final hasHiddenParents = person.parentIds
+        .any((id) => personMap.containsKey(id) && !_visiblePersonIds.contains(id));
+    final hasHiddenChildren = person.childIds
+        .any((id) => personMap.containsKey(id) && !_visiblePersonIds.contains(id));
+    final hasSiblings = person.parentIds.any((parentId) {
+      final parent = personMap[parentId];
+      if (parent == null) return false;
+      return parent.childIds.any(
+          (id) => id != person.id && personMap.containsKey(id) && !_visiblePersonIds.contains(id));
+    });
+
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         Color avatarBg = colorScheme.secondary;
         if (person.gender?.toLowerCase() == 'male') avatarBg = colorScheme.primary;
@@ -256,24 +407,36 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: colorScheme.outline.withOpacity(0.4), borderRadius: BorderRadius.circular(2))),
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.outline.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
               Row(children: [
-                CircleAvatar(radius: 28, backgroundColor: avatarBg,
-                  child: Text(person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white))),
+                CircleAvatar(
+                  radius: 28, backgroundColor: avatarBg,
+                  child: Text(
+                    person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white))),
                 const SizedBox(width: 16),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(person.name, style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                  if (person.birthDate != null || person.deathDate != null)
-                    Text(
-                      [if (person.birthDate != null) 'b. ${person.birthDate!.year}',
-                       if (person.deathDate != null) 'd. ${person.deathDate!.year}'].join('  ·  '),
-                      style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
-                  if (person.birthPlace != null)
-                    Text(person.birthPlace!, style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
-                ])),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(person.name,
+                        style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    if (person.birthDate != null || person.deathDate != null)
+                      Text(
+                        [if (person.birthDate != null) 'b. ${person.birthDate!.year}',
+                         if (person.deathDate != null) 'd. ${person.deathDate!.year}'].join('  ·  '),
+                        style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant)),
+                    if (person.birthPlace != null)
+                      Text(person.birthPlace!,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant)),
+                  ])),
               ]),
               if (person.occupation != null) ...[
                 const SizedBox(height: 12),
@@ -284,16 +447,66 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 ]),
               ],
               const SizedBox(height: 20),
+              // Primary actions
               Row(children: [
                 Expanded(child: OutlinedButton.icon(
                   icon: const Icon(Icons.person_outline), label: const Text('Full Profile'),
-                  onPressed: () { Navigator.pop(ctx);
-                    Navigator.push(context, fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person))); })),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context,
+                        fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person)));
+                  })),
                 const SizedBox(width: 12),
                 Expanded(child: FilledButton.icon(
                   icon: const Icon(Icons.center_focus_strong), label: const Text('Focus'),
-                  onPressed: () { Navigator.pop(ctx); setState(() => _selectedPersonId = person.id); })),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _selectedPersonId = person.id;
+                      _visiblePersonIds = _buildInitialFamily(
+                          person.id,
+                          personMap.values.toList(),
+                          partnerships);
+                    });
+                    _resetView();
+                  })),
               ]),
+              // Expand actions — only shown when there is something to expand
+              if (hasHiddenParents || hasHiddenChildren || hasSiblings) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (hasHiddenParents)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.keyboard_arrow_up, size: 16),
+                        label: const Text('Show Parents'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _expandParents(person, personMap, partnerships);
+                        }),
+                    if (hasHiddenChildren)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 16),
+                        label: const Text('Show Children'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _expandChildren(person, personMap);
+                        }),
+                    if (hasSiblings)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.people_outline, size: 16),
+                        label: const Text('Show Siblings'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _expandSiblings(person, personMap);
+                        }),
+                  ],
+                ),
+              ],
             ],
           ),
         );
@@ -311,30 +524,69 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     if (persons.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Family Tree')),
-        body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.account_tree_outlined, size: 80, color: colorScheme.primary.withOpacity(0.35)),
-          const SizedBox(height: 16),
-          Text('No people in the tree yet.', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
-          const SizedBox(height: 8),
-          Text('Add people from the home screen.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
-        ])),
+        body: Center(child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.account_tree_outlined, size: 80,
+                color: colorScheme.primary.withOpacity(0.35)),
+            const SizedBox(height: 16),
+            Text('No people in the tree yet.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            Text('Add people from the home screen.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant)),
+          ])),
       );
     }
 
-    final layout = _TreeLayout(persons, partnerships);
+    final personMap = {for (final p in persons) p.id: p};
+
+    // Ensure visible set is initialised (e.g. first build after load).
+    if (_visiblePersonIds.isEmpty) {
+      final homeId = provider.homePersonId ??
+          (persons.isNotEmpty ? persons.first.id : null);
+      if (homeId != null) {
+        _visiblePersonIds =
+            _buildInitialFamily(homeId, persons, partnerships);
+        _lastHomePersonId = homeId;
+      }
+    }
+
+    // Build layout from visible persons only.
+    final visiblePersons = persons
+        .where((p) => _visiblePersonIds.contains(p.id))
+        .toList();
+    final visiblePartnerships = partnerships.where((part) =>
+        _visiblePersonIds.contains(part.person1Id) &&
+        _visiblePersonIds.contains(part.person2Id)).toList();
+
+    final layout = _TreeLayout(visiblePersons, visiblePartnerships);
     layout.compute();
     final searchLower = _searchQuery.toLowerCase();
-    final personMap = {for (final p in persons) p.id: p};
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Family Tree'),
         actions: [
-          IconButton(icon: const Icon(Icons.legend_toggle), tooltip: 'Legend',
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: 'Reset to home person',
+            onPressed: () => _resetToHome(persons, partnerships)),
+          IconButton(
+            icon: const Icon(Icons.legend_toggle),
+            tooltip: 'Legend',
             onPressed: () => setState(() => _showLegend = !_showLegend)),
-          IconButton(icon: const Icon(Icons.account_tree_outlined), tooltip: 'Pedigree Chart',
-            onPressed: () => Navigator.push(context, fadeSlideRoute(builder: (_) => const PedigreeScreen()))),
-          IconButton(icon: const Icon(Icons.fit_screen), tooltip: 'Reset view', onPressed: _resetView),
+          IconButton(
+            icon: const Icon(Icons.account_tree_outlined),
+            tooltip: 'Pedigree Chart',
+            onPressed: () => Navigator.push(
+                context, fadeSlideRoute(builder: (_) => const PedigreeScreen()))),
+          IconButton(
+            icon: const Icon(Icons.fit_screen),
+            tooltip: 'Reset view',
+            onPressed: _resetView),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
@@ -345,13 +597,17 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 hintText: 'Search by name…',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _searchQuery = ''))
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => setState(() => _searchQuery = ''))
                     : null,
                 filled: true,
                 fillColor: colorScheme.onPrimary.withOpacity(0.15),
                 hintStyle: TextStyle(color: colorScheme.onPrimary.withOpacity(0.7)),
                 prefixIconColor: colorScheme.onPrimary.withOpacity(0.8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(28),
+                    borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               ),
               style: TextStyle(color: colorScheme.onPrimary),
@@ -362,11 +618,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       ),
       body: Stack(children: [
         InteractiveViewer(
-          transformationController: _txCtrl, constrained: false,
-          minScale: 0.1, maxScale: 5.0,
+          transformationController: _txCtrl,
+          constrained: false,
+          minScale: 0.1,
+          maxScale: 5.0,
           boundaryMargin: const EdgeInsets.all(200),
           child: SizedBox(
-            width: layout.canvasSize.width, height: layout.canvasSize.height,
+            width: layout.canvasSize.width,
+            height: layout.canvasSize.height,
             child: Stack(children: [
               Positioned.fill(child: CustomPaint(painter: _EdgePainter(
                 nodes: layout.nodes, edges: layout.edges,
@@ -376,7 +635,10 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 Positioned(
                   left: node.x, top: node.y, width: _kNodeW, height: _kNodeH,
                   child: node.isCoupleKnot
-                      ? _CoupleKnot(node: node, partnerships: partnerships, colorScheme: colorScheme)
+                      ? _CoupleKnot(
+                          node: node,
+                          partnerships: visiblePartnerships,
+                          colorScheme: colorScheme)
                       : _PersonNodeWidget(
                           person: personMap[node.id] ?? Person(id: node.id, name: '?'),
                           colorScheme: colorScheme,
@@ -384,18 +646,23 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                               (personMap[node.id]?.name.toLowerCase().contains(searchLower) ?? false),
                           isSelected: _selectedPersonId == node.id,
                           onTap: () {
-                            final p = personMap[node.id]; if (p == null) return;
+                            final p = personMap[node.id];
+                            if (p == null) return;
                             setState(() => _selectedPersonId = node.id);
-                            _showPersonSheet(context, p);
+                            _showPersonSheet(context, p, personMap, partnerships);
                           }),
                 ),
             ]),
           ),
         ),
         if (_showLegend)
-          Positioned(top: 8, right: 8,
-            child: _LegendCard(colorScheme: colorScheme, onClose: () => setState(() => _showLegend = false))),
-        Positioned(bottom: 24, right: 16,
+          Positioned(
+            top: 8, right: 8,
+            child: _LegendCard(
+                colorScheme: colorScheme,
+                onClose: () => setState(() => _showLegend = false))),
+        Positioned(
+          bottom: 24, right: 16,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             _ZoomFab(heroTag: 'ft_zi', icon: Icons.add, onPressed: () => _zoom(1.3)),
             const SizedBox(height: 8),
@@ -405,19 +672,26 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
           ])),
         Positioned(bottom: 24, left: 16, child: _ZoomIndicator(controller: _txCtrl)),
         if (searchLower.isNotEmpty)
-          Positioned(bottom: 24, left: 0, right: 0,
+          Positioned(
+            bottom: 24, left: 0, right: 0,
             child: Center(child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               child: () {
-                final count = persons.where((p) => p.name.toLowerCase().contains(searchLower)).length;
+                final count = persons
+                    .where((p) => p.name.toLowerCase().contains(searchLower))
+                    .length;
                 return Container(
                   key: ValueKey(count),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: colorScheme.inverseSurface.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(20)),
-                  child: Text(count == 0 ? 'No matches' : '$count match${count == 1 ? "" : "es"}',
-                    style: TextStyle(color: colorScheme.onInverseSurface, fontSize: 13)));
+                  child: Text(
+                    count == 0
+                        ? 'No matches'
+                        : '$count match${count == 1 ? "" : "es"}',
+                    style: TextStyle(
+                        color: colorScheme.onInverseSurface, fontSize: 13)));
               }(),
             ))),
       ]),
