@@ -836,11 +836,14 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       }
       // Offer to set up family relationships right after creating a new person.
       if (mounted) {
+        final displayName = person.name.length > 40
+            ? '${person.name.substring(0, 40)}…'
+            : person.name;
         final addRelationships = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             icon: const Icon(Icons.family_restroom),
-            title: Text('Add relationships for ${person.name}?'),
+            title: Text('Add relationships for $displayName?'),
             content: const Text(
               'Would you like to add parents, partners, or other family links now?',
             ),
@@ -1193,7 +1196,7 @@ class _RelationshipsSection extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add / Change Relationships'),
+                label: const Text('Manage Relationships'),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
