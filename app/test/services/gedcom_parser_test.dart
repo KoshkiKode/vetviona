@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vetviona_app/models/life_event.dart';
 import 'package:vetviona_app/models/partnership.dart';
 import 'package:vetviona_app/models/person.dart';
+import 'package:vetviona_app/models/source.dart';
 import 'package:vetviona_app/services/gedcom_parser.dart';
 
 void main() {
@@ -815,6 +816,133 @@ void main() {
           includeLivingData: true, lifeEvents: lifeEvents);
       final result = await parser.parse(path);
       expect(result.lifeEvents, hasLength(2));
+    });
+  });
+
+  // ── GEDCOMParser.parse — SOUR records ─────────────────────────────────────
+  group('GEDCOMParser.parse — SOUR records', () {
+    test('SOUR record with TITL produces a source for the referencing person',
+        () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Birth Certificate
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(1));
+      expect(result.sources.first.title, 'Birth Certificate');
+      expect(result.sources.first.personId, 'I1');
+    });
+
+    test('SOUR record with AUTH is stored as author on the source', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice /Smith/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Parish Register
+1 AUTH Rev. Thomas Brown
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(1));
+      expect(result.sources.first.author, 'Rev. Thomas Brown');
+    });
+
+    test('SOUR record with PUBL is stored as publisher on the source',
+        () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Bob /Jones/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Census Record
+1 PUBL National Archives
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(1));
+      expect(result.sources.first.publisher, 'National Archives');
+    });
+
+    test('multiple persons referencing the same source each get their own Source object',
+        () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice /Smith/
+1 SOUR @S1@
+0 @I2@ INDI
+1 NAME Bob /Smith/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Family Bible
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(2));
+      expect(result.sources.every((s) => s.title == 'Family Bible'), true);
+      expect(result.sources.map((s) => s.personId).toSet(),
+          containsAll(['I1', 'I2']));
+    });
+
+    test('SOUR reference without a matching definition falls back to source id as title',
+        () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Carol /White/
+1 SOUR @S99@
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(1));
+      expect(result.sources.first.title, 'S99');
+    });
+
+    test('INDI record with no SOUR reference produces no sources', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Dave /Gray/
+0 @S1@ SOUR
+1 TITL Unused Source
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, isEmpty);
+    });
+
+    test('SOUR source type is set to GEDCOM Record', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Eve /Black/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Death Record
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources.first.type, 'GEDCOM Record');
+    });
+
+    test('result.sources list is empty when GEDCOM has no SOUR records',
+        () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Frank /Hill/
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, isEmpty);
     });
   });
 }
