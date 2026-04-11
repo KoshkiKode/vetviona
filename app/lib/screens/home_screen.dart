@@ -12,6 +12,7 @@ import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../services/pdf_report_service.dart';
 import '../services/purchase_service.dart';
+import '../utils/page_routes.dart';
 import 'calendar_screen.dart';
 import 'conflict_resolver_screen.dart';
 import 'descendants_screen.dart';
@@ -151,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Tree Diagram',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const TreeDiagramScreen()),
+              fadeSlideRoute(builder: (_) => const TreeDiagramScreen()),
             ),
           ),
           IconButton(
@@ -159,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Descendants Chart',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const DescendantsScreen()),
+              fadeSlideRoute(builder: (_) => const DescendantsScreen()),
             ),
           ),
           IconButton(
@@ -167,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Tree List',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const TreeScreen()),
+              fadeSlideRoute(builder: (_) => const TreeScreen()),
             ),
           ),
           IconButton(
@@ -175,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Settings',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              fadeSlideRoute(builder: (_) => const SettingsScreen()),
             ),
           ),
           _buildAuthButton(context, provider),
@@ -242,7 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (context.mounted) {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(
+                              fadeSlideRoute(
                                 builder: (_) =>
                                     PersonDetailScreen(person: person),
                               ),
@@ -260,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ? () => _showUpgradeDialog(context)
             : () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  fadeSlideRoute(
                       builder: (_) => const PersonDetailScreen()),
                 ),
         tooltip: provider.isAtPersonLimit
@@ -386,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: const Text('Add First Person'),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  fadeSlideRoute(
                       builder: (_) => const PersonDetailScreen()),
                 ),
               ),
@@ -414,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
       tooltip: 'Login',
       onPressed: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        fadeSlideRoute(builder: (_) => const LoginScreen()),
       ),
     );
   }
@@ -482,7 +483,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  fadeSlideRoute(
                       builder: (_) => const TreeDiagramScreen()));
             },
           ),
@@ -492,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const TreeScreen()));
+                  fadeSlideRoute(builder: (_) => const TreeScreen()));
             },
           ),
           ListTile(
@@ -502,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                fadeSlideRoute(
                     builder: (_) => const RelationshipFinderScreen()),
               );
             },
@@ -514,7 +515,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const PedigreeScreen()),
+                fadeSlideRoute(builder: (_) => const PedigreeScreen()),
               );
             },
           ),
@@ -525,7 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const DescendantsScreen()),
+                fadeSlideRoute(builder: (_) => const DescendantsScreen()),
               );
             },
           ),
@@ -536,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                fadeSlideRoute(builder: (_) => const CalendarScreen()),
               );
             },
           ),
@@ -547,7 +548,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SyncScreen()),
+                fadeSlideRoute(builder: (_) => const SyncScreen()),
               );
             },
           ),
@@ -571,7 +572,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                fadeSlideRoute(
                     builder: (_) => const MedicalHistoryScreen()),
               );
             },
@@ -583,7 +584,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                fadeSlideRoute(
                     builder: (_) => const ResearchTasksScreen()),
               );
             },
@@ -595,7 +596,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                fadeSlideRoute(
                     builder: (_) =>
                         const RelationshipCertificateScreen()),
               );
@@ -608,7 +609,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                fadeSlideRoute(
                     builder: (_) => const ConflictResolverScreen()),
               );
             },
@@ -752,7 +753,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                  fadeSlideRoute(builder: (_) => const SettingsScreen()));
             },
           ),
         ],
@@ -988,7 +989,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (context.mounted) {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        fadeSlideRoute(
                           builder: (_) =>
                               PersonDetailScreen(person: person),
                         ),
@@ -1604,7 +1605,7 @@ class _PersonCard extends StatelessWidget {
         onTap: onTap ??
             () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  fadeSlideRoute(
                     builder: (_) => PersonDetailScreen(person: person),
                   ),
                 ),
@@ -1613,24 +1614,30 @@ class _PersonCard extends StatelessWidget {
           child: Row(
             children: [
               hasPhoto
-                  ? CircleAvatar(
-                      radius: 26,
-                      backgroundImage:
-                          FileImage(File(person.photoPaths.first)),
-                      backgroundColor: avatarBg,
-                      onBackgroundImageError: (_, __) {},
+                  ? Hero(
+                      tag: 'person_avatar_${person.id}',
+                      child: CircleAvatar(
+                        radius: 26,
+                        backgroundImage:
+                            FileImage(File(person.photoPaths.first)),
+                        backgroundColor: avatarBg,
+                        onBackgroundImageError: (_, __) {},
+                      ),
                     )
-                  : CircleAvatar(
-                      radius: 26,
-                      backgroundColor: avatarBg,
-                      child: Text(
-                        person.name.isNotEmpty
-                            ? person.name[0].toUpperCase()
-                            : '?',
-                        style: TextStyle(
-                          color: avatarFg,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                  : Hero(
+                      tag: 'person_avatar_${person.id}',
+                      child: CircleAvatar(
+                        radius: 26,
+                        backgroundColor: avatarBg,
+                        child: Text(
+                          person.name.isNotEmpty
+                              ? person.name[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            color: avatarFg,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),

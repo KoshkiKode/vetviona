@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../utils/page_routes.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -223,7 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: const Text('Open RootLoop\u2122 Sync'),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SyncScreen()),
+                  fadeSlideRoute(builder: (_) => const SyncScreen()),
                 ),
               ),
               const Divider(height: 24),

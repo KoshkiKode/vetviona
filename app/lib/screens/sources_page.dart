@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/page_routes.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/tree_provider.dart';
@@ -154,7 +155,7 @@ class SourcesPage extends StatelessWidget {
   void _addSource(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => SourceDetailScreen(person: person)),
+      fadeSlideRoute(builder: (_) => SourceDetailScreen(person: person)),
     );
   }
 }
