@@ -360,6 +360,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
 
+          const SizedBox(height: 12),
+
+          // ── Privacy & Legal ───────────────────────────────────
+          _SectionCard(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Privacy & Legal',
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: const Text('Privacy Policy'),
+                trailing: const Icon(Icons.open_in_new, size: 16),
+                onTap: () => _showUrl(
+                  context,
+                  'https://vetviona.koshkikode.com/privacy',
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.gavel_outlined),
+                title: const Text('Terms of Service'),
+                trailing: const Icon(Icons.open_in_new, size: 16),
+                onTap: () => _showUrl(
+                  context,
+                  'https://vetviona.koshkikode.com/terms',
+                ),
+              ),
+            ],
+          ),
+
           const SizedBox(height: 24),
 
           // ── Version ───────────────────────────────────────────
@@ -385,6 +415,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+
+  void _showUrl(BuildContext context, String url) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(url),
+        action: SnackBarAction(label: 'OK', onPressed: () {}),
       ),
     );
   }

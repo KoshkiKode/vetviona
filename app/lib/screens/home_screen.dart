@@ -11,6 +11,7 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../services/pdf_report_service.dart';
+import '../services/purchase_service.dart';
 import 'calendar_screen.dart';
 import 'conflict_resolver_screen.dart';
 import 'descendants_screen.dart';
@@ -634,11 +635,82 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            ...provider.treeNames.map((name) => ListTile(
-                  leading: const Icon(Icons.park_outlined),
-                  title: Text(name),
-                  dense: true,
-                )),
+            ...provider.trees.map((tree) {
+              final treeId = tree['id']!;
+              final treeName = tree['name']!;
+              final isActive = treeId == provider.currentTreeId;
+              return ListTile(
+                leading: Icon(
+                  Icons.park_outlined,
+                  color: isActive ? colorScheme.primary : null,
+                ),
+                title: Text(
+                  treeName,
+                  style: isActive
+                      ? TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        )
+                      : null,
+                ),
+                trailing: isActive
+                    ? Icon(Icons.check_circle_outline,
+                        size: 18, color: colorScheme.primary)
+                    : PopupMenuButton<String>(
+                        tooltip: 'Tree options',
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                              value: 'switch',
+                              child: ListTile(
+                                leading: Icon(Icons.swap_horiz),
+                                title: Text('Switch to'),
+                                contentPadding: EdgeInsets.zero,
+                              )),
+                          const PopupMenuItem(
+                              value: 'rename',
+                              child: ListTile(
+                                leading: Icon(Icons.edit_outlined),
+                                title: Text('Rename'),
+                                contentPadding: EdgeInsets.zero,
+                              )),
+                          if (treeId != 'default')
+                            PopupMenuItem(
+                                value: 'delete',
+                                child: ListTile(
+                                  leading: Icon(Icons.delete_outline,
+                                      color:
+                                          Theme.of(context).colorScheme.error),
+                                  title: Text('Delete',
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error)),
+                                  contentPadding: EdgeInsets.zero,
+                                )),
+                        ],
+                        onSelected: (action) {
+                          switch (action) {
+                            case 'switch':
+                              Navigator.pop(context);
+                              provider.switchTree(treeId);
+                            case 'rename':
+                              _renameTreeDialog(
+                                  context, provider, treeId, treeName);
+                            case 'delete':
+                              _deleteTreeConfirm(
+                                  context, provider, treeId, treeName);
+                          }
+                        },
+                      ),
+                dense: true,
+                onTap: isActive
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        provider.switchTree(treeId);
+                      },
+              );
+            }),
             const Divider(),
           ],
           ListTile(
@@ -713,6 +785,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (name != null && name.isNotEmpty) {
       await provider.addTree(name);
+    }
+  }
+
+  Future<void> _renameTreeDialog(BuildContext context, TreeProvider provider,
+      String treeId, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Tree'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'New tree name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Rename')),
+        ],
+      ),
+    );
+    if (newName != null && newName.isNotEmpty && newName != currentName) {
+      await provider.renameTree(treeId, newName);
+    }
+  }
+
+  Future<void> _deleteTreeConfirm(BuildContext context, TreeProvider provider,
+      String treeId, String treeName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Tree?'),
+        content: Text(
+            'This will permanently delete "$treeName" and all its people, '
+            'sources, and partnerships. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await provider.deleteTree(treeId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"$treeName" deleted.')),
+        );
+      }
     }
   }
 
@@ -1224,9 +1355,7 @@ class _HomeScreenState extends State<HomeScreen> {
         lifeEvents: provider.lifeEvents,
         medicalConditions: provider.medicalConditions,
         sources: provider.sources,
-        treeName: provider.treeNames.isNotEmpty
-            ? provider.treeNames.first
-            : 'My Family Tree',
+        treeName: provider.currentTreeName,
         includeLivingData: includeLivingData,
       );
       if (context.mounted) {
@@ -1245,54 +1374,97 @@ class _HomeScreenState extends State<HomeScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.rocket_launch_outlined,
-            color: colorScheme.primary, size: 40),
-        title: const Text('Upgrade Vetviona'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "You've reached the free tier limit of $freeMobilePersonLimit people.",
-              style: Theme.of(ctx).textTheme.bodyMedium,
+      builder: (ctx) {
+        final purchaseService = ctx.watch<PurchaseService>();
+        return AlertDialog(
+          icon: Icon(Icons.rocket_launch_outlined,
+              color: colorScheme.primary, size: 40),
+          title: const Text('Upgrade Vetviona'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "You've reached the free tier limit of $freeMobilePersonLimit people.",
+                style: Theme.of(ctx).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              _UpgradeTierRow(
+                icon: Icons.phone_android,
+                tier: 'Mobile Paid',
+                description: 'Unlimited people · RootLoop™ Auto Sync',
+                color: colorScheme.secondary,
+              ),
+              const SizedBox(height: 8),
+              _UpgradeTierRow(
+                icon: Icons.computer,
+                tier: 'Desktop Pro',
+                description:
+                    'All mobile features · Multi-tree · Advanced export',
+                color: colorScheme.primary,
+              ),
+              if (purchaseService.errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  purchaseService.errorMessage!,
+                  style: TextStyle(
+                      color: colorScheme.error, fontSize: 12),
+                ),
+              ],
+              if (purchaseService.product != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Mobile Paid: ${purchaseService.product!.price}',
+                  style: Theme.of(ctx)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Not Now'),
             ),
-            const SizedBox(height: 16),
-            _UpgradeTierRow(
-              icon: Icons.phone_android,
-              tier: 'Mobile Paid',
-              description:
-                  'Unlimited people · RootLoop™ Auto Sync',
-              color: colorScheme.secondary,
-            ),
-            const SizedBox(height: 8),
-            _UpgradeTierRow(
-              icon: Icons.computer,
-              tier: 'Desktop Pro',
-              description:
-                  'All mobile features · Multi-tree · Advanced export',
-              color: colorScheme.primary,
-            ),
+            if (!purchaseService.isPurchased) ...[
+              OutlinedButton(
+                onPressed: purchaseService.isLoading
+                    ? null
+                    : () async {
+                        await purchaseService.restorePurchases();
+                      },
+                child: const Text('Restore'),
+              ),
+              FilledButton.icon(
+                icon: purchaseService.isLoading
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child:
+                            CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.shopping_cart_outlined, size: 16),
+                label: const Text('Upgrade'),
+                onPressed: purchaseService.isLoading
+                    ? null
+                    : () async {
+                        if (purchaseService.product == null) {
+                          await purchaseService.loadProduct();
+                        }
+                        await purchaseService.buyMobilePaid();
+                      },
+              ),
+            ] else
+              FilledButton.icon(
+                icon: const Icon(Icons.check_circle_outline, size: 16),
+                label: const Text('Purchased'),
+                onPressed: () => Navigator.pop(ctx),
+              ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Not Now'),
-          ),
-          FilledButton.icon(
-            icon: const Icon(Icons.open_in_new, size: 16),
-            label: const Text('Learn More'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Visit koshkikode.com to upgrade')),
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

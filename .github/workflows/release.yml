@@ -27,6 +27,7 @@ jobs:
         run: |
           flutter create --platforms=android --org com.koshkikode .
           flutter pub get
+          dart run flutter_launcher_icons
           flutter build apk --release
           flutter build appbundle --release
       - uses: actions/upload-artifact@v4
@@ -60,17 +61,29 @@ jobs:
         run: |
           flutter create --platforms=ios --org com.koshkikode .
           flutter pub get
+          dart run flutter_launcher_icons
           flutter build ios --release --no-codesign
+      - name: Package free IPA
+        run: |
+          mkdir -p /tmp/Payload
+          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
+          cd /tmp && zip -r vetviona-free.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
           name: release-ios-free
-          path: app/build/ios/iphoneos/Runner.app
+          path: /tmp/vetviona-free.ipa
       - working-directory: app
         run: flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
+      - name: Package paid IPA
+        run: |
+          rm -rf /tmp/Payload
+          mkdir -p /tmp/Payload
+          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
+          cd /tmp && zip -r vetviona-paid.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
           name: release-ios-paid
-          path: app/build/ios/iphoneos/Runner.app
+          path: /tmp/vetviona-paid.ipa
 
   # ── Windows EXE ───────────────────────────────────────────────────────────
   windows-exe:
@@ -87,6 +100,7 @@ jobs:
           flutter config --enable-windows-desktop
           flutter create --platforms=windows --org com.koshkikode .
           flutter pub get
+          dart run flutter_launcher_icons
           flutter build windows --release --dart-define=PAID=true
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
       - uses: actions/upload-artifact@v4
@@ -111,6 +125,7 @@ jobs:
           flutter config --enable-windows-desktop
           flutter create --platforms=windows --org com.koshkikode .
           flutter pub get
+          dart run flutter_launcher_icons
           flutter build windows --release --dart-define=PAID=true
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
       - run: |
@@ -141,6 +156,7 @@ jobs:
           flutter config --enable-macos-desktop
           flutter create --platforms=macos --org com.koshkikode .
           flutter pub get
+          dart run flutter_launcher_icons
           flutter build macos --release --dart-define=PAID=true
       - run: |
           hdiutil create -volname "Vetviona" \
@@ -172,6 +188,7 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
+          dart run flutter_launcher_icons
           flutter build linux --release --dart-define=PAID=true
       - run: |
           VERSION=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
@@ -200,10 +217,74 @@ jobs:
           name: release-linux-deb
           path: vetviona_*.deb
 
+  # ── Linux Snap ────────────────────────────────────────────────────────────
+  snap:
+    name: Linux Snap
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare snap directory
+        run: |
+          mkdir -p app/snap
+          cp packaging/linux/snap/snapcraft.yaml app/snap/snapcraft.yaml
+      - uses: snapcore/action-build@v1
+        id: build-snap
+        with:
+          path: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-snap
+          path: ${{ steps.build-snap.outputs.snap }}
+
+  # ── Linux Flatpak ─────────────────────────────────────────────────────────
+  flatpak:
+    name: Linux Flatpak
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//23.08 \
+            org.freedesktop.Sdk//23.08
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+      - name: Build Linux bundle
+        working-directory: app
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons
+          flutter build linux --release --dart-define=PAID=true
+      - name: Prepare Flatpak bundle source
+        run: |
+          mkdir -p packaging/linux/flatpak/bundle
+          cp -r app/build/linux/x64/release/bundle/* packaging/linux/flatpak/bundle/
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --repo=flatpak-repo --force-clean flatpak-build \
+            packaging/linux/flatpak/com.koshkikode.Vetviona.yml
+          flatpak build-bundle flatpak-repo vetviona.flatpak \
+            com.koshkikode.Vetviona
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-flatpak
+          path: vetviona.flatpak
+
   # ── Publish GitHub Release ─────────────────────────────────────────────────
   publish:
     name: Publish GitHub Release
-    needs: [android, ios, windows-exe, windows-msi, macos, linux]
+    needs: [android, ios, windows-exe, windows-msi, macos, linux, snap, flatpak]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -231,12 +312,14 @@ jobs:
             | Windows  | `vetviona.exe` (artifact: `release-windows-exe`) | Desktop Pro | Standalone executable |
             | macOS    | `vetviona-macos.dmg` | Desktop Pro | Disk image |
             | Linux    | `vetviona_*_amd64.deb` | Desktop Pro | Debian/Ubuntu package |
+            | Linux    | `vetviona.flatpak` | Desktop Pro | Flatpak bundle |
+            | Linux    | `*.snap` | Desktop Pro | Snap package |
             | Android  | `release-android-free/app-release.apk` | Mobile Free | Manual sync · 100 person limit |
             | Android  | `release-android-free/app-release.aab` | Mobile Free | Play Store bundle |
             | Android  | `release-android-paid/app-release.apk` | Mobile Paid | WiFi auto-sync · unlimited |
             | Android  | `release-android-paid/app-release.aab` | Mobile Paid | Play Store bundle |
-            | iOS      | `release-ios-free/Runner.app` | Mobile Free | Manual sync · 100 person limit |
-            | iOS      | `release-ios-paid/Runner.app` | Mobile Paid | WiFi auto-sync · unlimited |
+            | iOS      | `vetviona-free.ipa` | Mobile Free | Manual sync · 100 person limit |
+            | iOS      | `vetviona-paid.ipa` | Mobile Paid | WiFi auto-sync · unlimited |
 
             ### RootLoop™ Sync Tiers
             - **RootLoop™ Auto** (WiFi, automatic) — Mobile Paid & Desktop Pro

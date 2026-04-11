@@ -39,6 +39,10 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      - name: Generate app icons
+        working-directory: app
+        run: dart run flutter_launcher_icons
+
       # ── Free tier ──────────────────────────────────────────────────────────
       - name: Build APK (free — mobile)
         working-directory: app

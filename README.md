@@ -108,12 +108,10 @@ vetviona/
 ### Clone & setup
 
 ```bash
-git clone https://github.com/KoshkiKode/untitled-ancestry-app.git
-cd untitled-ancestry-app/app
+git clone https://github.com/KoshkiKode/vetviona.git
+cd vetviona/app
 flutter pub get
 ```
-
-> **Note:** The repository is currently named `untitled-ancestry-app` on GitHub. The canonical name for the project is **Vetviona**.
 
 ### Run (debug)
 
