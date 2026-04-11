@@ -137,17 +137,14 @@ class SyncService extends ChangeNotifier {
 
   // ── Server lifecycle ────────────────────────────────────────────────────────
 
-  /// Starts the shelf HTTP server on a random port and begins mDNS advertisement.
+  /// Starts the shelf HTTP server on a random port.
   ///
-  /// Requires a paid tier ([isProTier]).  Free-tier mobile users may only use
-  /// manual connect.
+  /// All tiers may start the server for manual / QR-code-based sync.
+  /// mDNS advertisement (auto-discovery) is only started for paid tiers
+  /// ([isProTier]).  Free-tier mobile users get QR-code pairing and manual
+  /// connect; Pro users additionally get automatic peer discovery.
   Future<void> startServer() async {
     if (_isServerRunning) return;
-    if (!isProTier) {
-      _setStatus(SyncStatus.error,
-          'WiFi Auto-Sync requires the Pro or Paid Mobile tier.');
-      return;
-    }
     if (!_wifiSyncEnabled) {
       _setStatus(SyncStatus.error, 'WiFi sync is disabled in Settings.');
       return;
@@ -173,9 +170,15 @@ class SyncService extends ChangeNotifier {
       // Detect Tailscale IP now so it's available in the UI.
       _tailscaleIp = await _detectTailscaleIp();
 
-      await _startBroadcast(tp.localDeviceId, tp.currentAppTierString);
-      _setStatus(SyncStatus.advertising,
-          'Accepting connections on port $_serverPort');
+      // mDNS auto-broadcast is a Pro feature; free tier uses QR / manual.
+      if (isProTier) {
+        await _startBroadcast(tp.localDeviceId, tp.currentAppTierString);
+        _setStatus(SyncStatus.advertising,
+            'Accepting connections on port $_serverPort');
+      } else {
+        _setStatus(SyncStatus.advertising,
+            'Ready for QR / manual sync on port $_serverPort');
+      }
     } catch (e) {
       _setStatus(SyncStatus.error, 'Failed to start server: $e');
     }
