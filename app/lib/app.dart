@@ -7,6 +7,8 @@ import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'config/build_metadata.dart';
+import 'services/bluetooth_sync_service.dart';
+import 'services/purchase_service.dart';
 import 'services/sync_service.dart';
 
 class VetvionaApp extends StatelessWidget {
@@ -43,6 +45,23 @@ class VetvionaApp extends StatelessWidget {
             return syncService;
           },
         ),
+        // BluetoothSyncService keeps a reference to SyncService so it can
+        // delegate WiFi data transfer after BLE peer discovery.
+        ChangeNotifierProxyProvider<SyncService, BluetoothSyncService>(
+          create: (_) => BluetoothSyncService(),
+          update: (_, syncService, bleService) {
+            bleService!.syncService = syncService;
+            return bleService;
+          },
+        ),
+        // PurchaseService manages one-time IAP for Mobile Paid upgrade.
+        ChangeNotifierProvider(
+          create: (_) {
+            final service = PurchaseService();
+            service.init();
+            return service;
+          },
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) => MaterialApp(
@@ -54,6 +73,7 @@ class VetvionaApp extends StatelessWidget {
     );
   }
 }
+
 
 class _StartupRouter extends StatefulWidget {
   const _StartupRouter();

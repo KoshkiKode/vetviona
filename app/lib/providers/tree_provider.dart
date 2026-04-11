@@ -28,7 +28,20 @@ class TreeProvider extends ChangeNotifier {
   List<LifeEvent> lifeEvents = [];
   List<MedicalCondition> medicalConditions = [];
   List<ResearchTask> researchTasks = [];
-  List<String> treeNames = [];
+
+  /// Full tree records — each entry holds both the UUID and display name.
+  List<Map<String, String>> trees = [];
+
+  /// Convenience list of tree names (preserved for legacy callers).
+  List<String> get treeNames => trees.map((t) => t['name']!).toList();
+
+  /// Display name of the currently active tree.
+  String get currentTreeName => trees
+      .firstWhere(
+        (t) => t['id'] == currentTreeId,
+        orElse: () => {'id': currentTreeId, 'name': 'My Family Tree'},
+      )['name']!;
+
   String currentTreeId = 'default';
   List<Device> pairedDevices = [];
 
@@ -358,10 +371,17 @@ class TreeProvider extends ChangeNotifier {
   Future<void> loadPersons() async {
     final db = await _database;
     final treeMaps = await db.query('trees');
-    treeNames = treeMaps.map((m) => m['name'] as String).toList();
-    if (treeNames.isEmpty) {
+    trees = treeMaps
+        .map((m) => {
+              'id': m['id'] as String,
+              'name': m['name'] as String,
+            })
+        .toList();
+    if (trees.isEmpty) {
       await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
-      treeNames = ['My Family Tree'];
+      trees = [
+        {'id': 'default', 'name': 'My Family Tree'}
+      ];
     }
 
     final personMaps = await db.query(
@@ -674,9 +694,18 @@ class TreeProvider extends ChangeNotifier {
     final id = _uuid.v4();
     final db = await _database;
     await db.insert('trees', {'id': id, 'name': name});
-    treeNames.add(name);
+    trees.add({'id': id, 'name': name});
     notifyListeners();
     return id;
+  }
+
+  Future<void> renameTree(String treeId, String newName) async {
+    final db = await _database;
+    await db.update('trees', {'name': newName},
+        where: 'id = ?', whereArgs: [treeId]);
+    final idx = trees.indexWhere((t) => t['id'] == treeId);
+    if (idx != -1) trees[idx] = {'id': treeId, 'name': newName};
+    notifyListeners();
   }
 
   Future<void> switchTree(String treeId) async {
@@ -709,6 +738,7 @@ class TreeProvider extends ChangeNotifier {
     await db.delete('research_tasks',
         where: 'treeId = ?', whereArgs: [treeId]);
     researchTasks.removeWhere((t) => t.treeId == treeId);
+    trees.removeWhere((t) => t['id'] == treeId);
     if (currentTreeId == treeId) {
       currentTreeId = 'default';
     }
@@ -950,10 +980,21 @@ class TreeProvider extends ChangeNotifier {
   /// that do not exist locally are inserted; existing records are replaced
   /// (last-write-wins).  The free-tier person limit is respected.
   ///
+  /// When a free-tier mobile device syncs with a Desktop Pro instance the
+  /// number of **new** persons accepted in a single session is capped at
+  /// [freeMobilePersonLimit], matching the advertised behaviour in the README.
+  ///
   /// Returns the number of new persons that were added (skipped persons if the
   /// limit was hit are not counted).
   Future<int> importFromSync(Map<String, dynamic> data) async {
     final db = await _database;
+
+    // Determine whether a per-session cap applies (Desktop Pro ← free mobile).
+    final senderTier = data['senderTier'] as String?;
+    final sessionCap =
+        (currentAppTier == AppTier.desktopPro && senderTier == 'mobileFree')
+            ? freeMobilePersonLimit
+            : null;
 
     final inPersons =
         ((data['persons'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
@@ -981,6 +1022,8 @@ class TreeProvider extends ChangeNotifier {
     for (final person in inPersons) {
       final isNew = !persons.any((p) => p.id == person.id);
       if (isNew && isAtPersonLimit) continue;
+      // Cap new persons per session when a free-tier mobile syncs with Desktop Pro.
+      if (isNew && sessionCap != null && added >= sessionCap) continue;
       person.treeId = currentTreeId;
       await db.insert('persons', person.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);

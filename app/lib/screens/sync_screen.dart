@@ -1,11 +1,24 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../config/app_config.dart';
 import '../models/device.dart';
 import '../providers/tree_provider.dart';
+import '../services/bluetooth_sync_service.dart';
 import '../services/sync_service.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Whether Bluetooth sync is supported on the current platform.
+bool get _bluetoothSupported =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main screen
@@ -43,6 +56,7 @@ class _SyncScreenState extends State<SyncScreen> {
   @override
   Widget build(BuildContext context) {
     final sync = context.watch<SyncService>();
+    final ble = context.watch<BluetoothSyncService>();
     final tree = context.watch<TreeProvider>();
     final cs = Theme.of(context).colorScheme;
     final wifiEnabled = sync.wifiSyncEnabled;
@@ -56,13 +70,26 @@ class _SyncScreenState extends State<SyncScreen> {
             TextButton.icon(
               icon: Icon(Icons.stop_circle_outlined, color: cs.onPrimary),
               label: Text('Stop', style: TextStyle(color: cs.onPrimary)),
-              onPressed: () => sync.stopServer(),
+              onPressed: () async {
+                await sync.stopServer();
+                await ble.stopAdvertising();
+              },
             )
           else
             TextButton.icon(
               icon: Icon(Icons.play_circle_outlined, color: cs.onPrimary),
               label: Text('Go Online', style: TextStyle(color: cs.onPrimary)),
-              onPressed: wifiEnabled ? () => sync.startServer() : null,
+              onPressed: wifiEnabled
+                  ? () async {
+                      await sync.startServer();
+                      if (bluetoothEnabled && sync.isServerRunning) {
+                        await ble.startAdvertising(
+                          serverPort: sync.serverPort,
+                          deviceId: tree.localDeviceId,
+                        );
+                      }
+                    }
+                  : null,
             ),
         ],
       ),
@@ -172,6 +199,63 @@ class _SyncScreenState extends State<SyncScreen> {
             ],
           ),
           const SizedBox(height: 12),
+
+          // ── Nearby devices (BLE) ─────────────────────────────────────
+          if (bluetoothEnabled && _bluetoothSupported) ...[
+            _SyncCard(
+              icon: Icons.bluetooth_searching,
+              title: 'Nearby via Bluetooth',
+              trailing: ble.isScanning
+                  ? TextButton(
+                      onPressed: () => ble.stopScan(),
+                      child: const Text('Stop'),
+                    )
+                  : TextButton(
+                      onPressed: () => ble.startScan(),
+                      child: const Text('Scan'),
+                    ),
+              children: [
+                if (ble.statusMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      ble.statusMessage!,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                if (ble.discoveredPeers.isEmpty)
+                  Text(
+                    ble.isScanning
+                        ? 'Scanning for nearby Vetviona devices\u2026'
+                        : 'No BLE devices found. Tap Scan to search.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  )
+                else
+                  ...ble.discoveredPeers.map(
+                    (peer) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.bluetooth),
+                      title: Text(peer.deviceName.isNotEmpty
+                          ? peer.deviceName
+                          : peer.deviceId),
+                      subtitle: Text('${peer.host}:${peer.port}'),
+                      trailing: FilledButton.tonal(
+                        onPressed: () =>
+                            _syncWithBlePeer(context, ble, tree, peer),
+                        child: const Text('Sync'),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // ── Manual connect ───────────────────────────────────────────
           _SyncCard(
@@ -406,6 +490,34 @@ class _SyncScreenState extends State<SyncScreen> {
 
     await sync.syncWithPeer(
         host: host, port: port, sharedSecret: secret);
+  }
+
+  Future<void> _syncWithBlePeer(
+    BuildContext context,
+    BluetoothSyncService ble,
+    TreeProvider tree,
+    BleSyncPeer peer,
+  ) async {
+    // Find the matching paired device by device ID prefix.
+    final device = tree.pairedDevices.where((d) {
+      final prefixLen = d.id.length.clamp(0, 8);
+      return d.id == peer.deviceId ||
+          d.id.startsWith(peer.deviceId) ||
+          peer.deviceId.startsWith(d.id.substring(0, prefixLen));
+    }).firstOrNull;
+
+    if (device == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Device not paired. Generate a pairing code and pair first.'),
+        ),
+      );
+      return;
+    }
+
+    await ble.syncWithPeer(peer, device.sharedSecret);
   }
 }
 

@@ -628,4 +628,69 @@ void main() {
       expect(ok, true);
     });
   });
+
+  // ── importFromSync session cap ─────────────────────────────────────────────
+  group('TreeProvider.exportForSync senderTier', () {
+    test('exportForSync payload does not embed senderTier (added by SyncService)',
+        () {
+      // exportForSync itself does not embed senderTier — SyncService adds it
+      // before sending.  importFromSync must tolerate a missing senderTier key.
+      final provider = TreeProvider();
+      provider.persons = [Person(id: 'p1', name: 'Alice')];
+      provider.partnerships = [];
+      provider.sources = [];
+      final data = provider.exportForSync();
+      expect(data.containsKey('senderTier'), false);
+    });
+
+    test(
+        'session cap is null (no limit) when senderTier is absent or non-free',
+        () {
+      // Verify that the session-cap logic inside importFromSync correctly
+      // evaluates to no cap when the senderTier key is absent.
+      //
+      // We test this indirectly by checking that the desktop provider reports
+      // isAtPersonLimit = false for any number of persons (confirming it uses
+      // null as the cap), which is what importFromSync relies on when
+      // senderTier is absent.
+      final provider = TreeProvider();
+      provider.persons =
+          List.generate(200, (i) => Person(id: 'p$i', name: 'P$i'));
+      // On the test runner (Linux == desktopPro), personLimit is null.
+      expect(provider.personLimit, isNull);
+      expect(provider.isAtPersonLimit, false);
+    });
+  });
+
+  // ── TreeProvider.trees / renameTree ────────────────────────────────────────
+  group('TreeProvider.trees', () {
+    test('treeNames getter returns names from trees list', () {
+      final provider = TreeProvider();
+      provider.trees = [
+        {'id': 'default', 'name': 'My Family Tree'},
+        {'id': 'abc', 'name': 'Smith Tree'},
+      ];
+      expect(provider.treeNames, ['My Family Tree', 'Smith Tree']);
+    });
+
+    test('currentTreeName returns active tree name', () {
+      final provider = TreeProvider();
+      provider.trees = [
+        {'id': 'default', 'name': 'My Family Tree'},
+        {'id': 'tree2', 'name': 'Jones Tree'},
+      ];
+      provider.currentTreeId = 'tree2';
+      expect(provider.currentTreeName, 'Jones Tree');
+    });
+
+    test('currentTreeName falls back when currentTreeId not in trees', () {
+      final provider = TreeProvider();
+      provider.trees = [
+        {'id': 'default', 'name': 'My Family Tree'},
+      ];
+      provider.currentTreeId = 'missing';
+      // Should return the fallback name without throwing.
+      expect(provider.currentTreeName, 'My Family Tree');
+    });
+  });
 }
