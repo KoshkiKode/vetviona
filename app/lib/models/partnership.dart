@@ -17,6 +17,26 @@ class Partnership {
 
   String? treeId;
 
+  /// Free-text notes about this union.
+  String? notes;
+
+  /// Ceremony type — one of [allCeremonyTypes].
+  String? ceremonyType;
+
+  /// IDs of sources that evidence this union (comma-separated in DB).
+  List<String> sourceIds;
+
+  /// Names of witnesses or officiants.
+  String? witnesses;
+
+  static const List<String> allCeremonyTypes = [
+    'civil',
+    'religious',
+    'traditional',
+    'common-law',
+    'other',
+  ];
+
   Partnership({
     required this.id,
     required this.person1Id,
@@ -27,7 +47,11 @@ class Partnership {
     this.endDate,
     this.endPlace,
     this.treeId,
-  });
+    this.notes,
+    this.ceremonyType,
+    List<String>? sourceIds,
+    this.witnesses,
+  }) : sourceIds = sourceIds ?? [];
 
   /// Whether this union has formally ended.
   bool get isEnded =>
@@ -73,6 +97,10 @@ class Partnership {
         'endDate': endDate?.toIso8601String(),
         'endPlace': endPlace,
         'treeId': treeId,
+        'notes': notes,
+        'ceremonyType': ceremonyType,
+        'sourceIds': sourceIds.join(','),
+        'witnesses': witnesses,
       };
 
   factory Partnership.fromMap(Map<String, dynamic> map) => Partnership(
@@ -89,5 +117,13 @@ class Partnership {
             : null,
         endPlace: map['endPlace'] as String?,
         treeId: map['treeId'] as String?,
+        notes: map['notes'] as String?,
+        ceremonyType: map['ceremonyType'] as String?,
+        sourceIds: (map['sourceIds'] as String?)
+                ?.split(',')
+                .where((s) => s.isNotEmpty)
+                .toList() ??
+            [],
+        witnesses: map['witnesses'] as String?,
       );
 }

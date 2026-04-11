@@ -79,7 +79,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -115,7 +115,15 @@ class TreeProvider extends ChangeNotifier {
             deathPostalCode TEXT,
             burialPostalCode TEXT,
             isPrivate INTEGER NOT NULL DEFAULT 0,
-            preferredSourceIds TEXT
+            preferredSourceIds TEXT,
+            causeOfDeath TEXT,
+            bloodType TEXT,
+            eyeColour TEXT,
+            hairColour TEXT,
+            height TEXT,
+            religion TEXT,
+            education TEXT,
+            aliases TEXT
           )
         ''');
         await db.execute('''
@@ -127,7 +135,15 @@ class TreeProvider extends ChangeNotifier {
             url TEXT NOT NULL,
             imagePath TEXT,
             extractedInfo TEXT,
-            citedFacts TEXT
+            citedFacts TEXT,
+            author TEXT,
+            publisher TEXT,
+            publicationDate TEXT,
+            repository TEXT,
+            volumePage TEXT,
+            retrievalDate TEXT,
+            confidence TEXT,
+            treeId TEXT
           )
         ''');
         await db.execute('''
@@ -147,7 +163,11 @@ class TreeProvider extends ChangeNotifier {
             startPlace TEXT,
             endDate TEXT,
             endPlace TEXT,
-            treeId TEXT
+            treeId TEXT,
+            notes TEXT,
+            ceremonyType TEXT,
+            sourceIds TEXT,
+            witnesses TEXT
           )
         ''');
         await db.execute('''
@@ -302,6 +322,33 @@ class TreeProvider extends ChangeNotifier {
               treeId TEXT
             )
           ''');
+        }
+        if (oldVersion < 7) {
+          await db.execute('ALTER TABLE persons ADD COLUMN causeOfDeath TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN bloodType TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN eyeColour TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN hairColour TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN height TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN religion TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN education TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN aliases TEXT');
+          await db.execute('ALTER TABLE sources ADD COLUMN author TEXT');
+          await db.execute('ALTER TABLE sources ADD COLUMN publisher TEXT');
+          await db.execute(
+              'ALTER TABLE sources ADD COLUMN publicationDate TEXT');
+          await db.execute('ALTER TABLE sources ADD COLUMN repository TEXT');
+          await db.execute('ALTER TABLE sources ADD COLUMN volumePage TEXT');
+          await db.execute(
+              'ALTER TABLE sources ADD COLUMN retrievalDate TEXT');
+          await db.execute('ALTER TABLE sources ADD COLUMN confidence TEXT');
+          await db.execute('ALTER TABLE sources ADD COLUMN treeId TEXT');
+          await db.execute('ALTER TABLE partnerships ADD COLUMN notes TEXT');
+          await db.execute(
+              'ALTER TABLE partnerships ADD COLUMN ceremonyType TEXT');
+          await db.execute(
+              'ALTER TABLE partnerships ADD COLUMN sourceIds TEXT');
+          await db.execute(
+              'ALTER TABLE partnerships ADD COLUMN witnesses TEXT');
         }
       },
     );
@@ -774,6 +821,21 @@ class TreeProvider extends ChangeNotifier {
       partnership.treeId = currentTreeId;
       await addPartnership(partnership);
     }
+    for (final event in result.lifeEvents) {
+      // Only add if the person was successfully imported.
+      if (persons.any((p) => p.id == event.personId)) {
+        final treeEvent = LifeEvent(
+          id: event.id,
+          personId: event.personId,
+          title: event.title,
+          date: event.date,
+          place: event.place,
+          notes: event.notes,
+          treeId: currentTreeId,
+        );
+        await addLifeEvent(treeEvent);
+      }
+    }
   }
 
   Future<void> exportGEDCOM(String path,
@@ -790,7 +852,10 @@ class TreeProvider extends ChangeNotifier {
         .toList();
     final parser = GEDCOMParser();
     await parser.export(publicPersons, publicPartnerships, path,
-        includeLivingData: includeLivingData);
+        includeLivingData: includeLivingData,
+        lifeEvents: lifeEvents
+            .where((e) => publicPersonIds.contains(e.personId))
+            .toList());
   }
 
   // ── Relationship BFS ───────────────────────────────────────────────────────

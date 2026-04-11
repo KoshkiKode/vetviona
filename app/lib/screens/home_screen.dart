@@ -10,8 +10,10 @@ import '../config/app_config.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../services/pdf_report_service.dart';
 import 'calendar_screen.dart';
 import 'conflict_resolver_screen.dart';
+import 'descendants_screen.dart';
 import 'login_screen.dart';
 import 'medical_history_screen.dart';
 import 'pedigree_screen.dart';
@@ -152,6 +154,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.family_restroom),
+            tooltip: 'Descendants Chart',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DescendantsScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.list_alt),
             tooltip: 'Tree List',
             onPressed: () => Navigator.push(
@@ -246,14 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: provider.isAtPersonLimit
-            ? () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Free tier limit: $freeMobilePersonLimit people reached. Upgrade to add more.',
-                    ),
-                    backgroundColor: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                )
+            ? () => _showUpgradeDialog(context)
             : () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -295,6 +298,37 @@ class _HomeScreenState extends State<HomeScreen> {
               label:
                   '${provider.treeNames.length} tree${provider.treeNames.length == 1 ? '' : 's'}',
               color: colorScheme.tertiary,
+            ),
+          ],
+          if (isFree && provider.isAtPersonLimit) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showUpgradeDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: colorScheme.primary.withOpacity(0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.rocket_launch_outlined,
+                        size: 14, color: colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Upgrade',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ],
@@ -484,6 +518,17 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.account_tree),
+            title: const Text('Descendants Chart'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DescendantsScreen()),
+              );
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.calendar_month_outlined),
             title: const Text('Birthdays & Anniversaries'),
             onTap: () {
@@ -496,7 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.sync_outlined),
-            title: const Text('RootLoop\u2122 Sync'),
+            title: const Text('RootLoop™ Sync'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -618,6 +663,14 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () {
               Navigator.pop(context);
               _exportCSV(context, provider);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.picture_as_pdf_outlined),
+            title: const Text('Export Family Book PDF'),
+            onTap: () {
+              Navigator.pop(context);
+              _exportPDF(context, provider);
             },
           ),
           const Divider(),
@@ -1157,6 +1210,138 @@ class _HomeScreenState extends State<HomeScreen> {
             .showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
+  }
+
+  Future<void> _exportPDF(
+      BuildContext context, TreeProvider provider) async {
+    final includeLivingData = await _askLivingDataPolicy(context);
+    if (includeLivingData == null) return;
+
+    try {
+      final path = await PdfReportService.generate(
+        persons: provider.persons,
+        partnerships: provider.partnerships,
+        lifeEvents: provider.lifeEvents,
+        medicalConditions: provider.medicalConditions,
+        sources: provider.sources,
+        treeName: provider.treeNames.isNotEmpty
+            ? provider.treeNames.first
+            : 'My Family Tree',
+        includeLivingData: includeLivingData,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('PDF saved to: $path')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('PDF export failed: $e')));
+      }
+    }
+  }
+
+  void _showUpgradeDialog(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.rocket_launch_outlined,
+            color: colorScheme.primary, size: 40),
+        title: const Text('Upgrade Vetviona'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "You've reached the free tier limit of $freeMobilePersonLimit people.",
+              style: Theme.of(ctx).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            _UpgradeTierRow(
+              icon: Icons.phone_android,
+              tier: 'Mobile Paid',
+              description:
+                  'Unlimited people · RootLoop™ Auto Sync',
+              color: colorScheme.secondary,
+            ),
+            const SizedBox(height: 8),
+            _UpgradeTierRow(
+              icon: Icons.computer,
+              tier: 'Desktop Pro',
+              description:
+                  'All mobile features · Multi-tree · Advanced export',
+              color: colorScheme.primary,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Not Now'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Learn More'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Visit koshkikode.com to upgrade')),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpgradeTierRow extends StatelessWidget {
+  final IconData icon;
+  final String tier;
+  final String description;
+  final Color color;
+
+  const _UpgradeTierRow({
+    required this.icon,
+    required this.tier,
+    required this.description,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tier,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(
+                description,
+                style: TextStyle(
+                    fontSize: 11,
+                    color:
+                        Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

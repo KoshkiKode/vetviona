@@ -48,10 +48,38 @@ class Person {
   /// members whose contact details and records should never leave the device.
   bool isPrivate;
 
+  /// Cause of death, e.g. "cardiac arrest", "pneumonia".
+  String? causeOfDeath;
+
+  /// ABO/Rh blood type, one of [allBloodTypes].
+  String? bloodType;
+
+  /// Eye colour, free text (e.g. "brown", "hazel").
+  String? eyeColour;
+
+  /// Hair colour, free text (e.g. "auburn", "grey").
+  String? hairColour;
+
+  /// Height as free text (e.g. "178 cm", "5 ft 10 in").
+  String? height;
+
+  /// Religion or faith tradition (e.g. "Catholic", "Jewish").
+  String? religion;
+
+  /// Highest education level attained (e.g. "Bachelor's degree").
+  String? education;
+
+  /// Alternate or AKA names (serialised with `;` in the database).
+  List<String> aliases;
+
   /// Maps fact name (e.g. `'Birth Date'`, `'Death Place'`) to the ID of the
   /// preferred source for that fact, as resolved in the Evidence Conflict
   /// Resolver.
   Map<String, String> preferredSourceIds;
+
+  static const List<String> allBloodTypes = [
+    'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown',
+  ];
 
   static const List<String> allParentRelTypes = [
     'biological',
@@ -89,12 +117,21 @@ class Person {
     this.burialPostalCode,
     this.isPrivate = false,
     Map<String, String>? preferredSourceIds,
+    this.causeOfDeath,
+    this.bloodType,
+    this.eyeColour,
+    this.hairColour,
+    this.height,
+    this.religion,
+    this.education,
+    List<String>? aliases,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
         photoPaths = photoPaths ?? [],
         sourceIds = sourceIds ?? [],
-        preferredSourceIds = preferredSourceIds ?? {};
+        preferredSourceIds = preferredSourceIds ?? {},
+        aliases = aliases ?? [];
 
   /// Returns the relationship type for [parentId], defaulting to `biological`.
   String parentRelType(String parentId) =>
@@ -152,6 +189,14 @@ class Person {
       'preferredSourceIds': preferredSourceIds.entries
           .map((e) => '${e.key}=${e.value}')
           .join(','),
+      'causeOfDeath': causeOfDeath,
+      'bloodType': bloodType,
+      'eyeColour': eyeColour,
+      'hairColour': hairColour,
+      'height': height,
+      'religion': religion,
+      'education': education,
+      'aliases': aliases.join(';'),
     };
   }
 
@@ -222,6 +267,18 @@ class Person {
       burialPostalCode: map['burialPostalCode'] as String?,
       isPrivate: (map['isPrivate'] as int? ?? 0) != 0,
       preferredSourceIds: prefSourceIds,
+      causeOfDeath: map['causeOfDeath'] as String?,
+      bloodType: map['bloodType'] as String?,
+      eyeColour: map['eyeColour'] as String?,
+      hairColour: map['hairColour'] as String?,
+      height: map['height'] as String?,
+      religion: map['religion'] as String?,
+      education: map['education'] as String?,
+      aliases: (map['aliases'] as String?)
+              ?.split(';')
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [],
     );
   }
 }

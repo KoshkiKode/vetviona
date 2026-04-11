@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+import '../models/life_event.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 
@@ -7,20 +9,77 @@ import '../models/person.dart';
 class GedcomResult {
   final List<Person> persons;
   final List<Partnership> partnerships;
-  const GedcomResult({required this.persons, required this.partnerships});
+  final List<LifeEvent> lifeEvents;
+  const GedcomResult({
+    required this.persons,
+    required this.partnerships,
+    this.lifeEvents = const [],
+  });
 }
 
+/// GEDCOM tag → LifeEvent title mapping.
+const _gedcomEventTags = {
+  'BAPM': 'Baptism',
+  'CHR': 'Christening',
+  'CONF': 'Confirmation',
+  'GRAD': 'Graduation',
+  'IMMI': 'Immigration',
+  'EMIG': 'Emigration',
+  'NATU': 'Naturalization',
+  'RESI': 'Residence',
+  'CENS': 'Census',
+  'MILI': 'Military Service',
+  'EVEN': 'Event',
+};
+
+/// LifeEvent title → GEDCOM tag mapping (for export).
+const _titleToGedcomTag = {
+  'Baptism': 'BAPM',
+  'Christening': 'CHR',
+  'Confirmation': 'CONF',
+  'Graduation': 'GRAD',
+  'Immigration': 'IMMI',
+  'Emigration': 'EMIG',
+  'Naturalization': 'NATU',
+  'Residence': 'RESI',
+  'Census': 'CENS',
+  'Military Service': 'MILI',
+};
+
 class GEDCOMParser {
+  static final _uuid = Uuid();
+
   Future<GedcomResult> parse(String filePath) async {
     final file = File(filePath);
     final lines = await file.readAsLines();
     final persons = <String, Person>{};
     final families = <String, Map<String, dynamic>>{};
+    final builtLifeEvents = <LifeEvent>[];
 
     String? currentId;
     String? currentTag;
     Person? currentPerson;
     Map<String, dynamic>? currentFamily;
+
+    // Pending life event being built while scanning level-2 sub-tags.
+    Map<String, dynamic>? pendingEvent;
+
+    void _flushPendingEvent(String personId) {
+      if (pendingEvent == null) return;
+      final tag = pendingEvent!['tag'] as String? ?? '';
+      final title = tag == 'EVEN'
+          ? (pendingEvent!['type'] as String? ?? 'Event')
+          : (_gedcomEventTags[tag] ?? tag);
+      builtLifeEvents.add(LifeEvent(
+        id: _uuid.v4(),
+        personId: personId,
+        title: title,
+        date: pendingEvent!['date'] as DateTime?,
+        place: pendingEvent!['place'] as String?,
+        notes: pendingEvent!['notes'] as String?,
+      ));
+      pendingEvent = null;
+    }
 
     for (final line in lines) {
       final parts = line.trim().split(' ');
@@ -32,12 +91,15 @@ class GEDCOMParser {
 
       if (level == 0) {
         if (currentPerson != null && currentId != null) {
-          persons[currentId] = currentPerson;
+          final id = currentId!;
+          if (pendingEvent != null) _flushPendingEvent(id);
+          persons[id] = currentPerson!;
         }
         currentPerson = null;
         currentFamily = null;
         currentTag = null;
         currentId = null;
+        pendingEvent = null;
 
         if (value == 'INDI') {
           currentId = tag.replaceAll('@', '');
@@ -49,48 +111,81 @@ class GEDCOMParser {
           currentId = famId;
         }
       } else if (level == 1 && currentPerson != null) {
+        // Flush any pending event when we start a new level-1 tag.
+        if (pendingEvent != null) _flushPendingEvent(currentId!);
+        pendingEvent = null;
         currentTag = tag;
+
         if (tag == 'NAME') {
-          currentPerson.name = value.replaceAll('/', '').trim();
+          currentPerson!.name = value.replaceAll('/', '').trim();
         } else if (tag == 'SEX') {
-          currentPerson.gender = value;
+          currentPerson!.gender = value;
+        } else if (tag == 'OCCU') {
+          currentPerson!.occupation = value;
+        } else if (tag == 'RELI') {
+          currentPerson!.religion = value;
+        } else if (_gedcomEventTags.containsKey(tag) || tag == 'BURI' ||
+            tag == 'DEAT' || tag == 'BIRT') {
+          // We handle BIRT/DEAT/BURI at level 2; for event tags start tracking.
+          if (_gedcomEventTags.containsKey(tag)) {
+            pendingEvent = {'tag': tag};
+          }
         }
       } else if (level == 1 && currentFamily != null) {
         currentTag = tag;
         final id = value.replaceAll('@', '');
         if (tag == 'HUSB') {
-          currentFamily['husb'] = id;
+          currentFamily!['husb'] = id;
         } else if (tag == 'WIFE') {
-          currentFamily['wife'] = id;
+          currentFamily!['wife'] = id;
         } else if (tag == 'CHIL') {
-          (currentFamily['children'] as List<String>).add(id);
+          (currentFamily!['children'] as List<String>).add(id);
         }
       } else if (level == 2 && currentPerson != null) {
         if (currentTag == 'BIRT' && tag == 'DATE') {
-          currentPerson.birthDate = _parseDate(value);
+          currentPerson!.birthDate = _parseDate(value);
         } else if (currentTag == 'BIRT' && tag == 'PLAC') {
-          currentPerson.birthPlace = value;
+          currentPerson!.birthPlace = value;
         } else if (currentTag == 'DEAT' && tag == 'DATE') {
-          currentPerson.deathDate = _parseDate(value);
+          currentPerson!.deathDate = _parseDate(value);
         } else if (currentTag == 'DEAT' && tag == 'PLAC') {
-          currentPerson.deathPlace = value;
+          currentPerson!.deathPlace = value;
+        } else if (currentTag == 'DEAT' && tag == 'CAUS') {
+          currentPerson!.causeOfDeath = value;
+        } else if (currentTag == 'BURI' && tag == 'DATE') {
+          currentPerson!.burialDate = _parseDate(value);
+        } else if (currentTag == 'BURI' && tag == 'PLAC') {
+          currentPerson!.burialPlace = value;
+        } else if (pendingEvent != null) {
+          // Sub-tags for a life event.
+          if (tag == 'DATE') {
+            pendingEvent!['date'] = _parseDate(value);
+          } else if (tag == 'PLAC') {
+            pendingEvent!['place'] = value;
+          } else if (tag == 'NOTE') {
+            pendingEvent!['notes'] = value;
+          } else if (tag == 'TYPE') {
+            pendingEvent!['type'] = value;
+          }
         }
       } else if (level == 2 && currentFamily != null) {
         if (currentTag == 'MARR' && tag == 'DATE') {
-          currentFamily['startDate'] = value;
+          currentFamily!['startDate'] = value;
         } else if (currentTag == 'MARR' && tag == 'PLAC') {
-          currentFamily['startPlace'] = value;
+          currentFamily!['startPlace'] = value;
         } else if (currentTag == 'DIV' && tag == 'DATE') {
-          currentFamily['endDate'] = value;
-          currentFamily['status'] = 'divorced';
+          currentFamily!['endDate'] = value;
+          currentFamily!['status'] = 'divorced';
         } else if (currentTag == 'DIV' && tag == 'PLAC') {
-          currentFamily['endPlace'] = value;
+          currentFamily!['endPlace'] = value;
         }
       }
     }
 
     if (currentPerson != null && currentId != null) {
-      persons[currentId] = currentPerson;
+      final id = currentId!;
+      if (pendingEvent != null) _flushPendingEvent(id);
+      persons[id] = currentPerson!;
     }
 
     // Build Partnership records and link parent–child data
@@ -149,12 +244,14 @@ class GEDCOMParser {
     return GedcomResult(
       persons: persons.values.toList(),
       partnerships: builtPartnerships,
+      lifeEvents: builtLifeEvents,
     );
   }
 
   Future<void> export(
       List<Person> persons, List<Partnership> partnerships, String filePath,
-      {bool includeLivingData = false}) async {
+      {bool includeLivingData = false,
+      List<LifeEvent> lifeEvents = const []}) async {
     final buf = StringBuffer();
     final df = DateFormat('d MMM yyyy');
 
@@ -164,6 +261,12 @@ class GEDCOMParser {
     buf.writeln('1 CHAR UTF-8');
     buf.writeln('1 SOUR Vetviona');
     buf.writeln('2 VERS 1.0');
+
+    // Index life events by personId for quick lookup.
+    final eventsByPerson = <String, List<LifeEvent>>{};
+    for (final e in lifeEvents) {
+      eventsByPerson.putIfAbsent(e.personId, () => []).add(e);
+    }
 
     for (final person in persons) {
       // A person is considered living when they have no recorded death date.
@@ -203,9 +306,47 @@ class GEDCOMParser {
           if (person.deathPlace != null && person.deathPlace!.isNotEmpty) {
             buf.writeln('2 PLAC ${person.deathPlace}');
           }
+          if (person.causeOfDeath != null &&
+              person.causeOfDeath!.isNotEmpty) {
+            buf.writeln('2 CAUS ${person.causeOfDeath}');
+          }
+        }
+        if (person.burialDate != null || person.burialPlace != null) {
+          buf.writeln('1 BURI');
+          if (person.burialDate != null) {
+            buf.writeln(
+                '2 DATE ${df.format(person.burialDate!).toUpperCase()}');
+          }
+          if (person.burialPlace != null && person.burialPlace!.isNotEmpty) {
+            buf.writeln('2 PLAC ${person.burialPlace}');
+          }
+        }
+        if (person.occupation != null && person.occupation!.isNotEmpty) {
+          buf.writeln('1 OCCU ${person.occupation}');
+        }
+        if (person.religion != null && person.religion!.isNotEmpty) {
+          buf.writeln('1 RELI ${person.religion}');
         }
         if (person.notes != null && person.notes!.isNotEmpty) {
           buf.writeln('1 NOTE ${person.notes}');
+        }
+        // Life events
+        for (final event in eventsByPerson[person.id] ?? []) {
+          final gedTag = _titleToGedcomTag[event.title] ?? 'EVEN';
+          buf.writeln('1 $gedTag');
+          if (gedTag == 'EVEN') {
+            buf.writeln('2 TYPE ${event.title}');
+          }
+          if (event.date != null) {
+            buf.writeln(
+                '2 DATE ${df.format(event.date!).toUpperCase()}');
+          }
+          if (event.place != null && event.place!.isNotEmpty) {
+            buf.writeln('2 PLAC ${event.place}');
+          }
+          if (event.notes != null && event.notes!.isNotEmpty) {
+            buf.writeln('2 NOTE ${event.notes}');
+          }
         }
       }
     }

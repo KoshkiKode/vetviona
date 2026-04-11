@@ -125,7 +125,13 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
                                 for (final person in generations[g])
                                   Expanded(
                                     child: Center(
-                                      child: _PedigreeBox(person: person),
+                                      child: _PedigreeBox(
+                                        person: person,
+                                        onReCenter: person == null
+                                            ? null
+                                            : () => setState(
+                                                () => _focusedPerson = person),
+                                      ),
                                     ),
                                   ),
                               ],
@@ -149,8 +155,9 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
 
 class _PedigreeBox extends StatelessWidget {
   final Person? person;
+  final VoidCallback? onReCenter;
 
-  const _PedigreeBox({required this.person});
+  const _PedigreeBox({required this.person, this.onReCenter});
 
   Color _nodeColor(ColorScheme colorScheme) {
     if (person == null) return colorScheme.surfaceContainerHighest;
@@ -204,6 +211,7 @@ class _PedigreeBox extends StatelessWidget {
           builder: (_) => PersonDetailScreen(person: person),
         ),
       ),
+      onLongPress: onReCenter,
       child: Container(
         constraints: const BoxConstraints(minWidth: 100, maxWidth: 140),
         decoration: BoxDecoration(
