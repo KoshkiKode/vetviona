@@ -7,8 +7,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:vetviona_app/models/life_event.dart';
+import 'package:vetviona_app/models/medical_condition.dart';
 import 'package:vetviona_app/models/partnership.dart';
 import 'package:vetviona_app/models/person.dart';
+import 'package:vetviona_app/models/research_task.dart';
 import 'package:vetviona_app/models/source.dart';
 import 'package:vetviona_app/providers/tree_provider.dart';
 
@@ -691,6 +694,257 @@ void main() {
       provider.currentTreeId = 'missing';
       // Should return the fallback name without throwing.
       expect(provider.currentTreeName, 'My Family Tree');
+    });
+  });
+
+  // ── TreeProvider default settings ─────────────────────────────────────────
+  group('TreeProvider default settings', () {
+    test('dateFormat defaults to dd MMM yyyy', () {
+      final provider = TreeProvider();
+      expect(provider.dateFormat, 'dd MMM yyyy');
+    });
+
+    test('colonizationLevel defaults to 0', () {
+      final provider = TreeProvider();
+      expect(provider.colonizationLevel, 0);
+    });
+  });
+
+  // ── TreeProvider.lifeEventsFor ────────────────────────────────────────────
+  group('TreeProvider.lifeEventsFor', () {
+    test('returns empty list when no life events exist', () {
+      final provider = TreeProvider();
+      expect(provider.lifeEventsFor('p1'), isEmpty);
+    });
+
+    test('returns events belonging to the given person', () {
+      final provider = TreeProvider();
+      provider.lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'p1', title: 'Baptism'),
+        LifeEvent(id: 'e2', personId: 'p1', title: 'Graduation'),
+        LifeEvent(id: 'e3', personId: 'p2', title: 'Immigration'),
+      ];
+      final result = provider.lifeEventsFor('p1');
+      expect(result, hasLength(2));
+      expect(result.map((e) => e.id), containsAll(['e1', 'e2']));
+    });
+
+    test('returns empty list when no events match the given person', () {
+      final provider = TreeProvider();
+      provider.lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'p2', title: 'Baptism'),
+      ];
+      expect(provider.lifeEventsFor('p1'), isEmpty);
+    });
+
+    test('returns all events when all belong to the same person', () {
+      final provider = TreeProvider();
+      provider.lifeEvents = List.generate(
+        5,
+        (i) => LifeEvent(id: 'e$i', personId: 'p1', title: 'Event $i'),
+      );
+      expect(provider.lifeEventsFor('p1'), hasLength(5));
+    });
+  });
+
+  // ── TreeProvider.medicalConditionsFor ─────────────────────────────────────
+  group('TreeProvider.medicalConditionsFor', () {
+    test('returns empty list when no medical conditions exist', () {
+      final provider = TreeProvider();
+      expect(provider.medicalConditionsFor('p1'), isEmpty);
+    });
+
+    test('returns conditions belonging to the given person', () {
+      final provider = TreeProvider();
+      provider.medicalConditions = [
+        MedicalCondition(
+            id: 'm1', personId: 'p1', condition: 'Diabetes',
+            category: 'Metabolic / Endocrine'),
+        MedicalCondition(
+            id: 'm2', personId: 'p1', condition: 'Hypertension',
+            category: 'Cardiovascular'),
+        MedicalCondition(
+            id: 'm3', personId: 'p2', condition: 'Asthma',
+            category: 'Respiratory'),
+      ];
+      final result = provider.medicalConditionsFor('p1');
+      expect(result, hasLength(2));
+      expect(result.map((c) => c.id), containsAll(['m1', 'm2']));
+    });
+
+    test('returns empty list when no conditions match the given person', () {
+      final provider = TreeProvider();
+      provider.medicalConditions = [
+        MedicalCondition(
+            id: 'm1', personId: 'p2', condition: 'Asthma',
+            category: 'Respiratory'),
+      ];
+      expect(provider.medicalConditionsFor('p1'), isEmpty);
+    });
+  });
+
+  // ── TreeProvider.researchTasksFor ─────────────────────────────────────────
+  group('TreeProvider.researchTasksFor', () {
+    test('returns empty list when no research tasks exist', () {
+      final provider = TreeProvider();
+      expect(provider.researchTasksFor('p1'), isEmpty);
+    });
+
+    test('returns tasks linked to the given person', () {
+      final provider = TreeProvider();
+      provider.researchTasks = [
+        ResearchTask(id: 't1', personId: 'p1', title: 'Find birth record'),
+        ResearchTask(id: 't2', personId: 'p1', title: 'Verify death date'),
+        ResearchTask(id: 't3', personId: 'p2', title: 'Find marriage record'),
+      ];
+      final result = provider.researchTasksFor('p1');
+      expect(result, hasLength(2));
+      expect(result.map((t) => t.id), containsAll(['t1', 't2']));
+    });
+
+    test('returns empty list when person has no tasks', () {
+      final provider = TreeProvider();
+      provider.researchTasks = [
+        ResearchTask(id: 't1', personId: 'p2', title: 'Find birth record'),
+      ];
+      expect(provider.researchTasksFor('p1'), isEmpty);
+    });
+
+    test('researchTasksFor with null personId task does not match arbitrary id',
+        () {
+      // Tasks with a null personId are tree-level tasks, not person tasks.
+      final provider = TreeProvider();
+      provider.researchTasks = [
+        ResearchTask(id: 't1', title: 'General task'),
+      ];
+      expect(provider.researchTasksFor('p1'), isEmpty);
+    });
+  });
+
+  // ── TreeProvider.findDuplicates ────────────────────────────────────────────
+  group('TreeProvider.findDuplicates', () {
+    test('returns empty list when persons list is empty', () {
+      final provider = TreeProvider();
+      expect(provider.findDuplicates(), isEmpty);
+    });
+
+    test('returns empty list when all persons are unique', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice Smith'),
+        Person(id: 'p2', name: 'Bob Jones'),
+        Person(id: 'p3', name: 'Carol White'),
+      ];
+      expect(provider.findDuplicates(), isEmpty);
+    });
+
+    test('detects two persons with identical names', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice Smith'),
+        Person(id: 'p2', name: 'Alice Smith'),
+      ];
+      final groups = provider.findDuplicates();
+      expect(groups, hasLength(1));
+      expect(groups.first.map((p) => p.id), containsAll(['p1', 'p2']));
+    });
+
+    test('name comparison is case-insensitive', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'alice smith'),
+        Person(id: 'p2', name: 'ALICE SMITH'),
+      ];
+      final groups = provider.findDuplicates();
+      expect(groups, hasLength(1));
+    });
+
+    test('name comparison ignores punctuation', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: "O'Brien"),
+        Person(id: 'p2', name: 'OBrien'),
+      ];
+      final groups = provider.findDuplicates();
+      expect(groups, hasLength(1));
+    });
+
+    test('detects potential duplicate by matching first name and birth year within 2 years',
+        () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'John Adams',
+            birthDate: DateTime(1900)),
+        Person(id: 'p2', name: 'John Baker',
+            birthDate: DateTime(1901)),
+      ];
+      final groups = provider.findDuplicates();
+      expect(groups, hasLength(1));
+      expect(groups.first.map((p) => p.id), containsAll(['p1', 'p2']));
+    });
+
+    test('does not flag same first name when birth years differ by more than 2',
+        () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'John Adams',
+            birthDate: DateTime(1900)),
+        Person(id: 'p2', name: 'John Baker',
+            birthDate: DateTime(1904)),
+      ];
+      expect(provider.findDuplicates(), isEmpty);
+    });
+
+    test('does not flag same first name without birth dates as duplicate', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'John Adams'),
+        Person(id: 'p2', name: 'John Baker'),
+      ];
+      expect(provider.findDuplicates(), isEmpty);
+    });
+
+    test('groups three persons with the same name together', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Jane Doe'),
+        Person(id: 'p2', name: 'Jane Doe'),
+        Person(id: 'p3', name: 'Jane Doe'),
+      ];
+      final groups = provider.findDuplicates();
+      expect(groups, hasLength(1));
+      expect(groups.first, hasLength(3));
+    });
+
+    test('produces separate duplicate groups for two independent sets', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice Smith'),
+        Person(id: 'p2', name: 'Alice Smith'),
+        Person(id: 'p3', name: 'Bob Jones'),
+        Person(id: 'p4', name: 'Bob Jones'),
+        Person(id: 'p5', name: 'Carol White'),
+      ];
+      final groups = provider.findDuplicates();
+      expect(groups, hasLength(2));
+    });
+
+    test('single person produces no duplicate groups', () {
+      final provider = TreeProvider();
+      provider.persons = [Person(id: 'p1', name: 'Solo Person')];
+      expect(provider.findDuplicates(), isEmpty);
+    });
+
+    test('each person is listed in at most one group', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'John Smith', birthDate: DateTime(1950)),
+        Person(id: 'p2', name: 'John Smith', birthDate: DateTime(1951)),
+        Person(id: 'p3', name: 'John Smith', birthDate: DateTime(1952)),
+      ];
+      final groups = provider.findDuplicates();
+      final allIds = groups.expand((g) => g.map((p) => p.id)).toList();
+      expect(allIds.length, equals(allIds.toSet().length));
     });
   });
 }
