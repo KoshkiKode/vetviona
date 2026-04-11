@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
+import '../utils/page_routes.dart';
 import 'package:graphview/GraphView.dart';
 import 'package:provider/provider.dart';
 
@@ -165,7 +166,7 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
                         isRoot: p.id == _rootPerson!.id,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
+                          fadeSlideRoute(
                             builder: (_) => PersonDetailScreen(person: p),
                           ),
                         ),

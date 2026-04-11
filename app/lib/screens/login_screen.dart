@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/tree_provider.dart';
+import '../utils/page_routes.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -160,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton(
                       onPressed: () => Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
+                        fadeRoute(
                             builder: (_) => const RegisterScreen()),
                       ),
                       child: const Text('Register'),

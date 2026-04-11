@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/page_routes.dart';
 import 'package:provider/provider.dart';
 
 import '../models/person.dart';
@@ -207,7 +208,7 @@ class _PedigreeBox extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(
+        fadeSlideRoute(
           builder: (_) => PersonDetailScreen(person: person),
         ),
       ),

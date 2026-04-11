@@ -185,6 +185,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.person != null) _buildPersonHeader(context),
             _buildSection(
               context,
               icon: Icons.person,
@@ -636,6 +637,66 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               onPressed: _savePerson,
             ),
             const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final person = widget.person!;
+    Color avatarBg;
+    if (_gender?.toLowerCase() == 'male') {
+      avatarBg = colorScheme.primary;
+    } else if (_gender?.toLowerCase() == 'female') {
+      avatarBg = colorScheme.error;
+    } else {
+      avatarBg = colorScheme.secondary;
+    }
+    final avatarFg = ThemeData.estimateBrightnessForColor(avatarBg) ==
+            Brightness.dark
+        ? colorScheme.onPrimary
+        : colorScheme.onSurface;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Center(
+        child: Column(
+          children: [
+            Hero(
+              tag: 'person_avatar_${person.id}',
+              child: _photoPaths.isNotEmpty
+                  ? CircleAvatar(
+                      radius: 40,
+                      backgroundImage:
+                          FileImage(File(_photoPaths.first)),
+                      backgroundColor: avatarBg,
+                      onBackgroundImageError: (_, __) {},
+                    )
+                  : CircleAvatar(
+                      radius: 40,
+                      backgroundColor: avatarBg,
+                      child: Text(
+                        person.name.isNotEmpty
+                            ? person.name[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          color: avatarFg,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _nameController.text.isNotEmpty ? _nameController.text : person.name,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),

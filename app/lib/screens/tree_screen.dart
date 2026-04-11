@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../utils/page_routes.dart';
 import 'package:provider/provider.dart';
 
 import '../models/person.dart';
@@ -42,7 +43,7 @@ class _TreeScreenState extends State<TreeScreen> {
             tooltip: 'View Diagram',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(
+              fadeSlideRoute(
                   builder: (_) => const TreeDiagramScreen()),
             ),
           ),
@@ -51,7 +52,7 @@ class _TreeScreenState extends State<TreeScreen> {
             tooltip: 'Add Person',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(
+              fadeSlideRoute(
                   builder: (_) => const PersonDetailScreen()),
             ),
           ),
@@ -100,7 +101,7 @@ class _TreeScreenState extends State<TreeScreen> {
                       label: const Text('Add First Person'),
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        fadeSlideRoute(
                             builder: (_) => const PersonDetailScreen()),
                       ),
                     ),
@@ -114,7 +115,7 @@ class _TreeScreenState extends State<TreeScreen> {
                 InkWell(
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    fadeSlideRoute(
                         builder: (_) => const TreeDiagramScreen()),
                   ),
                   child: Container(
@@ -155,7 +156,7 @@ class _TreeScreenState extends State<TreeScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(
+          fadeSlideRoute(
               builder: (_) => const PersonDetailScreen()),
         ),
         tooltip: 'Add Person',
@@ -221,7 +222,7 @@ class _FamilyTableView extends StatelessWidget {
                           ?.copyWith(fontWeight: FontWeight.w600)),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    fadeSlideRoute(
                         builder: (_) => PersonDetailScreen(person: p)),
                   ),
                 ),
@@ -337,7 +338,7 @@ class _PersonCard extends StatelessWidget {
                   label: 'Sources',
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    fadeSlideRoute(
                         builder: (_) =>
                             SourcesPage(person: person)),
                   ),
@@ -347,7 +348,7 @@ class _PersonCard extends StatelessWidget {
                   label: 'Timeline',
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    fadeSlideRoute(
                         builder: (_) =>
                             TimelineScreen(person: person)),
                   ),
@@ -357,7 +358,7 @@ class _PersonCard extends StatelessWidget {
                   label: 'Relationships',
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    fadeSlideRoute(
                         builder: (_) =>
                             RelationshipScreen(person: person)),
                   ),
@@ -367,7 +368,7 @@ class _PersonCard extends StatelessWidget {
                   label: 'Edit',
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    fadeSlideRoute(
                         builder: (_) =>
                             PersonDetailScreen(person: person)),
                   ),
