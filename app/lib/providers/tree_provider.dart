@@ -58,6 +58,10 @@ class TreeProvider extends ChangeNotifier {
   String _dateFormat = 'dd MMM yyyy';
   String get dateFormat => _dateFormat;
 
+  /// The ID of the "home person" — the default focal point for tree views.
+  String? _homePersonId;
+  String? get homePersonId => _homePersonId;
+
   // ── Loading progress ───────────────────────────────────────────────────────
   /// True once [loadPersons] has completed its first full load.
   bool isLoaded = false;
@@ -456,6 +460,7 @@ class TreeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _dateFormat = prefs.getString('dateFormat') ?? 'dd MMM yyyy';
     colonizationLevel = prefs.getInt('colonizationLevel') ?? 0;
+    _homePersonId = prefs.getString('homePersonId');
 
     // Stable per-installation ID used by the sync service.
     _localDeviceId = prefs.getString('localDeviceId') ?? '';
@@ -846,6 +851,17 @@ class TreeProvider extends ChangeNotifier {
     colonizationLevel = level;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('colonizationLevel', level);
+    notifyListeners();
+  }
+
+  Future<void> setHomePersonId(String? id) async {
+    _homePersonId = id?.isEmpty ?? true ? null : id;
+    final prefs = await SharedPreferences.getInstance();
+    if (_homePersonId == null) {
+      await prefs.remove('homePersonId');
+    } else {
+      await prefs.setString('homePersonId', _homePersonId!);
+    }
     notifyListeners();
   }
 
