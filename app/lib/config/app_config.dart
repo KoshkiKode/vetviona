@@ -13,7 +13,8 @@ const bool _isMobilePaid =
 
 /// The three distinct pricing tiers in Vetviona.
 enum AppTier {
-  /// Free Android / iOS app — manual sync only, 100-person limit per tree.
+  /// Free Android / iOS app — QR-code pairing, manual WiFi sync, and
+  /// AirDrop/Nearby Share; 100-person limit per tree.
   mobileFree,
 
   /// Paid Android / iOS app — both RootLoop™ Auto and Manual, no person cap.
@@ -42,8 +43,9 @@ const int freeMobilePersonLimit = 100;
 bool get isPaidDesktop => _isPaidDesktop;
 
 /// Whether the current tier is a paid / pro tier (mobilePaid or desktopPro).
-/// Free mobile users only have access to manual sync; advanced auto-discovery
-/// sync modes (WiFi Auto, Bluetooth BLE scanning) require this to return
-/// `true`.  AirDrop / Nearby Share file sharing and manual connect (including
-/// via Tailscale addresses) are available to all tiers.
+/// Free mobile users can start an HTTP server for QR-code-based and manual
+/// WiFi sync; advanced auto-discovery sync modes (WiFi Auto-Scan via mDNS,
+/// Bluetooth BLE scanning/advertising) require this to return `true`.
+/// AirDrop / Nearby Share file sharing and manual connect (including via
+/// Tailscale addresses) are available to all tiers.
 bool get isProTier => currentAppTier != AppTier.mobileFree;

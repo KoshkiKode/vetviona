@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -18,6 +19,12 @@ import '../services/sync_service.dart';
 
 /// Whether Bluetooth sync is supported on the current platform.
 bool get _bluetoothSupported =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
+
+/// Whether camera-based QR scanning is supported on the current platform.
+bool get _qrScanSupported =>
     !kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS);
@@ -81,14 +88,14 @@ class _SyncScreenState extends State<SyncScreen> {
             TextButton.icon(
               icon: Icon(Icons.play_circle_outlined, color: cs.onPrimary),
               label: Text('Go Online', style: TextStyle(color: cs.onPrimary)),
+              // All tiers can start the server:
+              //   Free  → QR code + manual connect (no mDNS broadcast)
+              //   Pro   → QR code + manual + mDNS auto-discovery
               onPressed: wifiEnabled
                   ? () async {
-                      if (!isProTier) {
-                        _showUpgradeDialog(context);
-                        return;
-                      }
                       await sync.startServer();
-                      if (bluetoothEnabled && sync.isServerRunning) {
+                      // BLE advertising for peer discovery is Pro-only.
+                      if (isProTier && bluetoothEnabled && sync.isServerRunning) {
                         await ble.startAdvertising(
                           serverPort: sync.serverPort,
                           deviceId: tree.localDeviceId,
@@ -119,7 +126,11 @@ class _SyncScreenState extends State<SyncScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'To pair a new device, generate a pairing code here and enter it on the other device.',
+                sync.isServerRunning
+                    ? 'Server is online. Share the QR code or pairing code '
+                        'below to connect another device.'
+                    : 'Tap \u201cGo Online\u201d to start accepting connections, '
+                        'then share the QR code or pairing code with another device.',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -168,10 +179,20 @@ class _SyncScreenState extends State<SyncScreen> {
           ),
           const SizedBox(height: 12),
 
+          // ── QR Code Scanner (all tiers, mobile only) ─────────────────
+          if (_qrScanSupported) ...[
+            _QrScannerCard(
+              hostController: _hostController,
+              portController: _portController,
+              secretController: _secretController,
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // ── Nearby devices (mDNS) ────────────────────────────────────
           _SyncCard(
             icon: Icons.wifi_find_outlined,
-            title: 'Nearby Devices',
+            title: 'Nearby Devices (Auto-Scan)',
             trailing: sync.isDiscovering
                 ? TextButton(
                     onPressed: () => sync.stopDiscovery(),
@@ -187,7 +208,8 @@ class _SyncScreenState extends State<SyncScreen> {
               if (!isProTier)
                 _ProGateBanner(
                   message:
-                      'WiFi Auto-Scan requires Mobile Paid or Desktop Pro.',
+                      'WiFi Auto-Scan requires Mobile Paid or Desktop Pro. '
+                      'Use QR Code Pairing or Manual Connect for free.',
                   onUpgrade: () => _showUpgradeDialog(context),
                 )
               else if (sync.discoveredPeers.isEmpty)
@@ -196,7 +218,9 @@ class _SyncScreenState extends State<SyncScreen> {
                       ? 'WiFi Auto-Sync is disabled in Settings.'
                       : sync.isDiscovering
                           ? 'Scanning for Vetviona devices on this network\u2026'
-                          : 'No devices found. Tap Scan to start.',
+                          : 'No devices found. Tap Scan to start.\n'
+                              'Discovers phones, tablets, laptops, and desktops '
+                              'running Vetviona on the same network.',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
@@ -445,10 +469,14 @@ class _SyncScreenState extends State<SyncScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Pro Feature'),
         content: const Text(
-          'WiFi Auto-Sync (mDNS advertising/discovery) and Bluetooth peer '
-          'discovery require the Mobile Paid or Desktop Pro tier.\n\n'
-          'You can still use Manual Connect (including Tailscale addresses) '
-          'and AirDrop / Nearby Share without upgrading.',
+          'WiFi Auto-Scan (mDNS) and Bluetooth peer discovery require the '
+          'Mobile Paid or Desktop Pro tier.\n\n'
+          'Free tier includes:\n'
+          '• QR Code Pairing (scan to connect over WiFi)\n'
+          '• Manual Connect (enter IP:port + pairing code)\n'
+          '• AirDrop / Nearby Share file export\n\n'
+          'Upgrade to unlock automatic nearby-device discovery and '
+          'Bluetooth scanning.',
         ),
         actions: [
           TextButton(
@@ -611,6 +639,150 @@ class _SyncScreenState extends State<SyncScreen> {
     }
 
     await ble.syncWithPeer(peer, device.sharedSecret);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QR Code Scanner card (mobile only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Lets the user point their camera at a Vetviona QR code to auto-fill the
+/// Manual Connect host, port, and pairing-code fields.
+///
+/// Expected QR payload format: `vetviona://<host>:<port>?secret=<sharedSecret>`
+///
+/// Only shown on mobile platforms (Android / iOS) where a camera is available.
+/// Camera permission must be declared in the platform manifest:
+///   - Android: `<uses-permission android:name="android.permission.CAMERA"/>`
+///   - iOS: `NSCameraUsageDescription` in Info.plist
+class _QrScannerCard extends StatefulWidget {
+  final TextEditingController hostController;
+  final TextEditingController portController;
+  final TextEditingController secretController;
+
+  const _QrScannerCard({
+    required this.hostController,
+    required this.portController,
+    required this.secretController,
+  });
+
+  @override
+  State<_QrScannerCard> createState() => _QrScannerCardState();
+}
+
+class _QrScannerCardState extends State<_QrScannerCard> {
+  bool _scanning = false;
+  String? _lastResult;
+  final MobileScannerController _cameraController = MobileScannerController();
+
+  @override
+  void dispose() {
+    _cameraController.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    for (final barcode in capture.barcodes) {
+      final raw = barcode.rawValue;
+      if (raw == null) continue;
+      final parsed = _parseVetvionaUrl(raw);
+      if (parsed == null) continue;
+
+      _cameraController.stop();
+      setState(() {
+        _scanning = false;
+        _lastResult = raw;
+      });
+
+      widget.hostController.text = parsed['host']!;
+      widget.portController.text = parsed['port']!;
+      widget.secretController.text = parsed['secret']!;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'QR scanned! Fields filled — tap Sync Now in Manual Connect.'),
+          ),
+        );
+      }
+      return;
+    }
+  }
+
+  /// Parses a `vetviona://host:port?secret=xxx` URL.
+  /// Returns a map with keys `host`, `port`, `secret`, or `null` on failure.
+  static Map<String, String>? _parseVetvionaUrl(String raw) {
+    try {
+      final uri = Uri.parse(raw);
+      if (uri.scheme != 'vetviona') return null;
+      final host = uri.host;
+      final port = uri.port.toString();
+      final secret = uri.queryParameters['secret'];
+      if (host.isEmpty || secret == null || secret.isEmpty) return null;
+      return {'host': host, 'port': port, 'secret': secret};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return _SyncCard(
+      icon: Icons.qr_code_scanner,
+      title: 'Scan QR Code',
+      children: [
+        Text(
+          'Scan the QR code shown on another device to auto-fill the '
+          'connection details below.',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        if (_scanning) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 240,
+              child: MobileScanner(
+                controller: _cameraController,
+                onDetect: _onDetect,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.stop),
+            label: const Text('Stop Scanning'),
+            onPressed: () {
+              _cameraController.stop();
+              setState(() => _scanning = false);
+            },
+          ),
+        ] else ...[
+          if (_lastResult != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Last scan: fields filled \u2714',
+                style: TextStyle(color: cs.tertiary, fontSize: 12),
+              ),
+            ),
+          FilledButton.icon(
+            icon: const Icon(Icons.qr_code_scanner),
+            label: const Text('Start Camera Scan'),
+            onPressed: () {
+              _cameraController.start();
+              setState(() => _scanning = true);
+            },
+          ),
+        ],
+      ],
+    );
   }
 }
 
