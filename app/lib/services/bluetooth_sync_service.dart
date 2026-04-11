@@ -165,7 +165,7 @@ class BluetoothSyncService extends ChangeNotifier {
   /// Stops BLE advertising.
   Future<void> stopAdvertising() async {
     try {
-      await FlutterBluePlus.stopAdvertising();
+      await (FlutterBluePlus as dynamic).stopAdvertising();
     } catch (_) {}
     _isAdvertising = false;
     notifyListeners();

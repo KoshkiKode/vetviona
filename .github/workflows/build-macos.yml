@@ -30,7 +30,7 @@ jobs:
 
       - name: Scaffold macOS platform
         working-directory: app
-        run: flutter create --platforms=macos --org com.koshkikode .
+        run: flutter create --platforms=android,ios,macos --org com.koshkikode .
 
       - name: Set macOS minimum deployment target
         run: sed -i '' "s/# platform :macos, '[0-9.]*'/platform :macos, '10.15'/" app/macos/Podfile

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -131,7 +132,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
     }
   }
 
-  Future<List<int>> _buildPdf(TreeProvider provider) async {
+  Future<Uint8List> _buildPdf(TreeProvider provider) async {
     final doc = pw.Document();
     final now = DateFormat('d MMMM yyyy').format(DateTime.now());
 
@@ -294,10 +295,6 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
                   3: const pw.FlexColumnWidth(2.5),
                   4: const pw.FlexColumnWidth(1),
                 },
-                rowDecoration: (idx, _) => idx % 2 == 0
-                    ? null
-                    : const pw.BoxDecoration(
-                        color: PdfColors.grey100),
                 border: pw.TableBorder.all(
                     color: PdfColors.grey300, width: 0.5),
               ),
