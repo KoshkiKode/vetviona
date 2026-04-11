@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vetviona_app/models/life_event.dart';
 import 'package:vetviona_app/models/partnership.dart';
 import 'package:vetviona_app/models/person.dart';
 import 'package:vetviona_app/services/gedcom_parser.dart';
@@ -490,6 +491,330 @@ void main() {
       expect(content, contains('1 DEAT'));
       expect(content, contains('1 NOTE Historical figure'));
       expect(content, isNot(contains('1 RESN PRIVACY')));
+    });
+
+    test('exports occupation as OCCU tag', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Alice',
+          deathDate: DateTime(1990),
+          occupation: 'Doctor',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 OCCU Doctor'));
+    });
+
+    test('exports religion as RELI tag', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Alice',
+          deathDate: DateTime(1990),
+          religion: 'Lutheran',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 RELI Lutheran'));
+    });
+
+    test('exports cause of death as CAUS under DEAT', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Bob',
+          deathDate: DateTime(1980, 5, 10),
+          causeOfDeath: 'pneumonia',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 DEAT'));
+      expect(content, contains('2 CAUS pneumonia'));
+    });
+
+    test('exports burial date and place as BURI', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Alice',
+          deathDate: DateTime(1970),
+          burialDate: DateTime(1970, 3, 20),
+          burialPlace: 'Green Lawn Cemetery',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 BURI'));
+      expect(content, contains('2 PLAC Green Lawn Cemetery'));
+    });
+
+    test('exports known life events with correct GEDCOM tags', () async {
+      final persons = [
+        Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
+      ];
+      final lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Immigration',
+            date: DateTime(1920, 4, 1), place: 'New York'),
+        LifeEvent(id: 'e2', personId: 'P1', title: 'Graduation',
+            date: DateTime(1935)),
+        LifeEvent(id: 'e3', personId: 'P1', title: 'Census',
+            place: 'Boston'),
+      ];
+      final path = '${tempDir.path}/out_events.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 IMMI'));
+      expect(content, contains('2 PLAC New York'));
+      expect(content, contains('1 GRAD'));
+      expect(content, contains('1 CENS'));
+      expect(content, contains('2 PLAC Boston'));
+    });
+
+    test('exports unknown life event title as EVEN with TYPE', () async {
+      final persons = [
+        Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
+      ];
+      final lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Award Ceremony',
+            date: DateTime(1965)),
+      ];
+      final path = '${tempDir.path}/out_even.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 EVEN'));
+      expect(content, contains('2 TYPE Award Ceremony'));
+    });
+
+    test('exports life event notes as level-2 NOTE', () async {
+      final persons = [
+        Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
+      ];
+      final lifeEvents = [
+        LifeEvent(
+          id: 'e1',
+          personId: 'P1',
+          title: 'Baptism',
+          notes: 'Baptised in St. Mary church',
+        ),
+      ];
+      final path = '${tempDir.path}/out_note.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 BAPM'));
+      expect(content, contains('2 NOTE Baptised in St. Mary church'));
+    });
+
+    test(
+        'life events for living person are not exported when includeLivingData is false',
+        () async {
+      final persons = [Person(id: 'P1', name: 'Alice')];
+      final lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Immigration'),
+      ];
+      final path = '${tempDir.path}/out_living_events.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: false, lifeEvents: lifeEvents);
+      final content = await File(path).readAsString();
+      expect(content, isNot(contains('1 IMMI')));
+    });
+  });
+
+  group('GEDCOMParser.parse — extended fields', () {
+    test('OCCU tag parses to occupation', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice
+1 OCCU Farmer
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.occupation, 'Farmer');
+    });
+
+    test('RELI tag parses to religion', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Bob
+1 RELI Buddhist
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.religion, 'Buddhist');
+    });
+
+    test('BURI date and place parse to burialDate and burialPlace', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice
+1 BURI
+2 DATE 10 MAR 1950
+2 PLAC Green Hill Cemetery
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      final alice = result.persons.first;
+      expect(alice.burialDate?.year, 1950);
+      expect(alice.burialDate?.month, 3);
+      expect(alice.burialDate?.day, 10);
+      expect(alice.burialPlace, 'Green Hill Cemetery');
+    });
+
+    test('CAUS under DEAT parses to causeOfDeath', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Bob
+1 DEAT
+2 DATE 5 JUN 1970
+2 CAUS tuberculosis
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.causeOfDeath, 'tuberculosis');
+    });
+
+    test('IMMI tag creates an Immigration LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice
+1 IMMI
+2 DATE 12 APR 1910
+2 PLAC Ellis Island, New York
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      final ev = result.lifeEvents.first;
+      expect(ev.title, 'Immigration');
+      expect(ev.date?.year, 1910);
+      expect(ev.place, 'Ellis Island, New York');
+    });
+
+    test('BAPM tag creates a Baptism LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Maria
+1 BAPM
+2 DATE 3 JAN 1880
+2 PLAC Vienna, Austria
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Baptism');
+      expect(result.lifeEvents.first.place, 'Vienna, Austria');
+    });
+
+    test('multiple life event tags for one person are all captured', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice
+1 IMMI
+2 DATE 1 JAN 1900
+1 EMIG
+2 DATE 15 JUN 1920
+1 GRAD
+2 DATE 5 MAY 1925
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(3));
+      final titles = result.lifeEvents.map((e) => e.title).toSet();
+      expect(titles, containsAll(['Immigration', 'Emigration', 'Graduation']));
+    });
+
+    test('EVEN tag with TYPE creates LifeEvent with custom title', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice
+1 EVEN
+2 TYPE Military Decoration
+2 DATE 8 MAY 1945
+2 PLAC Berlin
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Military Decoration');
+      expect(result.lifeEvents.first.place, 'Berlin');
+    });
+
+    test('EVEN tag without TYPE falls back to "Event"', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice
+1 EVEN
+2 DATE 1 JAN 1950
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Event');
+    });
+
+    test('NOTE at level 2 within a life event is stored as notes', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Bob
+1 CENS
+2 DATE 1880
+2 NOTE Found in national census registry
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents.first.notes, 'Found in national census registry');
+    });
+
+    test('CENS tag creates Census life event', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Alice
+1 CENS
+2 DATE 1901
+2 PLAC London
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents.first.title, 'Census');
+    });
+
+    test('export/import roundtrip with life events preserves event count',
+        () async {
+      final persons = [
+        Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
+      ];
+      final lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Immigration',
+            date: DateTime(1920)),
+        LifeEvent(id: 'e2', personId: 'P1', title: 'Graduation',
+            date: DateTime(1930)),
+      ];
+      final path = '${tempDir.path}/rt_events.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(2));
     });
   });
 }
