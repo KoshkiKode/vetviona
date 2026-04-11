@@ -25,9 +25,9 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Scaffold iOS platform
+      - name: Scaffold iOS + Android platform
         working-directory: app
-        run: flutter create --platforms=ios --org com.koshkikode .
+        run: flutter create --platforms=ios,android --org com.koshkikode .
 
       - name: Set iOS minimum deployment target
         run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '13.0'/" app/ios/Podfile

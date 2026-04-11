@@ -407,6 +407,12 @@ class GEDCOMParser {
   }
 
   DateTime? _parseDate(String dateStr) {
+    // GEDCOM uses all-caps month abbreviations (JAN, FEB, …).
+    // intl's DateFormat expects title-case (Jan, Feb, …); normalise first.
+    final normalized = dateStr.replaceAllMapped(
+      RegExp(r'\b([A-Z]{3})\b'),
+      (m) => m.group(1)![0] + m.group(1)!.substring(1).toLowerCase(),
+    );
     final formats = [
       DateFormat('d MMM yyyy'),
       DateFormat('MMM yyyy'),
@@ -414,7 +420,7 @@ class GEDCOMParser {
     ];
     for (final fmt in formats) {
       try {
-        return fmt.parse(dateStr);
+        return fmt.parse(normalized);
       } catch (_) {}
     }
     return null;
