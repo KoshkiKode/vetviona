@@ -445,10 +445,10 @@ class _SyncScreenState extends State<SyncScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Pro Feature'),
         content: const Text(
-          'WiFi Auto-Sync, Bluetooth peer discovery, and Tailscale sync '
-          'require the Mobile Paid or Desktop Pro tier.\n\n'
-          'You can still use Manual Connect and AirDrop / Nearby Share '
-          'without upgrading.',
+          'WiFi Auto-Sync (mDNS advertising/discovery) and Bluetooth peer '
+          'discovery require the Mobile Paid or Desktop Pro tier.\n\n'
+          'You can still use Manual Connect (including Tailscale addresses) '
+          'and AirDrop / Nearby Share without upgrading.',
         ),
         actions: [
           TextButton(

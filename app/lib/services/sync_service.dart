@@ -139,7 +139,7 @@ class SyncService extends ChangeNotifier {
 
   /// Starts the shelf HTTP server on a random port and begins mDNS advertisement.
   ///
-  /// Requires a paid tier ([isProTier]).  Free-mobile users may only use
+  /// Requires a paid tier ([isProTier]).  Free-tier mobile users may only use
   /// manual connect.
   Future<void> startServer() async {
     if (_isServerRunning) return;
@@ -466,7 +466,8 @@ class SyncService extends ChangeNotifier {
       );
       for (final iface in interfaces) {
         final name = iface.name.toLowerCase();
-        // Skip loopback.
+        // Skip interfaces named 'lo' (Unix loopback) or 'loopback' before
+        // iterating their addresses; addr.isLoopback catches the rest.
         if (name.startsWith('lo') || name == 'loopback') continue;
         for (final addr in iface.addresses) {
           if (addr.isLoopback) continue;

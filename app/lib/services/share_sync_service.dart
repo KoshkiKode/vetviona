@@ -46,8 +46,7 @@ class ShareSyncService {
           subject: '${tree.currentTreeName} — Vetviona Family Tree',
           text: 'Open this file in Vetviona to import the family tree.',
         ),
-      );
-      return true;
+      );      return true;
     } catch (e) {
       debugPrint('[ShareSyncService] Share failed: $e');
       return false;
