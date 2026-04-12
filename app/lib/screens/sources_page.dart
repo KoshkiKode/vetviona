@@ -85,7 +85,7 @@ class SourcesPage extends StatelessWidget {
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+        builder: (context, setState) => AlertDialog.adaptive(
           title: const Text('Edit Citations'),
           content: SingleChildScrollView(
             child: Column(
@@ -130,7 +130,7 @@ class SourcesPage extends StatelessWidget {
   Future<void> _deleteSource(BuildContext context, Source source) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         title: const Text('Delete Source'),
         content: Text('Delete "${source.title}"? This cannot be undone.'),
         actions: [

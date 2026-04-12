@@ -214,7 +214,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 720;
-          return Form(
+          final form = Form(
             key: _formKey,
             child: Align(
               alignment: Alignment.topCenter,
@@ -772,6 +772,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               ),
             ),
           );
+          // On desktop, wrap in SelectionArea so all text is
+          // selectable with the mouse and ⌘C / Ctrl+C.
+          return isDesktop ? SelectionArea(child: form) : form;
         },
       ),
     );

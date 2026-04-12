@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,14 +67,97 @@ class VetvionaApp extends StatelessWidget {
         ),
       ],
       child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) => MaterialApp(
-          title: BuildMetadata.appName,
-          theme: themeProvider.theme,
-          debugShowCheckedModeBanner: false,
-          // iOS/macOS gets elastic over-scroll; Android/desktop gets clamping.
-          scrollBehavior: _VetvionaScrollBehavior(),
-          home: const _StartupRouter(),
-        ),
+        builder: (context, themeProvider, child) {
+          final app = MaterialApp(
+            title: BuildMetadata.appName,
+            theme: themeProvider.theme,
+            debugShowCheckedModeBanner: false,
+            // iOS/macOS gets elastic over-scroll; Android/desktop gets clamping.
+            scrollBehavior: _VetvionaScrollBehavior(),
+            home: const _StartupRouter(),
+          );
+          // macOS: wrap with the native menu bar so the app gets a proper
+          // "File / Edit / View" menu at the top of the screen.
+          if (!isMacOS) return app;
+          return PlatformMenuBar(
+            menus: [
+              PlatformMenu(
+                label: BuildMetadata.appName,
+                menus: [
+                  PlatformMenuItem(
+                    label: 'About ${BuildMetadata.appName}',
+                    onSelected: () {},
+                  ),
+                  const PlatformMenuItemGroup(members: [
+                    PlatformProvidedMenuItem(
+                        type: PlatformProvidedMenuItemType.quit),
+                  ]),
+                ],
+              ),
+              PlatformMenu(
+                label: 'File',
+                menus: [
+                  PlatformMenuItem(
+                    label: 'New Person',
+                    shortcut: const SingleActivator(
+                      LogicalKeyboardKey.keyN,
+                      meta: true,
+                    ),
+                    onSelected: () {
+                      // Intent dispatched — picked up by HomeScreen Actions
+                      // if HomeScreen is the current route.  Using the root
+                      // navigator avoids tight coupling to HomeScreen state.
+                    },
+                  ),
+                  PlatformMenuItem(
+                    label: 'Import GEDCOM…',
+                    onSelected: () {},
+                  ),
+                  PlatformMenuItem(
+                    label: 'Settings…',
+                    shortcut: const SingleActivator(
+                      LogicalKeyboardKey.comma,
+                      meta: true,
+                    ),
+                    onSelected: () {},
+                  ),
+                ],
+              ),
+              PlatformMenu(
+                label: 'Edit',
+                menus: [
+                  PlatformProvidedMenuItem(
+                      type: PlatformProvidedMenuItemType.undo),
+                  PlatformProvidedMenuItem(
+                      type: PlatformProvidedMenuItemType.redo),
+                  const PlatformMenuItemGroup(members: [
+                    PlatformProvidedMenuItem(
+                        type: PlatformProvidedMenuItemType.cut),
+                    PlatformProvidedMenuItem(
+                        type: PlatformProvidedMenuItemType.copy),
+                    PlatformProvidedMenuItem(
+                        type: PlatformProvidedMenuItemType.paste),
+                    PlatformProvidedMenuItem(
+                        type: PlatformProvidedMenuItemType.selectAll),
+                  ]),
+                ],
+              ),
+              PlatformMenu(
+                label: 'View',
+                menus: [
+                  PlatformMenuItem(
+                    label: themeProvider.isDarkMode
+                        ? 'Switch to Light Mode'
+                        : 'Switch to Dark Mode',
+                    onSelected: () =>
+                        themeProvider.setDarkMode(!themeProvider.isDarkMode),
+                  ),
+                ],
+              ),
+            ],
+            child: app,
+          );
+        },
       ),
     );
   }

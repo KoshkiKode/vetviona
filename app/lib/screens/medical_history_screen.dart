@@ -660,7 +660,7 @@ class _ConditionCard extends StatelessWidget {
 void _showAttachmentsDialog(BuildContext context, MedicalCondition mc) {
   showDialog(
     context: context,
-    builder: (_) => AlertDialog(
+    builder: (_) => AlertDialog.adaptive(
       title: Text('${mc.condition} — Attached Files'),
       content: SizedBox(
         width: double.maxFinite,

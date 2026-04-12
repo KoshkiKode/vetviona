@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app.dart';
 import 'config/app_config.dart';
 import 'config/build_metadata.dart';
 import 'providers/theme_provider.dart';
 import 'services/sound_service.dart';
+import 'utils/platform_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Android: draw behind the system navigation bar so the app is truly
+  // edge-to-edge and the nav bar blends with the scaffold background.
+  if (isAndroid) {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
   await SoundService.instance.init();
   runApp(const _RootWidget());
 }

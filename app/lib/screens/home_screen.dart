@@ -15,6 +15,7 @@ import '../providers/tree_provider.dart';
 import '../services/pdf_report_service.dart';
 import '../services/purchase_service.dart';
 import '../utils/page_routes.dart';
+import '../utils/platform_utils.dart';
 import 'calendar_screen.dart';
 import 'conflict_resolver_screen.dart';
 import 'descendants_screen.dart';
@@ -42,12 +43,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _searchFocusNode = FocusNode();
   String _searchQuery = '';
   String? _filterGender;
   bool? _filterLiving;
   String _sortBy = 'name';
   bool _sortAscending = true;
   List<String> _recentIds = [];
+
+  @override
+  void dispose() {
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -169,9 +177,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final mainContent = _buildMainContent(
         context, provider, filteredPersons, colorScheme, isWide);
 
+    Widget screen;
     if (isWide) {
       // Tablet / desktop: NavigationRail on the left, content on the right.
-      return Scaffold(
+      screen = Scaffold(
         key: _scaffoldKey,
         appBar: _buildGlassAppBar(context, colorScheme, provider),
         drawer: _buildDrawer(context, provider),
@@ -222,16 +231,72 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         floatingActionButton: fab,
       );
+    } else {
+      screen = Scaffold(
+        key: _scaffoldKey,
+        extendBodyBehindAppBar: false,
+        appBar: _buildGlassAppBar(context, colorScheme, provider),
+        drawer: _buildDrawer(context, provider),
+        body: mainContent,
+        bottomNavigationBar: _buildNavBar(context),
+        floatingActionButton: fab,
+      );
     }
 
-    return Scaffold(
-      key: _scaffoldKey,
-      extendBodyBehindAppBar: false,
-      appBar: _buildGlassAppBar(context, colorScheme, provider),
-      drawer: _buildDrawer(context, provider),
-      body: mainContent,
-      bottomNavigationBar: _buildNavBar(context),
-      floatingActionButton: fab,
+    // ── Desktop keyboard shortcuts ─────────────────────────────────────────
+    // Only active on desktop (Windows / macOS / Linux).  Mobile platforms
+    // don't need app-level shortcuts (they have touch/haptics instead).
+    if (!isDesktop) return screen;
+
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        // ⌘N / Ctrl+N  → Add Person
+        const SingleActivator(LogicalKeyboardKey.keyN,
+            meta: true, control: false): const _AddPersonIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyN,
+            control: true, meta: false): const _AddPersonIntent(),
+        // ⌘F / Ctrl+F  → Focus search bar
+        const SingleActivator(LogicalKeyboardKey.keyF,
+            meta: true, control: false): const _FocusSearchIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyF,
+            control: true, meta: false): const _FocusSearchIntent(),
+        // ⌘, / Ctrl+,  → Settings
+        const SingleActivator(LogicalKeyboardKey.comma,
+            meta: true, control: false): const _OpenSettingsIntent(),
+        const SingleActivator(LogicalKeyboardKey.comma,
+            control: true, meta: false): const _OpenSettingsIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _AddPersonIntent: CallbackAction<_AddPersonIntent>(
+            onInvoke: (_) {
+              if (!provider.isAtPersonLimit) {
+                Navigator.push(
+                  context,
+                  fadeSlideRoute(builder: (_) => const PersonDetailScreen()),
+                );
+              }
+              return null;
+            },
+          ),
+          _FocusSearchIntent: CallbackAction<_FocusSearchIntent>(
+            onInvoke: (_) {
+              _searchFocusNode.requestFocus();
+              return null;
+            },
+          ),
+          _OpenSettingsIntent: CallbackAction<_OpenSettingsIntent>(
+            onInvoke: (_) {
+              Navigator.push(
+                context,
+                fadeSlideRoute(builder: (_) => const SettingsScreen()),
+              );
+              return null;
+            },
+          ),
+        },
+        child: Focus(autofocus: true, child: screen),
+      ),
     );
   }
 
@@ -335,6 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                 child: TextField(
+                  focusNode: _searchFocusNode,
                   decoration: InputDecoration(
                     hintText: 'Search people\u2026',
                     prefixIcon: const Icon(Icons.search),
@@ -1571,7 +1637,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         icon: Icon(Icons.rocket_launch_outlined,
             color: colorScheme.primary, size: 40),
         title: const Text('Upgrade Vetviona'),
@@ -1787,6 +1853,60 @@ class _PersonCard extends StatelessWidget {
     return warnings;
   }
 
+  void _openPerson(BuildContext context) {
+    Navigator.push(
+      context,
+      fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person)),
+    );
+  }
+
+  /// Shows the quick-action context menu.
+  ///
+  /// [position] is only used on desktop (right-click at cursor position).
+  /// On mobile it anchors to the bottom of the screen.
+  Future<void> _showContextMenu(
+      BuildContext context, Offset? position) async {
+    const menuItems = ['open', 'edit', 'copy_name'];
+    final choice = await showMenu<String>(
+      context: context,
+      position: position != null
+          ? RelativeRect.fromLTRB(
+              position.dx, position.dy, position.dx + 1, position.dy + 1)
+          : RelativeRect.fromLTRB(
+              0,
+              MediaQuery.sizeOf(context).height - 200,
+              MediaQuery.sizeOf(context).width,
+              0,
+            ),
+      items: [
+        const PopupMenuItem(value: 'open', child: Text('Open')),
+        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+        const PopupMenuItem(value: 'copy_name', child: Text('Copy Name')),
+      ],
+    );
+    if (!context.mounted) return;
+    switch (choice) {
+      case 'open':
+        _openPerson(context);
+      case 'edit':
+        Navigator.push(
+          context,
+          fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person)),
+        );
+      case 'copy_name':
+        await Clipboard.setData(ClipboardData(text: person.name));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Copied "${person.name}"'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -1794,20 +1914,29 @@ class _PersonCard extends StatelessWidget {
     final hasPhoto = person.photoPaths.isNotEmpty;
     final warnings = _validationWarnings();
 
+    final defaultTap = () => _openPerson(context);
+
     return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap ??
-            () => Navigator.push(
-                  context,
-                  fadeSlideRoute(
-                    builder: (_) => PersonDetailScreen(person: person),
-                  ),
-                ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
+      child: GestureDetector(
+        // Desktop: right-click → context menu at cursor
+        onSecondaryTapUp: isDesktop
+            ? (details) =>
+                _showContextMenu(context, details.globalPosition)
+            : null,
+        // Mobile: long-press → context menu + haptic
+        onLongPress: isMobile
+            ? () {
+                HapticFeedback.mediumImpact();
+                _showContextMenu(context, null);
+              }
+            : null,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap ?? defaultTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
               hasPhoto
                   ? Hero(
                       tag: 'person_avatar_${person.id}',
@@ -1921,6 +2050,7 @@ class _PersonCard extends StatelessWidget {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -1939,6 +2069,20 @@ class _PersonCard extends StatelessWidget {
     if (parts.isEmpty) return null;
     return parts.join(' \u00b7 ');
   }
+}
+
+// ── Desktop keyboard shortcut intents ─────────────────────────────────────────
+
+class _AddPersonIntent extends Intent {
+  const _AddPersonIntent();
+}
+
+class _FocusSearchIntent extends Intent {
+  const _FocusSearchIntent();
+}
+
+class _OpenSettingsIntent extends Intent {
+  const _OpenSettingsIntent();
 }
 
 // ── Statistics ─────────────────────────────────────────────────────────────────

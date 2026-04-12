@@ -421,7 +421,7 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
   Future<bool?> _askResume() => showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => AlertDialog.adaptive(
           title: const Text('Resume Import?'),
           content: const Text(
               'A previous import of this file was interrupted. Resume where it left off?'),
@@ -586,7 +586,7 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
   void _showCancelConfirmation() {
     showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Cancel Import?'),
         content: const Text(
             'Cancelling will discard all progress. You will need to start the import again from the beginning.'),
