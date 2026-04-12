@@ -37,33 +37,24 @@ void main() {
   });
 
   group('currentAppTier', () {
-    // On the Linux test runner there are no compile-time PAID/MOBILE_PAID
-    // flags set, so the tier is desktopPro (the Linux platform branch fires).
     test('returns a valid AppTier value', () {
       expect(AppTier.values, contains(currentAppTier));
     });
 
-    test('is desktopPro on the Linux CI runner (no PAID flags set)', () {
-      // This assertion documents the expected behaviour in the standard test
-      // environment.  If the test suite is ever run with --dart-define=PAID=true
-      // on a mobile platform this expectation would not apply.
-      expect(currentAppTier, AppTier.desktopPro);
+    // The concrete tier depends on the host platform and any --dart-define
+    // flags, so we only assert the consistency invariant here.
+    test('isProTier is false iff currentAppTier is mobileFree', () {
+      if (currentAppTier == AppTier.mobileFree) {
+        expect(isProTier, false);
+      } else {
+        expect(isProTier, true);
+      }
     });
   });
 
   group('isProTier', () {
     test('returns a bool', () {
       expect(isProTier, isA<bool>());
-    });
-
-    test('is true when currentAppTier is not mobileFree', () {
-      // On the Linux CI runner currentAppTier == desktopPro, so isProTier
-      // must be true.
-      if (currentAppTier != AppTier.mobileFree) {
-        expect(isProTier, true);
-      } else {
-        expect(isProTier, false);
-      }
     });
   });
 }

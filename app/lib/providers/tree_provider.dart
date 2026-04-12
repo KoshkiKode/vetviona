@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
@@ -28,6 +29,37 @@ class TreeProvider extends ChangeNotifier {
   List<LifeEvent> lifeEvents = [];
   List<MedicalCondition> medicalConditions = [];
   List<ResearchTask> researchTasks = [];
+
+  // ── Live-change stream ─────────────────────────────────────────────────────
+
+  /// Broadcast stream that emits a delta payload after every local write
+  /// operation.  [SyncService] subscribes to this so it can push changes to
+  /// all active peers in real time.
+  ///
+  /// The payload has the same shape as [exportForSync] but contains only the
+  /// record(s) that were just modified.
+  final _liveChangeController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  Stream<Map<String, dynamic>> get liveChanges => _liveChangeController.stream;
+
+  /// Emits a delta containing [persons], [partnerships], [sources], and
+  /// [lifeEvents] (any of which may be empty) to [liveChanges].
+  void _emitDelta({
+    List<Map<String, dynamic>> persons = const [],
+    List<Map<String, dynamic>> partnerships = const [],
+    List<Map<String, dynamic>> sources = const [],
+    List<Map<String, dynamic>> lifeEvents = const [],
+  }) {
+    if (_liveChangeController.hasListener) {
+      _liveChangeController.add({
+        'persons': persons,
+        'partnerships': partnerships,
+        'sources': sources,
+        'lifeEvents': lifeEvents,
+      });
+    }
+  }
 
   /// Full tree records — each entry holds both the UUID and display name.
   List<Map<String, String>> trees = [];
@@ -512,6 +544,7 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('persons', person.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     persons.add(person);
+    _emitDelta(persons: [person.toMap()]);
     notifyListeners();
   }
 
@@ -522,6 +555,7 @@ class TreeProvider extends ChangeNotifier {
         where: 'id = ?', whereArgs: [person.id]);
     final idx = persons.indexWhere((p) => p.id == person.id);
     if (idx != -1) persons[idx] = person;
+    _emitDelta(persons: [person.toMap()]);
     notifyListeners();
   }
 
@@ -570,6 +604,7 @@ class TreeProvider extends ChangeNotifier {
             where: 'id = ?', whereArgs: [persons[idx].id]);
       }
     }
+    _emitDelta(sources: [source.toMap()]);
     notifyListeners();
   }
 
@@ -580,6 +615,7 @@ class TreeProvider extends ChangeNotifier {
         where: 'id = ?', whereArgs: [source.id]);
     final idx = sources.indexWhere((s) => s.id == source.id);
     if (idx != -1) sources[idx] = source;
+    _emitDelta(sources: [source.toMap()]);
     notifyListeners();
   }
 
@@ -609,6 +645,7 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('partnerships', partnership.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     partnerships.add(partnership);
+    _emitDelta(partnerships: [partnership.toMap()]);
     notifyListeners();
   }
 
@@ -619,6 +656,7 @@ class TreeProvider extends ChangeNotifier {
         where: 'id = ?', whereArgs: [partnership.id]);
     final idx = partnerships.indexWhere((p) => p.id == partnership.id);
     if (idx != -1) partnerships[idx] = partnership;
+    _emitDelta(partnerships: [partnership.toMap()]);
     notifyListeners();
   }
 
@@ -658,6 +696,7 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('life_events', event.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     lifeEvents.add(event);
+    _emitDelta(lifeEvents: [event.toMap()]);
     notifyListeners();
   }
 
@@ -668,6 +707,7 @@ class TreeProvider extends ChangeNotifier {
         where: 'id = ?', whereArgs: [event.id]);
     final idx = lifeEvents.indexWhere((e) => e.id == event.id);
     if (idx != -1) lifeEvents[idx] = event;
+    _emitDelta(lifeEvents: [event.toMap()]);
     notifyListeners();
   }
 

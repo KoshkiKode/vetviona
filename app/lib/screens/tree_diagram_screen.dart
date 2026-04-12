@@ -1023,11 +1023,29 @@ class _LegendItem extends StatelessWidget {
 
 // Zoom helpers
 class _ZoomFab extends StatelessWidget {
-  final String heroTag; final IconData icon; final VoidCallback onPressed;
-  const _ZoomFab({required this.heroTag, required this.icon, required this.onPressed});
+  final String heroTag;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  const _ZoomFab({
+    required this.heroTag,
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+  });
+
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.small(heroTag: heroTag, onPressed: onPressed, elevation: 2, child: Icon(icon, size: 20));
+    return Tooltip(
+      message: tooltip ?? '',
+      child: FloatingActionButton.small(
+        heroTag: heroTag,
+        onPressed: onPressed,
+        elevation: 2,
+        child: Icon(icon, size: 20),
+      ),
+    );
   }
 }
 
@@ -1055,5 +1073,86 @@ class _ZoomIndicatorState extends State<_ZoomIndicator> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: colorScheme.outline.withOpacity(0.2))),
       child: Text('$pct%', style: TextStyle(color: colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.w500)));
+  }
+}
+
+// Generation row label rendered in the tree canvas.
+class _GenLabel extends StatelessWidget {
+  final int generation;
+  final ColorScheme colorScheme;
+  const _GenLabel({required this.generation, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = generation == 0 ? 'Home' : 'Gen ${generation + 1}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+// Animated pulsing dot shown in the AppBar when live-sync is active.
+class _LiveDot extends StatefulWidget {
+  final bool isSyncing;
+  final int peerCount;
+  const _LiveDot({required this.isSyncing, required this.peerCount});
+  @override
+  State<_LiveDot> createState() => _LiveDotState();
+}
+
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = widget.isSyncing ? cs.tertiary : Colors.green;
+    return Tooltip(
+      message: widget.isSyncing
+          ? 'Syncing…'
+          : 'Live sync active — ${widget.peerCount} '
+              'device${widget.peerCount == 1 ? '' : 's'} connected',
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withOpacity(0.4 + 0.6 * _ctrl.value),
+          ),
+        ),
+      ),
+    );
   }
 }

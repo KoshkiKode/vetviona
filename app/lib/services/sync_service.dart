@@ -49,6 +49,23 @@ class DiscoveredPeer {
 
 // ── SyncService ───────────────────────────────────────────────────────────────
 
+/// An active peer — a remote device that has successfully completed at least
+/// one full sync with this device and is currently reachable on the network.
+/// Edits made locally are pushed to all active peers automatically.
+class _ActivePeer {
+  final String host;
+  final int port;
+  final String sharedSecret;
+
+  const _ActivePeer({
+    required this.host,
+    required this.port,
+    required this.sharedSecret,
+  });
+
+  String get key => '$host:$port';
+}
+
 /// RootLoop™ local-network sync service.
 ///
 /// Wire this up in `app.dart` using `ChangeNotifierProxyProvider<TreeProvider,
@@ -58,7 +75,8 @@ class DiscoveredPeer {
 /// 1. [startServer] — starts the shelf HTTP server + mDNS advertisement.
 /// 2. [startDiscovery] — scans for nearby Vetviona devices via mDNS.
 /// 3. [syncWithPeer] — pushes/pulls tree data to/from a discovered or manually
-///    entered peer.
+///    entered peer.  After a successful sync the peer is added to the *active*
+///    peer set and subsequent local edits are automatically pushed to it.
 /// 4. [stopAll] — tears everything down.
 class SyncService extends ChangeNotifier {
   static const _serviceType = '_vetviona._tcp';
@@ -87,6 +105,18 @@ class SyncService extends ChangeNotifier {
   List<DiscoveredPeer> get discoveredPeers =>
       List.unmodifiable(_discoveredPeers);
 
+  // ── Active peers (live sync circle) ─────────────────────────────────────────
+
+  /// Peers with which a full sync has succeeded and to which delta pushes are
+  /// sent automatically on every local edit.
+  final Map<String, _ActivePeer> _activePeers = {};
+
+  /// Number of currently active (live) peers.
+  int get activePeerCount => _activePeers.length;
+
+  /// `true` when the local server is running and at least one peer is active.
+  bool get isLiveSyncActive => _isServerRunning && _activePeers.isNotEmpty;
+
   // ── Internals ───────────────────────────────────────────────────────────────
 
   HttpServer? _httpServer;
@@ -101,8 +131,31 @@ class SyncService extends ChangeNotifier {
   BonsoirDiscovery? _discovery;
   StreamSubscription<BonsoirDiscoveryEvent>? _discoverySubscription;
 
+  /// Subscription to [TreeProvider.liveChanges] for auto-push.
+  StreamSubscription<Map<String, dynamic>>? _liveChangeSub;
+
+  /// Pending delta records accumulated while the debounce timer is running.
+  Map<String, dynamic>? _pendingDelta;
+
+  /// Debounce timer: fires after 400 ms of edit silence and flushes the delta.
+  Timer? _pushTimer;
+
+  // ── TreeProvider injection ───────────────────────────────────────────────────
+
+  TreeProvider? _treeProvider;
+
   /// Injected by [ChangeNotifierProxyProvider] every time TreeProvider changes.
-  TreeProvider? treeProvider;
+  TreeProvider? get treeProvider => _treeProvider;
+  set treeProvider(TreeProvider? value) {
+    if (value == _treeProvider) return;
+    // Re-subscribe to the new provider's live-change stream.
+    _liveChangeSub?.cancel();
+    _treeProvider = value;
+    if (value != null) {
+      _liveChangeSub =
+          value.liveChanges.listen(_onLiveChange);
+    }
+  }
 
   // ── User settings ────────────────────────────────────────────────────────────
 
@@ -150,7 +203,7 @@ class SyncService extends ChangeNotifier {
       return;
     }
 
-    final tp = treeProvider;
+    final tp = _treeProvider;
     if (tp == null) {
       _setStatus(SyncStatus.error, 'TreeProvider not attached.');
       return;
@@ -160,6 +213,7 @@ class SyncService extends ChangeNotifier {
       final router = Router();
       router.get('/info', _handleInfo);
       router.post('/sync', _handleSync);
+      router.post('/push', _handlePush);
 
       final handler = const Pipeline().addHandler(router.call);
       _httpServer =
@@ -186,6 +240,10 @@ class SyncService extends ChangeNotifier {
 
   /// Stops the HTTP server and mDNS advertisement.
   Future<void> stopServer() async {
+    _pushTimer?.cancel();
+    _pushTimer = null;
+    _pendingDelta = null;
+    _activePeers.clear();
     await _broadcast?.stop();
     _broadcast = null;
     await _httpServer?.close(force: true);
@@ -265,23 +323,52 @@ class SyncService extends ChangeNotifier {
 
       final attrs = svc.attributes;
       final deviceId = attrs['deviceId'];
-      final myId = treeProvider?.localDeviceId;
+      final myId = _treeProvider?.localDeviceId;
       if (deviceId != null && deviceId == myId) return; // skip ourselves
 
       _discoveredPeers.removeWhere((p) => p.name == svc.name);
-      _discoveredPeers.add(DiscoveredPeer(
+      final peer = DiscoveredPeer(
         name: svc.name,
         host: host,
         port: svc.port,
         deviceId: deviceId,
         tier: attrs['tier'],
-      ));
+      );
+      _discoveredPeers.add(peer);
       notifyListeners();
+
+      // Auto-connect: if this peer is a paired device, kick off a full
+      // bidirectional sync now and add it to the active peer set so
+      // future local edits are pushed to it automatically.
+      _autoSyncWithResolvedPeer(peer);
     } else if (event is BonsoirDiscoveryServiceLostEvent) {
       final name = event.service.name;
+      // Evict from active peers too — peer has left the network.
+      final lost = _discoveredPeers.where((p) => p.name == name).toList();
+      for (final p in lost) {
+        _activePeers.remove('${p.host}:${p.port}');
+      }
       _discoveredPeers.removeWhere((p) => p.name == name);
       notifyListeners();
     }
+  }
+
+  /// Attempts a full sync with a newly-resolved mDNS peer if it is already
+  /// a paired device.  On success the peer is promoted to the active set.
+  void _autoSyncWithResolvedPeer(DiscoveredPeer peer) {
+    final tp = _treeProvider;
+    if (tp == null) return;
+    final device = tp.pairedDevices
+        .where((d) => d.id == peer.deviceId)
+        .firstOrNull;
+    if (device == null) return; // not paired — ignore
+
+    // Fire-and-forget; errors are swallowed (best-effort auto-connect).
+    syncWithPeer(
+      host: peer.host,
+      port: peer.port,
+      sharedSecret: device.sharedSecret,
+    ).catchError((_) {});
   }
 
   /// Stops mDNS discovery and clears [discoveredPeers].
@@ -307,7 +394,7 @@ class SyncService extends ChangeNotifier {
   // ── HTTP request handlers ───────────────────────────────────────────────────
 
   Response _handleInfo(Request request) {
-    final tp = treeProvider;
+    final tp = _treeProvider;
     return Response.ok(
       jsonEncode({
         'deviceId': tp?.localDeviceId ?? '',
@@ -318,7 +405,7 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<Response> _handleSync(Request request) async {
-    final tp = treeProvider;
+    final tp = _treeProvider;
     if (tp == null) return Response.internalServerError(body: 'Not ready');
 
     try {
@@ -378,7 +465,7 @@ class SyncService extends ChangeNotifier {
     required int port,
     required String sharedSecret,
   }) async {
-    final tp = treeProvider;
+    final tp = _treeProvider;
     if (tp == null) return false;
     if (!_wifiSyncEnabled && !_bluetoothSyncEnabled) {
       _setStatus(SyncStatus.error, 'Enable WiFi or Bluetooth sync in Settings.');
@@ -428,6 +515,13 @@ class SyncService extends ChangeNotifier {
           }
         }
         _setStatus(SyncStatus.success, 'Sync complete ✓');
+        // Promote this peer to the active set so future edits are pushed live.
+        _activePeers['$host:$port'] = _ActivePeer(
+          host: host,
+          port: port,
+          sharedSecret: sharedSecret,
+        );
+        notifyListeners();
         return true;
       } else if (response.statusCode == 401) {
         _setStatus(SyncStatus.error, 'Wrong pairing code');
@@ -443,6 +537,109 @@ class SyncService extends ChangeNotifier {
     } catch (e) {
       _setStatus(SyncStatus.error, 'Sync error: $e');
       return false;
+    }
+  }
+
+  // ── Live-sync push (server side) ────────────────────────────────────────────
+
+  /// Receives a delta from a peer that has changed some records.
+  /// Applies the delta via the timestamp-based merge in [TreeProvider.importFromSync]
+  /// and returns 200 OK.  No response body is sent (unlike `/sync`).
+  Future<Response> _handlePush(Request request) async {
+    final tp = _treeProvider;
+    if (tp == null) return Response.internalServerError(body: 'Not ready');
+
+    try {
+      final body = await request.readAsString();
+      Map<String, dynamic>? incoming;
+      for (final device in tp.pairedDevices) {
+        incoming = _tryDecrypt(body, device.sharedSecret);
+        if (incoming != null) break;
+      }
+      if (incoming == null) return Response(401, body: 'Unauthorized');
+
+      await tp.importFromSync(incoming);
+      return Response.ok('ok');
+    } catch (e) {
+      return Response.internalServerError(body: 'Error: $e');
+    }
+  }
+
+  // ── Live-sync push (client side) ─────────────────────────────────────────────
+
+  /// Called by the [TreeProvider.liveChanges] subscription on every local write.
+  /// Accumulates the delta and schedules a batched push after a short debounce.
+  void _onLiveChange(Map<String, dynamic> delta) {
+    if (!_isServerRunning || _activePeers.isEmpty) return;
+    _pendingDelta = _mergeDelta(_pendingDelta, delta);
+    _pushTimer?.cancel();
+    _pushTimer = Timer(const Duration(milliseconds: 400), _flushPendingDelta);
+  }
+
+  /// Merges two delta payloads by concatenating their record lists.
+  static Map<String, dynamic> _mergeDelta(
+    Map<String, dynamic>? existing,
+    Map<String, dynamic> incoming,
+  ) {
+    if (existing == null) return Map<String, dynamic>.from(incoming);
+    return {
+      'persons': [
+        ...(existing['persons'] as List? ?? []),
+        ...(incoming['persons'] as List? ?? []),
+      ],
+      'partnerships': [
+        ...(existing['partnerships'] as List? ?? []),
+        ...(incoming['partnerships'] as List? ?? []),
+      ],
+      'sources': [
+        ...(existing['sources'] as List? ?? []),
+        ...(incoming['sources'] as List? ?? []),
+      ],
+      'lifeEvents': [
+        ...(existing['lifeEvents'] as List? ?? []),
+        ...(incoming['lifeEvents'] as List? ?? []),
+      ],
+    };
+  }
+
+  /// Pushes the accumulated delta to all active peers and clears the buffer.
+  Future<void> _flushPendingDelta() async {
+    final delta = _pendingDelta;
+    _pendingDelta = null;
+    if (delta == null || _activePeers.isEmpty) return;
+
+    final tp = _treeProvider;
+    if (tp == null) return;
+
+    delta['senderId'] = tp.localDeviceId;
+    delta['senderTier'] = tp.currentAppTierString;
+
+    final peersToRemove = <String>[];
+    for (final entry in _activePeers.entries) {
+      final peer = entry.value;
+      try {
+        final encrypted = _encrypt(delta, peer.sharedSecret);
+        final url = Uri(
+            scheme: 'http', host: peer.host, port: peer.port, path: '/push');
+        await http
+            .post(
+              url,
+              headers: {'content-type': 'text/plain'},
+              body: encrypted,
+            )
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        // Peer is unreachable — evict from the active set.
+        debugPrint('[SyncService] live push failed for ${peer.host}:${peer.port}: $e');
+        peersToRemove.add(entry.key);
+      }
+    }
+
+    if (peersToRemove.isNotEmpty) {
+      for (final key in peersToRemove) {
+        _activePeers.remove(key);
+      }
+      notifyListeners();
     }
   }
 
