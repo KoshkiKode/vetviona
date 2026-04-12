@@ -77,6 +77,11 @@ class Person {
   /// Resolver.
   Map<String, String> preferredSourceIds;
 
+  /// When `true`, this person's medical conditions participate in RootLoop™
+  /// sync.  Defaults to `false` so that medical data stays strictly local
+  /// unless the user explicitly opts in.
+  bool syncMedical;
+
   /// Unix-millisecond timestamp of the last local modification.
   ///
   /// Used by [TreeProvider.importFromSync] to implement concurrent / parallel
@@ -126,6 +131,7 @@ class Person {
     this.deathPostalCode,
     this.burialPostalCode,
     this.isPrivate = false,
+    this.syncMedical = false,
     Map<String, String>? preferredSourceIds,
     this.causeOfDeath,
     this.bloodType,
@@ -195,6 +201,7 @@ class Person {
       'deathPostalCode': deathPostalCode,
       'burialPostalCode': burialPostalCode,
       'isPrivate': isPrivate ? 1 : 0,
+      'syncMedical': syncMedical ? 1 : 0,
       // Encoded as "fact=sourceId,fact=sourceId"; fact names use spaces but
       // never '=' or ',', so the encoding is unambiguous.
       'preferredSourceIds': preferredSourceIds.entries
@@ -278,6 +285,7 @@ class Person {
       deathPostalCode: map['deathPostalCode'] as String?,
       burialPostalCode: map['burialPostalCode'] as String?,
       isPrivate: (map['isPrivate'] as int? ?? 0) != 0,
+      syncMedical: (map['syncMedical'] as int? ?? 0) != 0,
       preferredSourceIds: prefSourceIds,
       causeOfDeath: map['causeOfDeath'] as String?,
       bloodType: map['bloodType'] as String?,

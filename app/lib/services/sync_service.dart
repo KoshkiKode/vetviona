@@ -599,6 +599,14 @@ class SyncService extends ChangeNotifier {
         ...(existing['lifeEvents'] as List? ?? []),
         ...(incoming['lifeEvents'] as List? ?? []),
       ],
+      'medicalConditions': [
+        ...(existing['medicalConditions'] as List? ?? []),
+        ...(incoming['medicalConditions'] as List? ?? []),
+      ],
+      'researchTasks': [
+        ...(existing['researchTasks'] as List? ?? []),
+        ...(incoming['researchTasks'] as List? ?? []),
+      ],
     };
   }
 

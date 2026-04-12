@@ -43,13 +43,16 @@ class TreeProvider extends ChangeNotifier {
 
   Stream<Map<String, dynamic>> get liveChanges => _liveChangeController.stream;
 
-  /// Emits a delta containing [persons], [partnerships], [sources], and
-  /// [lifeEvents] (any of which may be empty) to [liveChanges].
+  /// Emits a delta containing [persons], [partnerships], [sources],
+  /// [lifeEvents], [medicalConditions], and [researchTasks] (any of which may
+  /// be empty) to [liveChanges].
   void _emitDelta({
     List<Map<String, dynamic>> persons = const [],
     List<Map<String, dynamic>> partnerships = const [],
     List<Map<String, dynamic>> sources = const [],
     List<Map<String, dynamic>> lifeEvents = const [],
+    List<Map<String, dynamic>> medicalConditions = const [],
+    List<Map<String, dynamic>> researchTasks = const [],
   }) {
     if (_liveChangeController.hasListener) {
       _liveChangeController.add({
@@ -57,6 +60,8 @@ class TreeProvider extends ChangeNotifier {
         'partnerships': partnerships,
         'sources': sources,
         'lifeEvents': lifeEvents,
+        'medicalConditions': medicalConditions,
+        'researchTasks': researchTasks,
       });
     }
   }
@@ -138,7 +143,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -174,6 +179,7 @@ class TreeProvider extends ChangeNotifier {
             deathPostalCode TEXT,
             burialPostalCode TEXT,
             isPrivate INTEGER NOT NULL DEFAULT 0,
+            syncMedical INTEGER NOT NULL DEFAULT 0,
             preferredSourceIds TEXT,
             causeOfDeath TEXT,
             bloodType TEXT,
@@ -253,7 +259,8 @@ class TreeProvider extends ChangeNotifier {
             ageOfOnset TEXT,
             notes TEXT,
             treeId TEXT,
-            attachmentPaths TEXT
+            attachmentPaths TEXT,
+            updatedAt INTEGER
           )
         ''');
         await db.execute('''
@@ -424,6 +431,12 @@ class TreeProvider extends ChangeNotifier {
               'ALTER TABLE sources ADD COLUMN updatedAt INTEGER');
           await db.execute(
               'ALTER TABLE life_events ADD COLUMN updatedAt INTEGER');
+        }
+        if (oldVersion < 9) {
+          await db.execute(
+              'ALTER TABLE persons ADD COLUMN syncMedical INTEGER NOT NULL DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE medical_conditions ADD COLUMN updatedAt INTEGER');
         }
       },
     );
@@ -732,20 +745,30 @@ class TreeProvider extends ChangeNotifier {
         orElse: () =>
             throw StateError('Person ${condition.personId} not found'));
     condition.treeId = person.treeId;
+    condition.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.insert('medical_conditions', condition.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     medicalConditions.add(condition);
+    final idx = persons.indexWhere((p) => p.id == condition.personId);
+    if (idx != -1 && persons[idx].syncMedical) {
+      _emitDelta(medicalConditions: [condition.toMap()]);
+    }
     notifyListeners();
   }
 
   Future<void> updateMedicalCondition(MedicalCondition condition) async {
+    condition.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('medical_conditions', condition.toMap(),
         where: 'id = ?', whereArgs: [condition.id]);
     final idx =
         medicalConditions.indexWhere((mc) => mc.id == condition.id);
     if (idx != -1) medicalConditions[idx] = condition;
+    final pIdx = persons.indexWhere((p) => p.id == condition.personId);
+    if (pIdx != -1 && persons[pIdx].syncMedical) {
+      _emitDelta(medicalConditions: [condition.toMap()]);
+    }
     notifyListeners();
   }
 
@@ -768,6 +791,7 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('research_tasks', task.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     researchTasks.add(task);
+    _emitDelta(researchTasks: [task.toMap()]);
     notifyListeners();
   }
 
@@ -777,6 +801,7 @@ class TreeProvider extends ChangeNotifier {
         where: 'id = ?', whereArgs: [task.id]);
     final idx = researchTasks.indexWhere((t) => t.id == task.id);
     if (idx != -1) researchTasks[idx] = task;
+    _emitDelta(researchTasks: [task.toMap()]);
     notifyListeners();
   }
 
@@ -1094,6 +1119,19 @@ class TreeProvider extends ChangeNotifier {
           .where((e) => publicPersonIds.contains(e.personId))
           .map((e) => e.toMap())
           .toList(),
+      'researchTasks': researchTasks
+          .where((t) => t.treeId == currentTreeId || t.treeId == null)
+          .map((t) => t.toMap())
+          .toList(),
+      'medicalConditions': medicalConditions
+          .where((mc) {
+            if (!publicPersonIds.contains(mc.personId)) return false;
+            final person =
+                persons.where((p) => p.id == mc.personId).firstOrNull;
+            return person?.syncMedical ?? false;
+          })
+          .map((mc) => mc.toMap())
+          .toList(),
     };
   }
 
@@ -1141,6 +1179,18 @@ class TreeProvider extends ChangeNotifier {
         ((data['lifeEvents'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
                 [])
             .map(LifeEvent.fromMap)
+            .toList();
+    final inMedicalConditions =
+        ((data['medicalConditions'] as List<dynamic>?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(MedicalCondition.fromMap)
+            .toList();
+    final inResearchTasks =
+        ((data['researchTasks'] as List<dynamic>?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(ResearchTask.fromMap)
             .toList();
 
     int added = 0;
@@ -1206,6 +1256,28 @@ class TreeProvider extends ChangeNotifier {
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
+    // ── Medical Conditions ────────────────────────────────────────────────────
+    for (final mc in inMedicalConditions) {
+      final existing =
+          medicalConditions.where((m) => m.id == mc.id).firstOrNull;
+      if (existing != null) {
+        final localTs = existing.updatedAt ?? 0;
+        final incomingTs = mc.updatedAt ?? 0;
+        if (localTs > 0 && incomingTs <= localTs) continue;
+      }
+      mc.treeId ??= currentTreeId;
+      await db.insert('medical_conditions', mc.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    // ── Research Tasks ─────────────────────────────────────────────────────────
+    for (final task in inResearchTasks) {
+      // Research tasks have no updatedAt — always accept incoming (last-write-wins)
+      task.treeId ??= currentTreeId;
+      await db.insert('research_tasks', task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
     await loadPersons();
     return added;
   }
@@ -1246,6 +1318,11 @@ class TreeProvider extends ChangeNotifier {
           .where((e) => personIds.contains(e.personId))
           .map((e) => e.toMap())
           .toList(),
+      'medicalConditions': medicalConditions
+          .where((mc) => personIds.contains(mc.personId))
+          .map((mc) => mc.toMap())
+          .toList(),
+      'researchTasks': researchTasks.map((t) => t.toMap()).toList(),
     };
     return jsonEncode(data);
   }
@@ -1266,7 +1343,11 @@ class TreeProvider extends ChangeNotifier {
           where: 'personId IN ($placeholders)', whereArgs: existingIds);
       await db.delete('sources',
           where: 'personId IN ($placeholders)', whereArgs: existingIds);
+      await db.delete('medical_conditions',
+          where: 'personId IN ($placeholders)', whereArgs: existingIds);
     }
+    await db.delete('research_tasks',
+        where: 'treeId = ?', whereArgs: [currentTreeId]);
     await db.delete('persons',
         where: 'treeId = ?', whereArgs: [currentTreeId]);
     await db.delete('partnerships',
@@ -1288,6 +1369,15 @@ class TreeProvider extends ChangeNotifier {
         ((data['lifeEvents'] as List?)?.cast<Map<String, dynamic>>() ?? [])
             .map(LifeEvent.fromMap)
             .toList();
+    final inMedicalConditions =
+        ((data['medicalConditions'] as List?)?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(MedicalCondition.fromMap)
+            .toList();
+    final inResearchTasks =
+        ((data['researchTasks'] as List?)?.cast<Map<String, dynamic>>() ?? [])
+            .map(ResearchTask.fromMap)
+            .toList();
 
     for (final person in inPersons) {
       person.treeId = currentTreeId;
@@ -1306,6 +1396,16 @@ class TreeProvider extends ChangeNotifier {
     for (final event in inLifeEvents) {
       event.treeId = currentTreeId;
       await db.insert('life_events', event.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    for (final mc in inMedicalConditions) {
+      mc.treeId ??= currentTreeId;
+      await db.insert('medical_conditions', mc.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    for (final task in inResearchTasks) {
+      task.treeId ??= currentTreeId;
+      await db.insert('research_tasks', task.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
