@@ -1272,7 +1272,8 @@ class TreeProvider extends ChangeNotifier {
 
     // ── Research Tasks ─────────────────────────────────────────────────────────
     for (final task in inResearchTasks) {
-      // Research tasks have no updatedAt — always accept incoming (last-write-wins)
+      // Research tasks have no updatedAt timestamp, so incoming records always
+      // replace local ones (unconditional last-write-wins at the payload level).
       task.treeId ??= currentTreeId;
       await db.insert('research_tasks', task.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
