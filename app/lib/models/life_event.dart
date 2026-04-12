@@ -7,6 +7,10 @@ class LifeEvent {
   String? notes;
   String? treeId;
 
+  /// Unix-millisecond timestamp of the last local modification.
+  /// See [Person.updatedAt] for the merge semantics.
+  int? updatedAt;
+
   LifeEvent({
     required this.id,
     required this.personId,
@@ -15,6 +19,7 @@ class LifeEvent {
     this.place,
     this.notes,
     this.treeId,
+    this.updatedAt,
   });
 
   static const List<String> commonTypes = [
@@ -32,6 +37,7 @@ class LifeEvent {
     'place': place,
     'notes': notes,
     'treeId': treeId,
+    'updatedAt': updatedAt,
   };
 
   factory LifeEvent.fromMap(Map<String, dynamic> map) => LifeEvent(
@@ -42,5 +48,6 @@ class LifeEvent {
     place: map['place'] as String?,
     notes: map['notes'] as String?,
     treeId: map['treeId'] as String?,
+    updatedAt: map['updatedAt'] as int?,
   );
 }

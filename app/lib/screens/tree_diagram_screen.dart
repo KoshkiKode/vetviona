@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../services/sync_service.dart';
 import '../utils/page_routes.dart';
 import 'pedigree_screen.dart';
 import 'person_detail_screen.dart';
@@ -42,6 +43,13 @@ class _EdgeInfo {
   _EdgeInfo(this.from, this.to, {this.isCouple = false});
 }
 
+/// One entry per generation row used for the left-rail generation labels.
+class _GenRow {
+  final int generation;
+  final double y;
+  _GenRow(this.generation, this.y);
+}
+
 // Layout engine
 class _TreeLayout {
   final List<Person> persons;
@@ -50,6 +58,7 @@ class _TreeLayout {
 
   final Map<String, _NodeInfo> nodes = {};
   final List<_EdgeInfo> edges = [];
+  final List<_GenRow> generationRows = [];
   Size canvasSize = Size.zero;
 
   void compute() {
@@ -178,10 +187,18 @@ class _TreeLayout {
       maxY = math.max(maxY, n.y + _kNodeH);
     }
     canvasSize = Size(maxX + 40, maxY + 40);
+
+    // Generation row labels (sorted ascending)
+    generationRows.clear();
+    final genNums = byGen.keys.toList()..sort();
+    for (final gen in genNums) {
+      generationRows.add(_GenRow(gen, gen * (_kNodeH + _kRowGap)));
+    }
   }
 }
 
-// Edge painter
+// Edge painter — uses smooth cubic-Bézier curves for parent→child edges
+// and straight lines for partnership (couple) connections.
 class _EdgePainter extends CustomPainter {
   final Map<String, _NodeInfo> nodes;
   final List<_EdgeInfo> edges;
@@ -192,31 +209,57 @@ class _EdgePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final parentPaint = Paint()..color = edgeColor..strokeWidth = 1.8..style = PaintingStyle.stroke;
-    final couplePaint = Paint()..color = coupleColor..strokeWidth = 2.0..style = PaintingStyle.stroke;
+    final parentPaint = Paint()
+      ..color = edgeColor
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final couplePaint = Paint()
+      ..color = coupleColor
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
     for (final edge in edges) {
-      final fromNode = nodes[edge.from]; final toNode = nodes[edge.to];
+      final fromNode = nodes[edge.from];
+      final toNode = nodes[edge.to];
       if (fromNode == null || toNode == null) continue;
+
       if (edge.isCouple) {
+        // Straight line between couple nodes / knot
         canvas.drawLine(
           Offset(fromNode.x + _kNodeW / 2, fromNode.y + _kNodeH / 2),
           Offset(toNode.x + _kNodeW / 2, toNode.y + _kNodeH / 2),
           couplePaint,
         );
       } else {
+        // Smooth S-curve from the bottom-centre of the parent/knot to the
+        // top-centre of the child node.
         final fromCx = fromNode.x + _kNodeW / 2;
-        final fromBot = fromNode.y + _kNodeH;
+        final fromBot = fromNode.isCoupleKnot
+            ? fromNode.y + _kNodeH / 2  // knot centre
+            : fromNode.y + _kNodeH;     // person bottom
         final toCx = toNode.x + _kNodeW / 2;
         final toTop = toNode.y;
-        final midY = fromBot + (toTop - fromBot) * 0.4;
-        final path = Path()..moveTo(fromCx, fromBot)..lineTo(fromCx, midY)..lineTo(toCx, midY)..lineTo(toCx, toTop);
+        final dy = (toTop - fromBot).abs();
+        final tension = math.min(dy * 0.5, _kRowGap * 0.6);
+
+        final path = Path()
+          ..moveTo(fromCx, fromBot)
+          ..cubicTo(
+            fromCx, fromBot + tension,
+            toCx, toTop - tension,
+            toCx, toTop,
+          );
         canvas.drawPath(path, parentPaint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(_EdgePainter old) => old.nodes != nodes || old.edges != edges;
+  bool shouldRepaint(_EdgePainter old) =>
+      old.nodes != nodes || old.edges != edges ||
+      old.edgeColor != edgeColor || old.coupleColor != coupleColor;
 }
 
 // Main Screen
@@ -232,11 +275,20 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String? _selectedPersonId;
   bool _showLegend = false;
 
+  /// When true, every person in the tree is visible (not just the focal family).
+  bool _showingAll = false;
+
   /// IDs of persons currently rendered in the tree.
   Set<String> _visiblePersonIds = {};
 
   /// Tracks the last known home person ID so we can reset when it changes.
   String? _lastHomePersonId;
+
+  /// Most recently computed layout — used by fit-to-view.
+  _TreeLayout? _lastLayout;
+
+  /// Last measured body viewport size — used by fit-to-view.
+  Size _viewportSize = Size.zero;
 
   @override
   void didChangeDependencies() {
@@ -308,10 +360,20 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         (persons.isNotEmpty ? persons.first.id : null);
     if (effectiveHomeId == null) return;
     setState(() {
+      _showingAll = false;
       _visiblePersonIds =
           _buildInitialFamily(effectiveHomeId, persons, partnerships);
     });
     _resetView();
+  }
+
+  /// Makes all persons in the tree visible at once.
+  void _showAll(List<Person> persons) {
+    setState(() {
+      _showingAll = true;
+      _visiblePersonIds = persons.map((p) => p.id).toSet();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Adds [person]'s parents (and their partners) to the visible set.
@@ -375,6 +437,27 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     _txCtrl.value = _txCtrl.value.clone()..scale(ns / s);
   }
   void _resetView() => _txCtrl.value = Matrix4.identity();
+
+  /// Scales and centres the view so all visible nodes fit in the viewport.
+  void _fitView() {
+    final layout = _lastLayout;
+    final vp = _viewportSize;
+    if (layout == null || layout.canvasSize == Size.zero || vp == Size.zero) {
+      _resetView();
+      return;
+    }
+    const padding = 48.0;
+    final sx = (vp.width  - padding * 2) / layout.canvasSize.width;
+    final sy = (vp.height - padding * 2) / layout.canvasSize.height;
+    final scale = (sx < sy ? sx : sy).clamp(0.08, 1.0);
+    final scaledW = layout.canvasSize.width  * scale;
+    final scaledH = layout.canvasSize.height * scale;
+    final tx = (vp.width  - scaledW) / 2;
+    final ty = (vp.height - scaledH) / 2;
+    _txCtrl.value = Matrix4.identity()
+      ..translate(tx, ty)
+      ..scale(scale);
+  }
 
   void _showPersonSheet(
     BuildContext context,
@@ -517,6 +600,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TreeProvider>();
+    final syncService = context.watch<SyncService>();
     final colorScheme = Theme.of(context).colorScheme;
     final persons = provider.persons;
     final partnerships = provider.partnerships;
@@ -564,12 +648,58 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
     final layout = _TreeLayout(visiblePersons, visiblePartnerships);
     layout.compute();
+    _lastLayout = layout;
     final searchLower = _searchQuery.toLowerCase();
+
+    // Live collaboration: show how many peers are currently synced/syncing.
+    final peerCount = syncService.discoveredPeers.length;
+    final isSyncing = syncService.status == SyncStatus.syncing;
+    final isCollaborating = syncService.isServerRunning &&
+        (peerCount > 0 || isSyncing);
+
+    final shownCount = visiblePersons.length;
+    final totalCount = persons.length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Family Tree'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Family Tree'),
+            const SizedBox(width: 8),
+            // Node count badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                shownCount == totalCount
+                    ? '$totalCount'
+                    : '$shownCount / $totalCount',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+            // Live collaboration indicator
+            if (isCollaborating) ...[
+              const SizedBox(width: 6),
+              _LiveDot(isSyncing: isSyncing, peerCount: peerCount),
+            ],
+          ],
+        ),
         actions: [
+          // Show all / focus home toggle
+          IconButton(
+            icon: Icon(_showingAll ? Icons.center_focus_strong : Icons.account_tree),
+            tooltip: _showingAll ? 'Focus on home person' : 'Show entire tree',
+            onPressed: _showingAll
+                ? () => _resetToHome(persons, partnerships)
+                : () => _showAll(persons)),
           IconButton(
             icon: const Icon(Icons.home_outlined),
             tooltip: 'Reset to home person',
@@ -583,10 +713,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             tooltip: 'Pedigree Chart',
             onPressed: () => Navigator.push(
                 context, fadeSlideRoute(builder: (_) => const PedigreeScreen()))),
-          IconButton(
-            icon: const Icon(Icons.fit_screen),
-            tooltip: 'Reset view',
-            onPressed: _resetView),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
@@ -616,85 +742,118 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
           ),
         ),
       ),
-      body: Stack(children: [
-        InteractiveViewer(
-          transformationController: _txCtrl,
-          constrained: false,
-          minScale: 0.1,
-          maxScale: 5.0,
-          boundaryMargin: const EdgeInsets.all(200),
-          child: SizedBox(
-            width: layout.canvasSize.width,
-            height: layout.canvasSize.height,
-            child: Stack(children: [
-              Positioned.fill(child: CustomPaint(painter: _EdgePainter(
-                nodes: layout.nodes, edges: layout.edges,
-                edgeColor: colorScheme.outline.withOpacity(0.5),
-                coupleColor: colorScheme.tertiary.withOpacity(0.7)))),
-              for (final node in layout.nodes.values)
-                Positioned(
-                  left: node.x, top: node.y, width: _kNodeW, height: _kNodeH,
-                  child: node.isCoupleKnot
-                      ? _CoupleKnot(
-                          node: node,
-                          partnerships: visiblePartnerships,
-                          colorScheme: colorScheme)
-                      : _PersonNodeWidget(
-                          person: personMap[node.id] ?? Person(id: node.id, name: '?'),
-                          colorScheme: colorScheme,
-                          isHighlighted: searchLower.isNotEmpty &&
-                              (personMap[node.id]?.name.toLowerCase().contains(searchLower) ?? false),
-                          isSelected: _selectedPersonId == node.id,
-                          onTap: () {
-                            final p = personMap[node.id];
-                            if (p == null) return;
-                            setState(() => _selectedPersonId = node.id);
-                            _showPersonSheet(context, p, personMap, partnerships);
-                          }),
-                ),
-            ]),
-          ),
-        ),
-        if (_showLegend)
-          Positioned(
-            top: 8, right: 8,
-            child: _LegendCard(
-                colorScheme: colorScheme,
-                onClose: () => setState(() => _showLegend = false))),
-        Positioned(
-          bottom: 24, right: 16,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            _ZoomFab(heroTag: 'ft_zi', icon: Icons.add, onPressed: () => _zoom(1.3)),
-            const SizedBox(height: 8),
-            _ZoomFab(heroTag: 'ft_zo', icon: Icons.remove, onPressed: () => _zoom(1 / 1.3)),
-            const SizedBox(height: 8),
-            _ZoomFab(heroTag: 'ft_zr', icon: Icons.fit_screen, onPressed: _resetView),
-          ])),
-        Positioned(bottom: 24, left: 16, child: _ZoomIndicator(controller: _txCtrl)),
-        if (searchLower.isNotEmpty)
-          Positioned(
-            bottom: 24, left: 0, right: 0,
-            child: Center(child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: () {
-                final count = persons
-                    .where((p) => p.name.toLowerCase().contains(searchLower))
-                    .length;
-                return Container(
-                  key: ValueKey(count),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: colorScheme.inverseSurface.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(20)),
-                  child: Text(
-                    count == 0
-                        ? 'No matches'
-                        : '$count match${count == 1 ? "" : "es"}',
-                    style: TextStyle(
-                        color: colorScheme.onInverseSurface, fontSize: 13)));
-              }(),
-            ))),
-      ]),
+      body: LayoutBuilder(
+        builder: (ctx, constraints) {
+          // Track viewport size for fit-to-view.
+          _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+          return Stack(children: [
+            InteractiveViewer(
+              transformationController: _txCtrl,
+              constrained: false,
+              minScale: 0.1,
+              maxScale: 5.0,
+              boundaryMargin: const EdgeInsets.all(200),
+              child: SizedBox(
+                width: layout.canvasSize.width,
+                height: layout.canvasSize.height,
+                child: Stack(children: [
+                  // Bezier edge lines
+                  Positioned.fill(child: CustomPaint(painter: _EdgePainter(
+                    nodes: layout.nodes, edges: layout.edges,
+                    edgeColor: colorScheme.outline.withOpacity(0.5),
+                    coupleColor: colorScheme.tertiary.withOpacity(0.7)))),
+
+                  // Generation row labels (left rail)
+                  for (final row in layout.generationRows)
+                    Positioned(
+                      left: 0,
+                      top: row.y + (_kNodeH - 18) / 2,
+                      child: _GenLabel(
+                        generation: row.generation,
+                        colorScheme: colorScheme,
+                      ),
+                    ),
+
+                  // Person / couple-knot nodes
+                  for (final node in layout.nodes.values)
+                    Positioned(
+                      left: node.x, top: node.y, width: _kNodeW, height: _kNodeH,
+                      child: node.isCoupleKnot
+                          ? _CoupleKnot(
+                              node: node,
+                              partnerships: visiblePartnerships,
+                              colorScheme: colorScheme)
+                          : _PersonNodeWidget(
+                              person: personMap[node.id] ?? Person(id: node.id, name: '?'),
+                              colorScheme: colorScheme,
+                              isHighlighted: searchLower.isNotEmpty &&
+                                  (personMap[node.id]?.name.toLowerCase().contains(searchLower) ?? false),
+                              isSelected: _selectedPersonId == node.id,
+                              onTap: () {
+                                final p = personMap[node.id];
+                                if (p == null) return;
+                                setState(() => _selectedPersonId = node.id);
+                                _showPersonSheet(context, p, personMap, partnerships);
+                              }),
+                    ),
+                ]),
+              ),
+            ),
+
+            // Legend overlay
+            if (_showLegend)
+              Positioned(
+                top: 8, right: 8,
+                child: _LegendCard(
+                    colorScheme: colorScheme,
+                    onClose: () => setState(() => _showLegend = false))),
+
+            // Zoom controls (bottom-right)
+            Positioned(
+              bottom: 24, right: 16,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _ZoomFab(heroTag: 'ft_zi', icon: Icons.add, onPressed: () => _zoom(1.3)),
+                const SizedBox(height: 8),
+                _ZoomFab(heroTag: 'ft_zo', icon: Icons.remove, onPressed: () => _zoom(1 / 1.3)),
+                const SizedBox(height: 8),
+                _ZoomFab(heroTag: 'ft_zr', icon: Icons.fit_screen,
+                    tooltip: 'Fit to view', onPressed: _fitView),
+                const SizedBox(height: 8),
+                _ZoomFab(heroTag: 'ft_zreset', icon: Icons.filter_center_focus,
+                    tooltip: 'Reset zoom', onPressed: _resetView),
+              ])),
+
+            // Zoom % indicator (bottom-left)
+            Positioned(bottom: 24, left: 16, child: _ZoomIndicator(controller: _txCtrl)),
+
+            // Search match count (bottom-centre)
+            if (searchLower.isNotEmpty)
+              Positioned(
+                bottom: 24, left: 0, right: 0,
+                child: Center(child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: () {
+                    final count = persons
+                        .where((p) => p.name.toLowerCase().contains(searchLower))
+                        .length;
+                    return Container(
+                      key: ValueKey(count),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: colorScheme.inverseSurface.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(20)),
+                      child: Text(
+                        count == 0
+                            ? 'No matches'
+                            : '$count match${count == 1 ? "" : "es"}',
+                        style: TextStyle(
+                            color: colorScheme.onInverseSurface, fontSize: 13)));
+                  }(),
+                ))),
+          ]);
+        },
+      ),
     );
   }
 }
@@ -864,11 +1023,29 @@ class _LegendItem extends StatelessWidget {
 
 // Zoom helpers
 class _ZoomFab extends StatelessWidget {
-  final String heroTag; final IconData icon; final VoidCallback onPressed;
-  const _ZoomFab({required this.heroTag, required this.icon, required this.onPressed});
+  final String heroTag;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  const _ZoomFab({
+    required this.heroTag,
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+  });
+
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.small(heroTag: heroTag, onPressed: onPressed, elevation: 2, child: Icon(icon, size: 20));
+    return Tooltip(
+      message: tooltip ?? '',
+      child: FloatingActionButton.small(
+        heroTag: heroTag,
+        onPressed: onPressed,
+        elevation: 2,
+        child: Icon(icon, size: 20),
+      ),
+    );
   }
 }
 
@@ -896,5 +1073,86 @@ class _ZoomIndicatorState extends State<_ZoomIndicator> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: colorScheme.outline.withOpacity(0.2))),
       child: Text('$pct%', style: TextStyle(color: colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.w500)));
+  }
+}
+
+// Generation row label rendered in the tree canvas.
+class _GenLabel extends StatelessWidget {
+  final int generation;
+  final ColorScheme colorScheme;
+  const _GenLabel({required this.generation, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = generation == 0 ? 'Home' : 'Gen ${generation + 1}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+// Animated pulsing dot shown in the AppBar when live-sync is active.
+class _LiveDot extends StatefulWidget {
+  final bool isSyncing;
+  final int peerCount;
+  const _LiveDot({required this.isSyncing, required this.peerCount});
+  @override
+  State<_LiveDot> createState() => _LiveDotState();
+}
+
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = widget.isSyncing ? cs.tertiary : Colors.green;
+    return Tooltip(
+      message: widget.isSyncing
+          ? 'Syncing…'
+          : 'Live sync active — ${widget.peerCount} '
+              'device${widget.peerCount == 1 ? '' : 's'} connected',
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withOpacity(0.4 + 0.6 * _ctrl.value),
+          ),
+        ),
+      ),
+    );
   }
 }

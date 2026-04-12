@@ -1249,4 +1249,129 @@ void main() {
       expect((decoded['partnerships'] as List).length, 1);
     });
   });
+
+  // ── importFromSync merge behaviour ─────────────────────────────────────────
+
+  /// Exercises the pure, in-memory merge decision inside [importFromSync]:
+  /// the DB calls are not available in unit tests, so we test the logic by
+  /// inspecting which records would be kept/overwritten using a helper that
+  /// mirrors the merge rule.
+  group('importFromSync — timestamp merge logic', () {
+    /// Returns true if the incoming record should be accepted over the local
+    /// one, mirroring the rule in TreeProvider.importFromSync.
+    bool shouldAccept(int? localTs, int? incomingTs) {
+      final local = localTs ?? 0;
+      final incoming = incomingTs ?? 0;
+      // Skip only if local is strictly newer.
+      if (local > 0 && incoming <= local) return false;
+      return true;
+    }
+
+    test('incoming is accepted when local has no timestamp (legacy data)', () {
+      expect(shouldAccept(null, null), true);
+    });
+
+    test('incoming is accepted when both timestamps are 0', () {
+      expect(shouldAccept(0, 0), true);
+    });
+
+    test('incoming is accepted when it is strictly newer', () {
+      expect(shouldAccept(100, 200), true);
+    });
+
+    test('local is kept when it is strictly newer than incoming', () {
+      expect(shouldAccept(200, 100), false);
+    });
+
+    test('local is kept on equal timestamps (tie-breaks to local)', () {
+      expect(shouldAccept(100, 100), false);
+    });
+
+    test('incoming is accepted when local has no timestamp but incoming does',
+        () {
+      expect(shouldAccept(null, 300), true);
+      expect(shouldAccept(0, 300), true);
+    });
+
+    test('local is kept when incoming has no timestamp but local does', () {
+      expect(shouldAccept(300, null), false);
+      expect(shouldAccept(300, 0), false);
+    });
+
+    // ── exportForSync includes updatedAt ──────────────────────────────────────
+
+    test('exportForSync includes updatedAt in persons', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice', updatedAt: 1234567890000),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final exported = provider.exportForSync();
+      final person = (exported['persons'] as List).first as Map;
+      expect(person['updatedAt'], 1234567890000);
+    });
+
+    test('exportForSync includes updatedAt in partnerships', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice'),
+        Person(id: 'p2', name: 'Bob'),
+      ];
+      provider.partnerships = [
+        Partnership(
+            id: 'pt1',
+            person1Id: 'p1',
+            person2Id: 'p2',
+            updatedAt: 9999999),
+      ];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final exported = provider.exportForSync();
+      final pt = (exported['partnerships'] as List).first as Map;
+      expect(pt['updatedAt'], 9999999);
+    });
+
+    test('updatedAt round-trips through Person toMap / fromMap', () {
+      final p = Person(id: 'p1', name: 'Test', updatedAt: 1700000000000);
+      final restored = Person.fromMap(p.toMap());
+      expect(restored.updatedAt, 1700000000000);
+    });
+
+    test('updatedAt round-trips through Partnership toMap / fromMap', () {
+      final pt = Partnership(
+          id: 'pt1',
+          person1Id: 'p1',
+          person2Id: 'p2',
+          updatedAt: 1600000000000);
+      final restored = Partnership.fromMap(pt.toMap());
+      expect(restored.updatedAt, 1600000000000);
+    });
+
+    test('updatedAt round-trips through Source toMap / fromMap', () {
+      final s = Source(
+          id: 's1',
+          personId: 'p1',
+          title: 'T',
+          type: 'doc',
+          url: 'http://x',
+          updatedAt: 1500000000000);
+      final restored = Source.fromMap(s.toMap());
+      expect(restored.updatedAt, 1500000000000);
+    });
+
+    test('updatedAt round-trips through LifeEvent toMap / fromMap', () {
+      final e =
+          LifeEvent(id: 'e1', personId: 'p1', title: 'Birth', updatedAt: 1400000000000);
+      final restored = LifeEvent.fromMap(e.toMap());
+      expect(restored.updatedAt, 1400000000000);
+    });
+
+    test('null updatedAt round-trips as null through Person fromMap', () {
+      final p = Person(id: 'p1', name: 'Test');
+      final restored = Person.fromMap(p.toMap());
+      expect(restored.updatedAt, isNull);
+    });
+  });
 }
