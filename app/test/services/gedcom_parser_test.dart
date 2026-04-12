@@ -1028,5 +1028,105 @@ void main() {
       expect(result.lifeEvents.first.title, 'Residence');
       expect(result.lifeEvents.first.place, 'Chicago, Illinois');
     });
+
+    test('EMIG tag creates Emigration LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Anna
+1 EMIG
+2 DATE 15 MAR 1912
+2 PLAC Hamburg, Germany
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Emigration');
+      expect(result.lifeEvents.first.date?.year, 1912);
+      expect(result.lifeEvents.first.place, 'Hamburg, Germany');
+    });
+
+    test('GRAD tag creates Graduation LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Thomas
+1 GRAD
+2 DATE 1 JUN 1955
+2 PLAC Oxford, England
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Graduation');
+      expect(result.lifeEvents.first.date?.year, 1955);
+      expect(result.lifeEvents.first.place, 'Oxford, England');
+    });
+  });
+
+  group('GEDCOMParser.export — additional life event tags', () {
+    test('exports Emigration as EMIG tag', () async {
+      final persons = [
+        Person(id: 'P1', name: 'Anna', deathDate: DateTime(1980)),
+      ];
+      final lifeEvents = [
+        LifeEvent(
+          id: 'e1',
+          personId: 'P1',
+          title: 'Emigration',
+          date: DateTime(1912, 3, 15),
+          place: 'Hamburg, Germany',
+        ),
+      ];
+      final path = '${tempDir.path}/out_emig.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 EMIG'));
+      expect(content, contains('2 PLAC Hamburg, Germany'));
+    });
+
+    test('exports Graduation as GRAD tag', () async {
+      final persons = [
+        Person(id: 'P1', name: 'Thomas', deathDate: DateTime(2010)),
+      ];
+      final lifeEvents = [
+        LifeEvent(
+          id: 'e1',
+          personId: 'P1',
+          title: 'Graduation',
+          date: DateTime(1955, 6, 1),
+          place: 'Oxford, England',
+        ),
+      ];
+      final path = '${tempDir.path}/out_grad.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 GRAD'));
+      expect(content, contains('2 PLAC Oxford, England'));
+    });
+
+    test('EMIG export/import roundtrip preserves Emigration event', () async {
+      final persons = [
+        Person(id: 'P1', name: 'Anna', deathDate: DateTime(1980)),
+      ];
+      final lifeEvents = [
+        LifeEvent(
+          id: 'e1',
+          personId: 'P1',
+          title: 'Emigration',
+          date: DateTime(1912, 3, 15),
+          place: 'Hamburg, Germany',
+        ),
+      ];
+      final path = '${tempDir.path}/roundtrip_emig.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Emigration');
+      expect(result.lifeEvents.first.place, 'Hamburg, Germany');
+    });
   });
 }
