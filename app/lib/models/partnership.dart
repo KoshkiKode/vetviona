@@ -29,6 +29,10 @@ class Partnership {
   /// Names of witnesses or officiants.
   String? witnesses;
 
+  /// Unix-millisecond timestamp of the last local modification.
+  /// See [Person.updatedAt] for the merge semantics.
+  int? updatedAt;
+
   static const List<String> allCeremonyTypes = [
     'civil',
     'religious',
@@ -51,6 +55,7 @@ class Partnership {
     this.ceremonyType,
     List<String>? sourceIds,
     this.witnesses,
+    this.updatedAt,
   }) : sourceIds = sourceIds ?? [];
 
   /// Whether this union has formally ended.
@@ -101,6 +106,7 @@ class Partnership {
         'ceremonyType': ceremonyType,
         'sourceIds': sourceIds.join(','),
         'witnesses': witnesses,
+        'updatedAt': updatedAt,
       };
 
   factory Partnership.fromMap(Map<String, dynamic> map) => Partnership(
@@ -125,5 +131,6 @@ class Partnership {
                 .toList() ??
             [],
         witnesses: map['witnesses'] as String?,
+        updatedAt: map['updatedAt'] as int?,
       );
 }

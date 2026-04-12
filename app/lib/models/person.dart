@@ -77,6 +77,16 @@ class Person {
   /// Resolver.
   Map<String, String> preferredSourceIds;
 
+  /// Unix-millisecond timestamp of the last local modification.
+  ///
+  /// Used by [TreeProvider.importFromSync] to implement concurrent / parallel
+  /// editing: when two devices both have a version of the same person, the one
+  /// with the higher [updatedAt] value wins.  Records that pre-date the
+  /// introduction of this field (i.e. where [updatedAt] is `null`) are treated
+  /// as having timestamp 0 so that they never silently overwrite a locally
+  /// edited record.
+  int? updatedAt;
+
   static const List<String> allBloodTypes = [
     'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown',
   ];
@@ -125,6 +135,7 @@ class Person {
     this.religion,
     this.education,
     List<String>? aliases,
+    this.updatedAt,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
@@ -197,6 +208,7 @@ class Person {
       'religion': religion,
       'education': education,
       'aliases': aliases.join(';'),
+      'updatedAt': updatedAt,
     };
   }
 
@@ -279,6 +291,7 @@ class Person {
               .where((s) => s.isNotEmpty)
               .toList() ??
           [],
+      updatedAt: map['updatedAt'] as int?,
     );
   }
 }

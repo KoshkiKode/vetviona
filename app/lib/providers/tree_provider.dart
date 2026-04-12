@@ -106,7 +106,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -150,7 +150,8 @@ class TreeProvider extends ChangeNotifier {
             height TEXT,
             religion TEXT,
             education TEXT,
-            aliases TEXT
+            aliases TEXT,
+            updatedAt INTEGER
           )
         ''');
         await db.execute('''
@@ -170,7 +171,8 @@ class TreeProvider extends ChangeNotifier {
             volumePage TEXT,
             retrievalDate TEXT,
             confidence TEXT,
-            treeId TEXT
+            treeId TEXT,
+            updatedAt INTEGER
           )
         ''');
         await db.execute('''
@@ -194,7 +196,8 @@ class TreeProvider extends ChangeNotifier {
             notes TEXT,
             ceremonyType TEXT,
             sourceIds TEXT,
-            witnesses TEXT
+            witnesses TEXT,
+            updatedAt INTEGER
           )
         ''');
         await db.execute('''
@@ -205,7 +208,8 @@ class TreeProvider extends ChangeNotifier {
             date TEXT,
             place TEXT,
             notes TEXT,
-            treeId TEXT
+            treeId TEXT,
+            updatedAt INTEGER
           )
         ''');
         await db.execute('''
@@ -377,6 +381,18 @@ class TreeProvider extends ChangeNotifier {
           await db.execute(
               'ALTER TABLE partnerships ADD COLUMN witnesses TEXT');
         }
+        if (oldVersion < 8) {
+          // Add updatedAt timestamp column to all synced tables.
+          // Existing rows get NULL (treated as 0 during merge).
+          await db.execute(
+              'ALTER TABLE persons ADD COLUMN updatedAt INTEGER');
+          await db.execute(
+              'ALTER TABLE partnerships ADD COLUMN updatedAt INTEGER');
+          await db.execute(
+              'ALTER TABLE sources ADD COLUMN updatedAt INTEGER');
+          await db.execute(
+              'ALTER TABLE life_events ADD COLUMN updatedAt INTEGER');
+        }
       },
     );
   }
@@ -491,6 +507,7 @@ class TreeProvider extends ChangeNotifier {
     }
     person.id = person.id.isEmpty ? _uuid.v4() : person.id;
     person.treeId = currentTreeId;
+    person.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.insert('persons', person.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -499,6 +516,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updatePerson(Person person) async {
+    person.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('persons', person.toMap(),
         where: 'id = ?', whereArgs: [person.id]);
@@ -539,6 +557,7 @@ class TreeProvider extends ChangeNotifier {
   // ── Sources ────────────────────────────────────────────────────────────────
   Future<void> addSource(Source source) async {
     source.id = source.id.isEmpty ? _uuid.v4() : source.id;
+    source.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.insert('sources', source.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -555,6 +574,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updateSource(Source source) async {
+    source.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('sources', source.toMap(),
         where: 'id = ?', whereArgs: [source.id]);
@@ -584,6 +604,7 @@ class TreeProvider extends ChangeNotifier {
   Future<void> addPartnership(Partnership partnership) async {
     partnership.id = partnership.id.isEmpty ? _uuid.v4() : partnership.id;
     partnership.treeId = currentTreeId;
+    partnership.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.insert('partnerships', partnership.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -592,6 +613,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updatePartnership(Partnership partnership) async {
+    partnership.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('partnerships', partnership.toMap(),
         where: 'id = ?', whereArgs: [partnership.id]);
@@ -631,6 +653,7 @@ class TreeProvider extends ChangeNotifier {
     final person = persons.firstWhere((p) => p.id == event.personId,
         orElse: () => throw StateError('Person with id ${event.personId} not found'));
     event.treeId = person.treeId;
+    event.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.insert('life_events', event.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -639,6 +662,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updateLifeEvent(LifeEvent event) async {
+    event.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('life_events', event.toMap(),
         where: 'id = ?', whereArgs: [event.id]);
@@ -1028,16 +1052,20 @@ class TreeProvider extends ChangeNotifier {
     };
   }
 
-  /// Merges incoming tree data from a peer using an upsert strategy: records
-  /// that do not exist locally are inserted; existing records are replaced
-  /// (last-write-wins).  The free-tier person limit is respected.
+  /// Merges incoming tree data from a peer using a **last-modified-wins**
+  /// strategy: for each incoming record the local and incoming [updatedAt]
+  /// timestamps are compared and the newer record is kept.  Records that lack
+  /// a timestamp (legacy data) are treated as timestamp 0, so they never
+  /// silently overwrite a locally edited record but are still accepted when
+  /// the local copy is also unversioned.
   ///
-  /// When a free-tier mobile device syncs with a Desktop Pro instance the
-  /// number of **new** persons accepted in a single session is capped at
-  /// [freeMobilePersonLimit], matching the advertised behaviour in the README.
+  /// This enables true concurrent editing: a desktop user, a phone user, and
+  /// a laptop user can all edit the same tree simultaneously and their changes
+  /// will merge correctly on the next sync — rather than whoever syncs last
+  /// winning at the whole-payload level.
   ///
-  /// Returns the number of new persons that were added (skipped persons if the
-  /// limit was hit are not counted).
+  /// New records are always accepted (subject to the free-tier person cap).
+  /// Returns the number of brand-new persons that were added.
   Future<int> importFromSync(Map<String, dynamic> data) async {
     final db = await _database;
 
@@ -1071,26 +1099,64 @@ class TreeProvider extends ChangeNotifier {
             .toList();
 
     int added = 0;
+
+    // ── Persons ──────────────────────────────────────────────────────────────
     for (final person in inPersons) {
-      final isNew = !persons.any((p) => p.id == person.id);
-      if (isNew && isAtPersonLimit) continue;
-      // Cap new persons per session when a free-tier mobile syncs with Desktop Pro.
-      if (isNew && sessionCap != null && added >= sessionCap) continue;
+      final existing = persons.where((p) => p.id == person.id).firstOrNull;
+      final isNew = existing == null;
+      if (isNew) {
+        if (isAtPersonLimit) continue;
+        if (sessionCap != null && added >= sessionCap) continue;
+      } else {
+        // Concurrent merge: skip if local record is strictly newer.
+        // Both timestamps default to 0 when absent, so two un-versioned
+        // records are treated equally and the incoming one is accepted
+        // (preserves pre-v8 last-write-wins behaviour for old data).
+        final localTs = existing.updatedAt ?? 0;
+        final incomingTs = person.updatedAt ?? 0;
+        if (localTs > 0 && incomingTs <= localTs) continue;
+      }
       person.treeId = currentTreeId;
       await db.insert('persons', person.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
       if (isNew) added++;
     }
+
+    // ── Partnerships ──────────────────────────────────────────────────────────
     for (final partnership in inPartnerships) {
+      final existing =
+          partnerships.where((p) => p.id == partnership.id).firstOrNull;
+      if (existing != null) {
+        final localTs = existing.updatedAt ?? 0;
+        final incomingTs = partnership.updatedAt ?? 0;
+        if (localTs > 0 && incomingTs <= localTs) continue;
+      }
       partnership.treeId = currentTreeId;
       await db.insert('partnerships', partnership.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
+
+    // ── Sources ───────────────────────────────────────────────────────────────
     for (final source in inSources) {
+      final existing = sources.where((s) => s.id == source.id).firstOrNull;
+      if (existing != null) {
+        final localTs = existing.updatedAt ?? 0;
+        final incomingTs = source.updatedAt ?? 0;
+        if (localTs > 0 && incomingTs <= localTs) continue;
+      }
       await db.insert('sources', source.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
+
+    // ── Life Events ───────────────────────────────────────────────────────────
     for (final event in inLifeEvents) {
+      final existing =
+          lifeEvents.where((e) => e.id == event.id).firstOrNull;
+      if (existing != null) {
+        final localTs = existing.updatedAt ?? 0;
+        final incomingTs = event.updatedAt ?? 0;
+        if (localTs > 0 && incomingTs <= localTs) continue;
+      }
       await db.insert('life_events', event.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }

@@ -32,6 +32,10 @@ class Source {
   /// Tree scope — mirrors Person.treeId so tree-level sources can be loaded.
   String? treeId;
 
+  /// Unix-millisecond timestamp of the last local modification.
+  /// See [Person.updatedAt] for the merge semantics.
+  int? updatedAt;
+
   static const List<String> confidenceRatings = ['A', 'B', 'C', 'D', 'F'];
   static const Map<String, String> confidenceLabels = {
     'A': 'Reliable',
@@ -58,6 +62,7 @@ class Source {
     this.retrievalDate,
     this.confidence,
     this.treeId,
+    this.updatedAt,
   }) : citedFacts = citedFacts ?? [];
 
   Map<String, dynamic> toMap() {
@@ -78,6 +83,7 @@ class Source {
       'retrievalDate': retrievalDate,
       'confidence': confidence,
       'treeId': treeId,
+      'updatedAt': updatedAt,
     };
   }
 
@@ -103,6 +109,7 @@ class Source {
       retrievalDate: map['retrievalDate'] as String?,
       confidence: map['confidence'] as String?,
       treeId: map['treeId'] as String?,
+      updatedAt: map['updatedAt'] as int?,
     );
   }
 }
