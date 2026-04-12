@@ -1422,8 +1422,8 @@ class TreeProvider extends ChangeNotifier {
   /// them to [persons].  Calls [notifyListeners] once after the commit.
   ///
   /// Use this instead of repeated [addPerson] calls during GEDCOM import so
-  /// that 2 500 rows become one round-trip to the database and one UI rebuild
-  /// instead of 2 500 of each.
+  /// that 2,500 rows become one round-trip to the database and one UI rebuild
+  /// instead of 2,500 of each.
   Future<void> importPersonsBatch(List<Person> personList) async {
     if (personList.isEmpty) return;
     final db = await _database;
