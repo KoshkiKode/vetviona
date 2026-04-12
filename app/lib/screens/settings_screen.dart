@@ -457,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   width: 14,
                                   height: 14,
                                   child:
-                                      CircularProgressIndicator(strokeWidth: 2),
+                                      CircularProgressIndicator.adaptive(),
                                 )
                               : const Icon(Icons.restore, size: 18),
                           label: const Text('Restore Purchases'),
@@ -689,7 +689,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final errorColor = Theme.of(context).colorScheme.error;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Clear All Data'),
         content: const Text(
             'This will delete all people, sources, and partnerships. Paired device credentials are preserved. This cannot be undone.'),

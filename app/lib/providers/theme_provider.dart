@@ -1,6 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+bool get _isCupertinoHost =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
 
 // ── Vetviona Brand Palette ──────────────────────────────────────────────────
 
@@ -187,7 +193,7 @@ class ThemeProvider with ChangeNotifier {
         scrolledUnderElevation: 2,
         shadowColor: primary.withOpacity(0.3),
         surfaceTintColor: primary,
-        centerTitle: false,
+        centerTitle: _isCupertinoHost,
         systemOverlayStyle: SystemUiOverlayStyle.light,
         iconTheme: IconThemeData(color: scheme.onPrimary),
         actionsIconTheme: IconThemeData(color: scheme.onPrimary),
@@ -251,36 +257,48 @@ class ThemeProvider with ChangeNotifier {
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
           foregroundColor: scheme.onPrimary,
-          elevation: 0,
+          elevation: 1,
+          shadowColor: primary.withOpacity(0.35),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(14)),
           padding:
               const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(14)),
           padding:
               const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
+        ).copyWith(
+          elevation: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) return 0;
+            if (states.contains(WidgetState.hovered)) return 2;
+            return 1;
+          }),
+          shadowColor: WidgetStatePropertyAll(primary.withOpacity(0.3)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(14)),
           side: BorderSide(color: primary.withOpacity(0.5)),
           padding:
               const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
+              borderRadius: BorderRadius.circular(10)),
           padding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          textStyle: const TextStyle(fontWeight: FontWeight.w500),
         ),
       ),
 
@@ -288,9 +306,11 @@ class ThemeProvider with ChangeNotifier {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.tertiary,
         foregroundColor: scheme.onTertiary,
-        elevation: 2,
+        elevation: 3,
+        focusElevation: 4,
+        hoverElevation: 5,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
+            borderRadius: BorderRadius.circular(18)),
       ),
 
       // ── Chips ───────────────────────────────────────────────────────────

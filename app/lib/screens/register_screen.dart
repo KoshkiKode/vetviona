@@ -187,8 +187,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
+                                    child: CircularProgressIndicator.adaptive(),
                                   )
                                 : const Text('Create Account'),
                           ),

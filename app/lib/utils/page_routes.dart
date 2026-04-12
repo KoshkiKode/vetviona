@@ -1,9 +1,25 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// Returns a [PageRouteBuilder] that fades + slides the new page in from
-/// slightly below.  Used throughout the app so all screen transitions feel
-/// cohesive rather than relying on the per-platform Material/Cupertino default.
+/// True when the app is running on a platform that should use
+/// Cupertino-style navigation (native iOS swipe-back gesture, right-to-left
+/// slide transition).
+bool get _isCupertinoPlatform =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
+
+/// Platform-adaptive push route.
+///
+/// - **iOS / macOS** → `CupertinoPageRoute`: native right-to-left slide +
+///   swipe-back-to-pop gesture.
+/// - **Android / Windows / Linux** → custom fade+slight-upward-slide that
+///   feels snappier than the default Android ripple expand.
 Route<T> fadeSlideRoute<T>({required WidgetBuilder builder}) {
+  if (_isCupertinoPlatform) {
+    return CupertinoPageRoute<T>(builder: builder);
+  }
   return PageRouteBuilder<T>(
     pageBuilder: (context, animation, secondaryAnimation) => builder(context),
     transitionDuration: const Duration(milliseconds: 280),
@@ -29,6 +45,7 @@ Route<T> fadeSlideRoute<T>({required WidgetBuilder builder}) {
 
 /// Pure-fade replacement route — used for `pushReplacement` calls (e.g.
 /// onboarding → home, login → register) where a slide feels wrong.
+/// Always uses a cross-fade regardless of platform.
 Route<T> fadeRoute<T>({required WidgetBuilder builder}) {
   return PageRouteBuilder<T>(
     pageBuilder: (context, animation, secondaryAnimation) => builder(context),

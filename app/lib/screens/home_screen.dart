@@ -940,7 +940,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('New Family Tree'),
         content: TextField(
           controller: controller,
@@ -968,7 +968,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = TextEditingController(text: currentName);
     final newName = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Rename Tree'),
         content: TextField(
           controller: controller,
@@ -994,7 +994,7 @@ class _HomeScreenState extends State<HomeScreen> {
       String treeId, String treeName) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Delete Tree?'),
         content: Text(
             'This will permanently delete "$treeName" and all its people, '
@@ -1257,7 +1257,7 @@ class _HomeScreenState extends State<HomeScreen> {
       List<List<Person>> dupes) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Possible Duplicates'),
         content: SizedBox(
           width: double.maxFinite,
@@ -1350,7 +1350,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<bool?> _askLivingDataPolicy(BuildContext context) {
     return showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Living People'),
         content: const Text(
           'How should living people (no recorded death date) appear in the export?\n\n'
@@ -1643,8 +1643,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2),
+                            child: CircularProgressIndicator.adaptive(),
                           )
                         : const Icon(
                             Icons.shopping_cart_outlined, size: 16),

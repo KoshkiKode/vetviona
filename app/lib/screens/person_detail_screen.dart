@@ -873,7 +873,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     final ctrl = TextEditingController();
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Add Alias'),
         content: TextField(
           controller: ctrl,
@@ -1034,7 +1034,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             : person.name;
         final addRelationships = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => AlertDialog.adaptive(
             icon: const Icon(Icons.family_restroom),
             title: Text('Add relationships for $displayName?'),
             content: const Text(

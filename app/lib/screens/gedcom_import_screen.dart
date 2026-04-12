@@ -494,7 +494,7 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator.adaptive(),
             SizedBox(height: 16),
             Text('Parsing GEDCOM file…'),
           ],

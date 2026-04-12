@@ -1275,8 +1275,7 @@ class _StatusBanner extends StatelessWidget {
                   ? SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: color),
+                      child: CircularProgressIndicator.adaptive(),
                     )
                   : Icon(icon, size: 18, color: color),
               const SizedBox(width: 10),
