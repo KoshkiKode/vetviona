@@ -750,9 +750,8 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('medical_conditions', condition.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     medicalConditions.add(condition);
-    if (person.syncMedical) {
-      _emitDelta(medicalConditions: [condition.toMap()]);
-    }
+    // Always emit; SyncService filters per-peer using syncMedical / consent.
+    _emitDelta(medicalConditions: [condition.toMap()]);
     notifyListeners();
   }
 
@@ -764,11 +763,8 @@ class TreeProvider extends ChangeNotifier {
     final idx =
         medicalConditions.indexWhere((mc) => mc.id == condition.id);
     if (idx != -1) medicalConditions[idx] = condition;
-    final person =
-        persons.where((p) => p.id == condition.personId).firstOrNull;
-    if (person != null && person.syncMedical) {
-      _emitDelta(medicalConditions: [condition.toMap()]);
-    }
+    // Always emit; SyncService filters per-peer using syncMedical / consent.
+    _emitDelta(medicalConditions: [condition.toMap()]);
     notifyListeners();
   }
 
@@ -1099,15 +1095,22 @@ class TreeProvider extends ChangeNotifier {
 
   /// Serialises the current tree (persons, partnerships, sources) into a plain
   /// Dart map suitable for encryption and transmission.
-  Map<String, dynamic> exportForSync() {
+  ///
+  /// If [includeAllMedical] is `true` (only set when the triple-consent
+  /// handshake has been completed with the target peer), **all** non-private
+  /// persons' medical conditions are included regardless of the per-person
+  /// `syncMedical` flag.
+  Map<String, dynamic> exportForSync({bool includeAllMedical = false}) {
     // Private persons are excluded from sync — their data stays strictly local.
     final publicPersons = persons.where((p) => !p.isPrivate).toList();
     final publicPersonIds = publicPersons.map((p) => p.id).toSet();
-    // Build O(1) lookup for syncMedical check.
-    final syncMedicalIds = publicPersons
-        .where((p) => p.syncMedical)
-        .map((p) => p.id)
-        .toSet();
+    // Build O(1) lookup for the per-person syncMedical gate.
+    final syncMedicalIds = includeAllMedical
+        ? publicPersonIds // bulk consent: all non-private persons
+        : publicPersons
+            .where((p) => p.syncMedical)
+            .map((p) => p.id)
+            .toSet();
     return {
       'persons': publicPersons.map((p) => p.toMap()).toList(),
       'partnerships': partnerships

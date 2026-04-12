@@ -23,6 +23,37 @@ import 'sound_service.dart';
 /// Overall state of the RootLoop™ sync service.
 enum SyncStatus { idle, advertising, discovering, syncing, success, error }
 
+/// Result returned from [SyncService.requestMedicalConsent].
+enum MedicalConsentResult {
+  /// Both devices completed all three consent steps — medical sync is live.
+  granted,
+
+  /// The remote device denied the request or the 15-second countdown expired.
+  denied,
+
+  /// The local user cancelled at the confirmation step.
+  cancelledLocally,
+
+  /// A network error prevented the handshake from completing.
+  networkError,
+}
+
+/// Incoming medical-consent event pushed to [SyncService.medicalConsentEvents].
+///
+/// The UI should display a countdown dialog and call either
+/// [SyncService.respondToMedicalRequest] (step 1) or
+/// [SyncService.respondToMedicalConfirm] (step 3) depending on [step].
+class MedicalConsentEvent {
+  /// `1` = step-1 request  (receiver side, 15 s countdown)
+  /// `3` = step-3 confirm  (receiver side, quick confirmation)
+  final int step;
+
+  /// Human-readable name / display label for the requesting peer.
+  final String peerLabel;
+
+  const MedicalConsentEvent({required this.step, required this.peerLabel});
+}
+
 /// A Vetviona device discovered on the local network via mDNS.
 class DiscoveredPeer {
   final String name;
@@ -140,6 +171,41 @@ class SyncService extends ChangeNotifier {
   /// Debounce timer: fires after 400 ms of edit silence and flushes the delta.
   Timer? _pushTimer;
 
+  // ── Triple-consent medical sync ───────────────────────────────────────────
+
+  /// Peers (identified by `host:port`) that have completed the full
+  /// triple-consent handshake.  While a peer is in this set, bulk medical
+  /// data (all non-private persons regardless of `syncMedical` toggle) is
+  /// included in exports to / imports from that peer.
+  ///
+  /// The set is ephemeral — it is cleared when [stopServer] is called.
+  final Set<String> _medicalConsentedPeers = {};
+
+  /// Whether [peerKey] (`host:port`) has completed triple medical consent.
+  bool isMedicalConsentedPeer(String peerKey) =>
+      _medicalConsentedPeers.contains(peerKey);
+
+  /// Stream emitting incoming consent requests that the UI must react to.
+  final _consentEventController =
+      StreamController<MedicalConsentEvent>.broadcast();
+
+  /// UI should listen to this stream and show the appropriate countdown /
+  /// confirmation dialogs.
+  Stream<MedicalConsentEvent> get medicalConsentEvents =>
+      _consentEventController.stream;
+
+  /// Completer for the step-1 long-poll on the *receiver* side.
+  /// Completed by [respondToMedicalRequest].
+  Completer<bool>? _pendingConsentCompleter;
+
+  /// Completer for the step-3 long-poll on the *receiver* side.
+  /// Completed by [respondToMedicalConfirm].
+  Completer<bool>? _pendingConfirmCompleter;
+
+  /// Sender device label cached during an in-progress step-1 wait so the
+  /// UI can display it in subsequent dialogs.
+  String? _inboundConsentPeerLabel;
+
   // ── TreeProvider injection ───────────────────────────────────────────────────
 
   TreeProvider? _treeProvider;
@@ -214,6 +280,9 @@ class SyncService extends ChangeNotifier {
       router.get('/info', _handleInfo);
       router.post('/sync', _handleSync);
       router.post('/push', _handlePush);
+      // Triple-consent medical-history sync endpoints.
+      router.post('/medical/request', _handleMedicalRequest);
+      router.post('/medical/confirm', _handleMedicalConfirm);
 
       final handler = const Pipeline().addHandler(router.call);
       _httpServer =
@@ -244,6 +313,12 @@ class SyncService extends ChangeNotifier {
     _pushTimer = null;
     _pendingDelta = null;
     _activePeers.clear();
+    // Cancel any in-flight consent handshakes.
+    _pendingConsentCompleter?.complete(false);
+    _pendingConsentCompleter = null;
+    _pendingConfirmCompleter?.complete(false);
+    _pendingConfirmCompleter = null;
+    _medicalConsentedPeers.clear();
     await _broadcast?.stop();
     _broadcast = null;
     await _httpServer?.close(force: true);
@@ -444,8 +519,14 @@ class SyncService extends ChangeNotifier {
       // Merge incoming tree data.
       await tp.importFromSync(incoming);
 
+      // Use the sender's device ID as the medical-consent key so it survives
+      // IP address changes.  Fall back to false (no medical) if unknown.
+      final consentKey = senderId ?? '';
+      final includeAllMedical = consentKey.isNotEmpty &&
+          _medicalConsentedPeers.contains(consentKey);
+
       // Respond with our own tree data, encrypted with the same secret.
-      final ourData = tp.exportForSync();
+      final ourData = tp.exportForSync(includeAllMedical: includeAllMedical);
       ourData['senderId'] = tp.localDeviceId;
       ourData['senderTier'] = tp.currentAppTierString;
       final encrypted = _encrypt(ourData, matchedDevice.sharedSecret);
@@ -474,7 +555,18 @@ class SyncService extends ChangeNotifier {
 
     _setStatus(SyncStatus.syncing, 'Syncing…');
     try {
-      final ourData = tp.exportForSync();
+      final peerKey = '$host:$port';
+      // Check if this peer has completed the triple medical consent handshake.
+      // Also check by device ID in case the IP changed.
+      final consentedDeviceId = tp.pairedDevices
+          .where((d) => d.sharedSecret == sharedSecret)
+          .firstOrNull
+          ?.id;
+      final includeAllMedical = _medicalConsentedPeers.contains(peerKey) ||
+          (consentedDeviceId != null &&
+              _medicalConsentedPeers.contains(consentedDeviceId));
+
+      final ourData = tp.exportForSync(includeAllMedical: includeAllMedical);
       ourData['senderId'] = tp.localDeviceId;
       ourData['senderTier'] = tp.currentAppTierString;
 
@@ -540,6 +632,263 @@ class SyncService extends ChangeNotifier {
     }
   }
 
+  // ── Triple-consent medical sync ─────────────────────────────────────────────
+
+  // ── Server side: receive consent request (step 1) ────────────────────────
+
+  /// Step 1 (receiver): A peer wants to bulk-sync all medical history.
+  ///
+  /// This handler **long-polls** for up to 15 seconds waiting for the local
+  /// user to respond.  If the user accepts the [SyncService.respondToMedicalRequest]
+  /// call completes the completer; if they deny or the timer fires we return
+  /// `{"accepted": false}`.
+  Future<Response> _handleMedicalRequest(Request request) async {
+    final tp = _treeProvider;
+    if (tp == null) return Response.internalServerError(body: 'Not ready');
+
+    try {
+      final body = await request.readAsString();
+      Map<String, dynamic>? payload;
+      Device? matchedDevice;
+      for (final device in tp.pairedDevices) {
+        payload = _tryDecrypt(body, device.sharedSecret);
+        if (payload != null) {
+          matchedDevice = device;
+          break;
+        }
+      }
+      if (payload == null || matchedDevice == null) {
+        return Response(401, body: 'Unauthorized');
+      }
+
+      final senderId = payload['senderId'] as String? ?? matchedDevice.id;
+      final peerLabel =
+          '${senderId.substring(0, senderId.length < 8 ? senderId.length : 8)}…';
+
+      // If there is already a pending consent request in progress, reject the
+      // new one immediately rather than stacking concurrent requests.
+      if (_pendingConsentCompleter != null &&
+          !_pendingConsentCompleter!.isCompleted) {
+        final resp = _encrypt({'accepted': false}, matchedDevice.sharedSecret);
+        return Response.ok(resp, headers: {'content-type': 'text/plain'});
+      }
+
+      _inboundConsentPeerLabel = peerLabel;
+      _pendingConsentCompleter = Completer<bool>();
+
+      // Notify UI — it should show a dialog with a ≤15 s countdown.
+      _consentEventController
+          .add(MedicalConsentEvent(step: 1, peerLabel: peerLabel));
+
+      // Auto-deny after 15 seconds regardless of UI interaction.
+      final timeout = Timer(const Duration(seconds: 15), () {
+        if (_pendingConsentCompleter != null &&
+            !_pendingConsentCompleter!.isCompleted) {
+          _pendingConsentCompleter!.complete(false);
+        }
+      });
+
+      bool accepted = false;
+      try {
+        accepted = await _pendingConsentCompleter!.future;
+      } finally {
+        timeout.cancel();
+        _pendingConsentCompleter = null;
+      }
+
+      final resp = _encrypt({'accepted': accepted}, matchedDevice.sharedSecret);
+      return Response.ok(resp, headers: {'content-type': 'text/plain'});
+    } catch (e) {
+      return Response.internalServerError(body: 'Error: $e');
+    }
+  }
+
+  // ── Server side: receive confirmation (step 3) ────────────────────────────
+
+  /// Step 3 (receiver): The initiating device confirmed the sync.
+  ///
+  /// We notify the UI one last time for a quick final confirmation, then
+  /// register the peer as medically consented on acceptance.
+  Future<Response> _handleMedicalConfirm(Request request) async {
+    final tp = _treeProvider;
+    if (tp == null) return Response.internalServerError(body: 'Not ready');
+
+    try {
+      final body = await request.readAsString();
+      Map<String, dynamic>? payload;
+      Device? matchedDevice;
+      for (final device in tp.pairedDevices) {
+        payload = _tryDecrypt(body, device.sharedSecret);
+        if (payload != null) {
+          matchedDevice = device;
+          break;
+        }
+      }
+      if (payload == null || matchedDevice == null) {
+        return Response(401, body: 'Unauthorized');
+      }
+
+      final senderId = payload['senderId'] as String? ?? matchedDevice.id;
+      final peerLabel = _inboundConsentPeerLabel ??
+          '${senderId.substring(0, senderId.length < 8 ? senderId.length : 8)}…';
+
+      // If there is already a pending confirm in progress, reject.
+      if (_pendingConfirmCompleter != null &&
+          !_pendingConfirmCompleter!.isCompleted) {
+        final resp = _encrypt({'ready': false}, matchedDevice.sharedSecret);
+        return Response.ok(resp, headers: {'content-type': 'text/plain'});
+      }
+
+      _pendingConfirmCompleter = Completer<bool>();
+
+      // Notify UI for the final (step 3) confirmation.
+      _consentEventController
+          .add(MedicalConsentEvent(step: 3, peerLabel: peerLabel));
+
+      // Auto-deny after 30 seconds (step 3 has a longer window — no hurry).
+      final timeout = Timer(const Duration(seconds: 30), () {
+        if (_pendingConfirmCompleter != null &&
+            !_pendingConfirmCompleter!.isCompleted) {
+          _pendingConfirmCompleter!.complete(false);
+        }
+      });
+
+      bool ready = false;
+      try {
+        ready = await _pendingConfirmCompleter!.future;
+      } finally {
+        timeout.cancel();
+        _pendingConfirmCompleter = null;
+        _inboundConsentPeerLabel = null;
+      }
+
+      if (ready) {
+        // Register the peer by device ID so the consent survives IP changes.
+        _medicalConsentedPeers.add(senderId);
+        notifyListeners();
+      }
+
+      final resp = _encrypt({'ready': ready}, matchedDevice.sharedSecret);
+      return Response.ok(resp, headers: {'content-type': 'text/plain'});
+    } catch (e) {
+      return Response.internalServerError(body: 'Error: $e');
+    }
+  }
+
+  // ── UI response callbacks ─────────────────────────────────────────────────
+
+  /// Called by the UI when the local user responds to a step-1 medical
+  /// consent request.  [accepted] = `true` means the user tapped "Allow".
+  void respondToMedicalRequest(bool accepted) {
+    if (_pendingConsentCompleter != null &&
+        !_pendingConsentCompleter!.isCompleted) {
+      _pendingConsentCompleter!.complete(accepted);
+    }
+  }
+
+  /// Called by the UI when the local user responds to the step-3 final
+  /// confirmation.  [ready] = `true` means the user tapped "Confirm".
+  void respondToMedicalConfirm(bool ready) {
+    if (_pendingConfirmCompleter != null &&
+        !_pendingConfirmCompleter!.isCompleted) {
+      _pendingConfirmCompleter!.complete(ready);
+    }
+  }
+
+  // ── Client side: initiate triple-consent handshake ────────────────────────
+
+  /// Initiates the three-step medical-consent handshake with a remote peer.
+  ///
+  /// Steps:
+  /// 1. Send `POST /medical/request` — peer shows 15 s countdown dialog.
+  /// 2. If peer accepts, show a local confirmation dialog.
+  /// 3. Send `POST /medical/confirm` — peer shows final approval dialog.
+  /// 4. If peer approves, register the peer in [_medicalConsentedPeers] and
+  ///    trigger an immediate full sync (with all medical data).
+  ///
+  /// Returns a [MedicalConsentResult] describing the outcome.
+  Future<MedicalConsentResult> requestMedicalConsent({
+    required String host,
+    required int port,
+    required String sharedSecret,
+    /// Optional callback to ask the local user for step-2 confirmation.
+    /// Return `true` to proceed.  If `null`, the local step is auto-approved.
+    Future<bool> Function()? localConfirmCallback,
+  }) async {
+    final tp = _treeProvider;
+    if (tp == null) return MedicalConsentResult.networkError;
+
+    // ── Step 1: ask the remote peer ──────────────────────────────────────────
+    try {
+      final step1Payload = _encrypt(
+        {'senderId': tp.localDeviceId, 'step': 1},
+        sharedSecret,
+      );
+      final url =
+          Uri(scheme: 'http', host: host, port: port, path: '/medical/request');
+      final resp = await http
+          .post(url,
+              headers: {'content-type': 'text/plain'}, body: step1Payload)
+          .timeout(const Duration(seconds: 25)); // > peer's 15 s UI timeout
+
+      if (resp.statusCode != 200) return MedicalConsentResult.networkError;
+
+      final result = _tryDecrypt(resp.body, sharedSecret);
+      if (result == null) return MedicalConsentResult.networkError;
+      if (result['accepted'] != true) return MedicalConsentResult.denied;
+    } on TimeoutException {
+      return MedicalConsentResult.networkError;
+    } catch (_) {
+      return MedicalConsentResult.networkError;
+    }
+
+    // ── Step 2: local confirmation ───────────────────────────────────────────
+    if (localConfirmCallback != null) {
+      final localOk = await localConfirmCallback();
+      if (!localOk) return MedicalConsentResult.cancelledLocally;
+    }
+
+    // ── Step 3: send confirmation, wait for peer's final approval ────────────
+    try {
+      final step3Payload = _encrypt(
+        {'senderId': tp.localDeviceId, 'step': 3},
+        sharedSecret,
+      );
+      final url =
+          Uri(scheme: 'http', host: host, port: port, path: '/medical/confirm');
+      final resp = await http
+          .post(url,
+              headers: {'content-type': 'text/plain'}, body: step3Payload)
+          .timeout(const Duration(seconds: 40));
+
+      if (resp.statusCode != 200) return MedicalConsentResult.networkError;
+
+      final result = _tryDecrypt(resp.body, sharedSecret);
+      if (result == null) return MedicalConsentResult.networkError;
+      if (result['ready'] != true) return MedicalConsentResult.denied;
+    } on TimeoutException {
+      return MedicalConsentResult.networkError;
+    } catch (_) {
+      return MedicalConsentResult.networkError;
+    }
+
+    // ── All three steps succeeded ─────────────────────────────────────────────
+    // Register by both peer key and device ID for robustness.
+    final peerKey = '$host:$port';
+    _medicalConsentedPeers.add(peerKey);
+    final deviceId = tp.pairedDevices
+        .where((d) => d.sharedSecret == sharedSecret)
+        .firstOrNull
+        ?.id;
+    if (deviceId != null) _medicalConsentedPeers.add(deviceId);
+    notifyListeners();
+
+    // Immediately trigger a full sync so medical data flows right away.
+    await syncWithPeer(host: host, port: port, sharedSecret: sharedSecret);
+
+    return MedicalConsentResult.granted;
+  }
+
   // ── Live-sync push (server side) ────────────────────────────────────────────
 
   /// Receives a delta from a peer that has changed some records.
@@ -576,41 +925,64 @@ class SyncService extends ChangeNotifier {
     _pushTimer = Timer(const Duration(milliseconds: 400), _flushPendingDelta);
   }
 
-  /// Merges two delta payloads by concatenating their record lists.
+  /// Merges two delta payloads.
+  ///
+  /// Records with the same `id` are deduplicated by keeping the one with the
+  /// higher `updatedAt` timestamp (or the incoming record when timestamps are
+  /// absent / equal, matching the last-write-wins convention used elsewhere).
   static Map<String, dynamic> _mergeDelta(
     Map<String, dynamic>? existing,
     Map<String, dynamic> incoming,
   ) {
     if (existing == null) return Map<String, dynamic>.from(incoming);
     return {
-      'persons': [
-        ...(existing['persons'] as List? ?? []),
-        ...(incoming['persons'] as List? ?? []),
-      ],
-      'partnerships': [
-        ...(existing['partnerships'] as List? ?? []),
-        ...(incoming['partnerships'] as List? ?? []),
-      ],
-      'sources': [
-        ...(existing['sources'] as List? ?? []),
-        ...(incoming['sources'] as List? ?? []),
-      ],
-      'lifeEvents': [
-        ...(existing['lifeEvents'] as List? ?? []),
-        ...(incoming['lifeEvents'] as List? ?? []),
-      ],
-      'medicalConditions': [
-        ...(existing['medicalConditions'] as List? ?? []),
-        ...(incoming['medicalConditions'] as List? ?? []),
-      ],
-      'researchTasks': [
-        ...(existing['researchTasks'] as List? ?? []),
-        ...(incoming['researchTasks'] as List? ?? []),
-      ],
+      'persons': _mergeList(
+          existing['persons'] as List?, incoming['persons'] as List?),
+      'partnerships': _mergeList(
+          existing['partnerships'] as List?, incoming['partnerships'] as List?),
+      'sources': _mergeList(
+          existing['sources'] as List?, incoming['sources'] as List?),
+      'lifeEvents': _mergeList(
+          existing['lifeEvents'] as List?, incoming['lifeEvents'] as List?),
+      'medicalConditions': _mergeList(existing['medicalConditions'] as List?,
+          incoming['medicalConditions'] as List?),
+      'researchTasks': _mergeList(
+          existing['researchTasks'] as List?, incoming['researchTasks'] as List?),
     };
   }
 
+  /// Deduplicates two record lists by `id`, keeping the record with the higher
+  /// `updatedAt` value (or the latest-seen record when timestamps are absent).
+  static List<Map<String, dynamic>> _mergeList(List? a, List? b) {
+    final result = <String, Map<String, dynamic>>{};
+    for (final item in [...(a ?? []), ...(b ?? [])]) {
+      final map = item as Map<String, dynamic>;
+      final id = map['id'] as String? ?? '';
+      if (id.isEmpty) {
+        // No ID — just include; can't deduplicate.
+        result[Object.hash(map, result.length).toString()] = map;
+        continue;
+      }
+      final existing = result[id];
+      if (existing == null) {
+        result[id] = map;
+      } else {
+        // Keep the record with the higher updatedAt (incoming wins on tie).
+        final existTs = existing['updatedAt'] as int? ?? 0;
+        final inTs = map['updatedAt'] as int? ?? 0;
+        if (inTs >= existTs) result[id] = map;
+      }
+    }
+    return result.values.toList();
+  }
+
   /// Pushes the accumulated delta to all active peers and clears the buffer.
+  ///
+  /// Medical conditions in the delta are filtered per-peer: they are only
+  /// included if the peer has either completed triple-consent or the originating
+  /// person has `syncMedical = true`.  This ensures TreeProvider can always
+  /// emit deltas (without needing to know about consent state) while still
+  /// enforcing per-peer medical privacy.
   Future<void> _flushPendingDelta() async {
     final delta = _pendingDelta;
     _pendingDelta = null;
@@ -619,14 +991,41 @@ class SyncService extends ChangeNotifier {
     final tp = _treeProvider;
     if (tp == null) return;
 
-    delta['senderId'] = tp.localDeviceId;
-    delta['senderTier'] = tp.currentAppTierString;
+    // Pre-compute the set of person IDs that have syncMedical enabled.
+    final syncMedicalIds = tp.persons
+        .where((p) => !p.isPrivate && p.syncMedical)
+        .map((p) => p.id)
+        .toSet();
 
     final peersToRemove = <String>[];
     for (final entry in _activePeers.entries) {
       final peer = entry.value;
       try {
-        final encrypted = _encrypt(delta, peer.sharedSecret);
+        // Determine whether this peer has triple-consent for medical data.
+        final peerKey = peer.key;
+        final device = tp.pairedDevices
+            .where((d) => d.sharedSecret == peer.sharedSecret)
+            .firstOrNull;
+        final hasConsent = _medicalConsentedPeers.contains(peerKey) ||
+            (device != null && _medicalConsentedPeers.contains(device.id));
+
+        // Build a per-peer payload filtering medical conditions appropriately.
+        final rawMedical =
+            (delta['medicalConditions'] as List? ?? [])
+                .cast<Map<String, dynamic>>();
+        final filteredMedical = hasConsent
+            ? rawMedical
+            : rawMedical
+                .where((mc) =>
+                    syncMedicalIds.contains(mc['personId'] as String? ?? ''))
+                .toList();
+
+        final peerDelta = Map<String, dynamic>.from(delta);
+        peerDelta['medicalConditions'] = filteredMedical;
+        peerDelta['senderId'] = tp.localDeviceId;
+        peerDelta['senderTier'] = tp.currentAppTierString;
+
+        final encrypted = _encrypt(peerDelta, peer.sharedSecret);
         final url = Uri(
             scheme: 'http', host: peer.host, port: peer.port, path: '/push');
         await http
@@ -789,6 +1188,7 @@ class SyncService extends ChangeNotifier {
     // Schedule async resource teardown; stopAll() stops the HTTP server and
     // mDNS broadcast.  unawaited signals the intent to fire-and-forget.
     unawaited(stopAll());
+    _consentEventController.close();
     super.dispose();
   }
 }
