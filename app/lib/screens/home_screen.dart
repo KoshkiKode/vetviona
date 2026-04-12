@@ -1866,7 +1866,6 @@ class _PersonCard extends StatelessWidget {
   /// On mobile it anchors to the bottom of the screen.
   Future<void> _showContextMenu(
       BuildContext context, Offset? position) async {
-    const menuItems = ['open', 'edit', 'copy_name'];
     final choice = await showMenu<String>(
       context: context,
       position: position != null
@@ -1879,20 +1878,14 @@ class _PersonCard extends StatelessWidget {
               0,
             ),
       items: [
-        const PopupMenuItem(value: 'open', child: Text('Open')),
         const PopupMenuItem(value: 'edit', child: Text('Edit')),
         const PopupMenuItem(value: 'copy_name', child: Text('Copy Name')),
       ],
     );
     if (!context.mounted) return;
     switch (choice) {
-      case 'open':
-        _openPerson(context);
       case 'edit':
-        Navigator.push(
-          context,
-          fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person)),
-        );
+        _openPerson(context);
       case 'copy_name':
         await Clipboard.setData(ClipboardData(text: person.name));
         if (context.mounted) {
