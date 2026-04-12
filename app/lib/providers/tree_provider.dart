@@ -1422,17 +1422,18 @@ class TreeProvider extends ChangeNotifier {
 
     // Re-point partnerships: replace mergeId with keepId, but only when keep
     // is not already a partner in the same relationship (avoid duplicates).
+    // Build a Set of partner IDs already linked to keepId for O(1) look-up.
+    final keepPartnerIds = partnerships
+        .where((p) => p.person1Id == keepId || p.person2Id == keepId)
+        .map((p) => p.person1Id == keepId ? p.person2Id : p.person1Id)
+        .toSet();
     for (final pt in partnerships
         .where((p) => p.person1Id == mergeId || p.person2Id == mergeId)
         .toList()) {
       final otherId =
           pt.person1Id == mergeId ? pt.person2Id : pt.person1Id;
       // Skip if the kept person already has a partnership with this person.
-      final alreadyExists = partnerships.any((p) =>
-          p.id != pt.id &&
-          ((p.person1Id == keepId && p.person2Id == otherId) ||
-              (p.person1Id == otherId && p.person2Id == keepId)));
-      if (alreadyExists) continue;
+      if (keepPartnerIds.contains(otherId)) continue;
       if (pt.person1Id == mergeId) {
         pt.person1Id = keepId;
       } else {
