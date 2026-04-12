@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -505,9 +506,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     final newIds = <String>{};
-    final queue = <Person>[person];
+    final queue = Queue<Person>()..add(person);
     while (queue.isNotEmpty) {
-      final p = queue.removeAt(0);
+      final p = queue.removeFirst();
       for (final parentId in p.parentIds) {
         if (!personMap.containsKey(parentId)) continue;
         if (!_visiblePersonIds.contains(parentId) && !newIds.contains(parentId)) {
@@ -537,9 +538,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   /// BFS-expands ALL descendants of [person].
   void _expandAllDescendants(Person person, Map<String, Person> personMap) {
     final newIds = <String>{};
-    final queue = <Person>[person];
+    final queue = Queue<Person>()..add(person);
     while (queue.isNotEmpty) {
-      final p = queue.removeAt(0);
+      final p = queue.removeFirst();
       for (final childId in p.childIds) {
         if (!personMap.containsKey(childId)) continue;
         if (!_visiblePersonIds.contains(childId) && !newIds.contains(childId)) {
