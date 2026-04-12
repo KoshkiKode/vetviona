@@ -17,6 +17,7 @@ import '../utils/page_routes.dart';
 import 'calendar_screen.dart';
 import 'conflict_resolver_screen.dart';
 import 'descendants_screen.dart';
+import 'family_timeline_screen.dart';
 import 'gedcom_import_screen.dart';
 import 'login_screen.dart';
 import 'medical_history_screen.dart';
@@ -26,6 +27,7 @@ import 'relationship_certificate_screen.dart';
 import 'relationship_finder_screen.dart';
 import 'research_tasks_screen.dart';
 import 'settings_screen.dart';
+import 'statistics_screen.dart';
 import 'sync_screen.dart';
 import 'tree_diagram_screen.dart';
 import 'tree_screen.dart';
@@ -623,6 +625,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   .labelLarge
                   ?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.bar_chart_outlined),
+            title: const Text('Statistics & Insights'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                fadeSlideRoute(
+                    builder: (_) => const StatisticsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.timeline_outlined),
+            title: const Text('Family Timeline'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                fadeSlideRoute(
+                    builder: (_) => const FamilyTimelineScreen()),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.local_hospital_outlined),
