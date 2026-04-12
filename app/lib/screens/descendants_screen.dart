@@ -1,15 +1,286 @@
 import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../utils/page_routes.dart';
-import 'package:graphview/GraphView.dart';
 import 'package:provider/provider.dart';
 
+import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../utils/page_routes.dart';
 import 'person_detail_screen.dart';
 
-/// Shows all descendants of a chosen ancestor as a top-down directed graph.
+// ── Layout constants (match tree_diagram_screen for visual consistency) ──────
+const double _kCardW = 160.0;
+const double _kCardH = 82.0;
+const double _kColGap = 24.0;
+const double _kRowGap = 80.0;
+
+// ── Internal data structures ─────────────────────────────────────────────────
+
+class _NodeInfo {
+  final String id;
+  bool isCoupleKnot;
+  String? knotPartner1;
+  String? knotPartner2;
+  int generation;
+  double x = 0;
+  double y = 0;
+
+  _NodeInfo({
+    required this.id,
+    this.isCoupleKnot = false,
+    this.knotPartner1,
+    this.knotPartner2,
+    required this.generation,
+  });
+}
+
+class _EdgeInfo {
+  final String from;
+  final String to;
+  final bool isCouple;
+  _EdgeInfo(this.from, this.to, {this.isCouple = false});
+}
+
+// ── Layout engine ─────────────────────────────────────────────────────────────
+
+/// Computes positions for all visible persons and their couple-knots so that
+/// each generation occupies its own horizontal row and couples are shown
+/// side-by-side — matching the layout style of tree_diagram_screen.dart.
+class _DescLayout {
+  final List<Person> persons;
+  final List<Partnership> partnerships;
+
+  /// IDs of the actual descendants (partners-in-law are not descendants).
+  final Set<String> descendantIds;
+
+  _DescLayout(this.persons, this.partnerships, this.descendantIds);
+
+  final Map<String, _NodeInfo> nodes = {};
+  final List<_EdgeInfo> edges = [];
+  Size canvasSize = Size.zero;
+
+  void compute() {
+    if (persons.isEmpty) return;
+    final personMap = {for (final p in persons) p.id: p};
+
+    // ── Assign generation depths via BFS through the descendant set ──────────
+    final generation = <String, int>{};
+    final queue = Queue<String>();
+
+    // Seed: descendants whose parents are NOT in the visible set are gen-0.
+    for (final p in persons) {
+      if (!descendantIds.contains(p.id)) continue;
+      if (!p.parentIds.any((pid) => descendantIds.contains(pid))) {
+        generation[p.id] = 0;
+        queue.add(p.id);
+      }
+    }
+    while (queue.isNotEmpty) {
+      final id = queue.removeFirst();
+      final person = personMap[id];
+      if (person == null) continue;
+      final g = generation[id]!;
+      for (final childId in person.childIds) {
+        if (!descendantIds.contains(childId)) continue;
+        if (!generation.containsKey(childId) || generation[childId]! < g + 1) {
+          generation[childId] = g + 1;
+          queue.add(childId);
+        }
+      }
+    }
+
+    // Partners-in-law share the same generation as the descendant they partner.
+    for (final part in partnerships) {
+      if (descendantIds.contains(part.person1Id) &&
+          !descendantIds.contains(part.person2Id)) {
+        generation[part.person2Id] = generation[part.person1Id] ?? 0;
+      }
+      if (descendantIds.contains(part.person2Id) &&
+          !descendantIds.contains(part.person1Id)) {
+        generation[part.person1Id] = generation[part.person2Id] ?? 0;
+      }
+    }
+
+    // ── Build person nodes ───────────────────────────────────────────────────
+    for (final p in persons) {
+      nodes[p.id] = _NodeInfo(id: p.id, generation: generation[p.id] ?? 0);
+    }
+
+    // ── Build couple-knot nodes and couple edges ─────────────────────────────
+    final knotMap = <String, String>{}; // partnershipId → knotId
+    for (final part in partnerships) {
+      if (!personMap.containsKey(part.person1Id) ||
+          !personMap.containsKey(part.person2Id)) continue;
+      final knotId = 'knot_${part.id}';
+      final knotGen = math.min(
+        generation[part.person1Id] ?? 0,
+        generation[part.person2Id] ?? 0,
+      );
+      nodes[knotId] = _NodeInfo(
+        id: knotId,
+        isCoupleKnot: true,
+        knotPartner1: part.person1Id,
+        knotPartner2: part.person2Id,
+        generation: knotGen,
+      );
+      knotMap[part.id] = knotId;
+      edges.add(_EdgeInfo(part.person1Id, knotId, isCouple: true));
+      edges.add(_EdgeInfo(part.person2Id, knotId, isCouple: true));
+    }
+
+    // ── Build parent-child edges (routed through knots when possible) ────────
+    for (final p in persons) {
+      if (!descendantIds.contains(p.id)) continue;
+      for (final childId in p.childIds) {
+        if (!personMap.containsKey(childId)) continue;
+        final childPerson = personMap[childId]!;
+        Partnership? matchingPart;
+        for (final part in partnerships) {
+          if ((part.person1Id == p.id || part.person2Id == p.id) &&
+              childPerson.parentIds.contains(part.person1Id) &&
+              childPerson.parentIds.contains(part.person2Id)) {
+            matchingPart = part;
+            break;
+          }
+        }
+        if (matchingPart != null && knotMap.containsKey(matchingPart.id)) {
+          final knotId = knotMap[matchingPart.id]!;
+          if (!edges.any((e) => e.from == knotId && e.to == childId)) {
+            edges.add(_EdgeInfo(knotId, childId));
+          }
+        } else {
+          if (!edges.any((e) => e.from == p.id && e.to == childId)) {
+            edges.add(_EdgeInfo(p.id, childId));
+          }
+        }
+      }
+    }
+
+    // ── Assign x / y coordinates per generation ──────────────────────────────
+    final byGen = <int, List<String>>{};
+    for (final n in nodes.values) {
+      byGen.putIfAbsent(n.generation, () => []).add(n.id);
+    }
+
+    for (final entry in byGen.entries) {
+      final nodeIds = entry.value;
+
+      // Build an ordered list: person nodes first, then insert each couple-knot
+      // between its two partners so they appear side-by-side.
+      final ordered = <String>[];
+      final added = <String>{};
+
+      for (final nid in nodeIds) {
+        if (added.contains(nid) || nodes[nid]!.isCoupleKnot) continue;
+        ordered.add(nid);
+        added.add(nid);
+      }
+      for (final nid in nodeIds) {
+        final node = nodes[nid]!;
+        if (!node.isCoupleKnot) continue;
+        final p1 = node.knotPartner1!;
+        final p2 = node.knotPartner2!;
+        final i1 = ordered.indexOf(p1);
+        final i2 = ordered.indexOf(p2);
+        if (i1 >= 0 && i2 >= 0) {
+          if ((i2 - i1).abs() > 1) {
+            ordered.remove(p2);
+            ordered.insert(ordered.indexOf(p1) + 1, p2);
+          }
+          final minIdx = math.min(ordered.indexOf(p1), ordered.indexOf(p2));
+          ordered.insert(minIdx + 1, nid);
+          added.add(nid);
+        } else {
+          ordered.add(nid);
+          added.add(nid);
+        }
+      }
+
+      final step = _kCardW + _kColGap;
+      for (int i = 0; i < ordered.length; i++) {
+        final node = nodes[ordered[i]]!;
+        node.x = i * step;
+        node.y = entry.key * (_kCardH + _kRowGap);
+      }
+    }
+
+    // ── Canvas bounds ────────────────────────────────────────────────────────
+    double maxX = 0, maxY = 0;
+    for (final n in nodes.values) {
+      maxX = math.max(maxX, n.x + _kCardW);
+      maxY = math.max(maxY, n.y + _kCardH);
+    }
+    canvasSize = Size(maxX + 40, maxY + 40);
+  }
+}
+
+// ── Edge painter ──────────────────────────────────────────────────────────────
+
+class _DescEdgePainter extends CustomPainter {
+  final Map<String, _NodeInfo> nodes;
+  final List<_EdgeInfo> edges;
+  final Color edgeColor;
+  final Color coupleColor;
+
+  const _DescEdgePainter({
+    required this.nodes,
+    required this.edges,
+    required this.edgeColor,
+    required this.coupleColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final parentPaint = Paint()
+      ..color = edgeColor
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke;
+    final couplePaint = Paint()
+      ..color = coupleColor
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    for (final edge in edges) {
+      final fromNode = nodes[edge.from];
+      final toNode = nodes[edge.to];
+      if (fromNode == null || toNode == null) continue;
+
+      if (edge.isCouple) {
+        // Horizontal line connecting person ↔ couple-knot.
+        canvas.drawLine(
+          Offset(fromNode.x + _kCardW / 2, fromNode.y + _kCardH / 2),
+          Offset(toNode.x + _kCardW / 2, toNode.y + _kCardH / 2),
+          couplePaint,
+        );
+      } else {
+        // Orthogonal right-angle connector: down → across → down.
+        final fromCx = fromNode.x + _kCardW / 2;
+        final fromBot = fromNode.y + _kCardH;
+        final toCx = toNode.x + _kCardW / 2;
+        final toTop = toNode.y;
+        final midY = fromBot + (toTop - fromBot) * 0.4;
+        final path = Path()
+          ..moveTo(fromCx, fromBot)
+          ..lineTo(fromCx, midY)
+          ..lineTo(toCx, midY)
+          ..lineTo(toCx, toTop);
+        canvas.drawPath(path, parentPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DescEdgePainter old) =>
+      old.nodes != nodes || old.edges != edges;
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
+/// Shows all descendants of a chosen ancestor using an Ancestry-style layout:
+/// couples side-by-side with a union knot, children in rows below, and
+/// right-angle connectors between generations.
 class DescendantsScreen extends StatefulWidget {
   final Person? initialPerson;
   const DescendantsScreen({super.key, this.initialPerson});
@@ -55,6 +326,7 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<TreeProvider>();
     final persons = provider.persons;
+    final partnerships = provider.partnerships;
     final colorScheme = Theme.of(context).colorScheme;
 
     if (persons.isEmpty) {
@@ -71,211 +343,390 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
     if (!pm.containsKey(_rootPerson!.id)) _rootPerson = persons.first;
 
     final descIds = _collectDescendants(_rootPerson!, pm);
-    final descs = descIds.map((id) => pm[id]).whereType<Person>().toList();
 
-    final graph = Graph()..isTree = true;
-    final nodeMap = <String, Node>{
-      for (final p in descs) p.id: Node.Id(p.id)
-    };
-    // Add root first so graphview has a starting point.
-    if (nodeMap.containsKey(_rootPerson!.id)) {
-      graph.addNode(nodeMap[_rootPerson!.id]!);
+    if (descIds.length <= 1) {
+      return Scaffold(
+        appBar: AppBar(
+          title: _RootPicker(
+            persons: persons,
+            rootId: _rootPerson!.id,
+            pm: pm,
+            colorScheme: colorScheme,
+            onChanged: (p) => setState(() {
+              _rootPerson = p;
+              _resetView();
+            }),
+          ),
+        ),
+        body: const Center(
+            child: Text('This person has no recorded descendants.')),
+      );
     }
-    for (final p in descs) {
-      for (final cid in p.childIds) {
-        if (nodeMap.containsKey(cid)) {
-          graph.addEdge(nodeMap[p.id]!, nodeMap[cid]!);
-        }
+
+    // Include partners of descendants who are not themselves descendants so
+    // that couple-knots can be rendered properly.
+    final partnerIds = <String>{};
+    for (final part in partnerships) {
+      if (descIds.contains(part.person1Id) &&
+          pm.containsKey(part.person2Id) &&
+          !descIds.contains(part.person2Id)) {
+        partnerIds.add(part.person2Id);
+      }
+      if (descIds.contains(part.person2Id) &&
+          pm.containsKey(part.person1Id) &&
+          !descIds.contains(part.person1Id)) {
+        partnerIds.add(part.person1Id);
       }
     }
 
-    final cfg = BuchheimWalkerConfiguration()
-      ..siblingSeparation = 20
-      ..levelSeparation = 50
-      ..subtreeSeparation = 30
-      ..orientation = BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM;
+    final visibleIds = {...descIds, ...partnerIds};
+    final visiblePersons =
+        visibleIds.map((id) => pm[id]).whereType<Person>().toList();
+    final visiblePartnerships = partnerships
+        .where((p) =>
+            visibleIds.contains(p.person1Id) &&
+            visibleIds.contains(p.person2Id))
+        .toList();
+
+    final layout = _DescLayout(visiblePersons, visiblePartnerships, descIds);
+    layout.compute();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Descendants Chart'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: DropdownButton<String>(
-              value: _rootPerson!.id,
-              dropdownColor: colorScheme.surface,
-              underline: const SizedBox.shrink(),
-              style: TextStyle(
-                  color: colorScheme.onPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500),
-              icon:
-                  Icon(Icons.arrow_drop_down, color: colorScheme.onPrimary),
-              selectedItemBuilder: (_) => persons
-                  .map((p) => Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(p.name,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                            style: TextStyle(
-                                color: colorScheme.onPrimary, fontSize: 13)),
-                      ))
-                  .toList(),
-              items: persons
-                  .map((p) => DropdownMenuItem(
-                        value: p.id,
-                        child: Text(p.name, overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(),
-              onChanged: (id) {
-                if (id != null) {
-                  setState(() {
-                    _rootPerson = pm[id];
-                    _resetView();
-                  });
-                }
-              },
+        title: _RootPicker(
+          persons: persons,
+          rootId: _rootPerson!.id,
+          pm: pm,
+          colorScheme: colorScheme,
+          onChanged: (p) => setState(() {
+            _rootPerson = p;
+            _resetView();
+          }),
+        ),
+      ),
+      body: Stack(
+        children: [
+          InteractiveViewer(
+            constrained: false,
+            transformationController: _transformCtrl,
+            boundaryMargin: const EdgeInsets.all(200),
+            minScale: 0.1,
+            maxScale: 5.0,
+            child: SizedBox(
+              width: layout.canvasSize.width,
+              height: layout.canvasSize.height,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _DescEdgePainter(
+                        nodes: layout.nodes,
+                        edges: layout.edges,
+                        edgeColor: colorScheme.outline.withOpacity(0.5),
+                        coupleColor: colorScheme.tertiary.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                  for (final node in layout.nodes.values)
+                    Positioned(
+                      left: node.x,
+                      top: node.y,
+                      width: _kCardW,
+                      height: _kCardH,
+                      child: node.isCoupleKnot
+                          ? _CoupleKnot(
+                              node: node,
+                              partnerships: visiblePartnerships,
+                              colorScheme: colorScheme,
+                            )
+                          : _DescCard(
+                              person: pm[node.id]!,
+                              isRoot: node.id == _rootPerson!.id,
+                              colorScheme: colorScheme,
+                              onTap: () => Navigator.push(
+                                context,
+                                fadeSlideRoute(
+                                  builder: (_) =>
+                                      PersonDetailScreen(person: pm[node.id]!),
+                                ),
+                              ),
+                            ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // Zoom controls
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'desc_zoom_in',
+                  onPressed: () => _changeScale(1.3),
+                  tooltip: 'Zoom in',
+                  child: const Icon(Icons.add),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.small(
+                  heroTag: 'desc_zoom_out',
+                  onPressed: () => _changeScale(0.77),
+                  tooltip: 'Zoom out',
+                  child: const Icon(Icons.remove),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.small(
+                  heroTag: 'desc_reset',
+                  onPressed: _resetView,
+                  tooltip: 'Reset view',
+                  child: const Icon(Icons.fit_screen),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      body: descs.isEmpty
-          ? const Center(child: Text('This person has no recorded descendants.'))
-          : Stack(
-              children: [
-                InteractiveViewer(
-                  constrained: false,
-                  transformationController: _transformCtrl,
-                  boundaryMargin: const EdgeInsets.all(200),
-                  minScale: 0.1,
-                  maxScale: 5.0,
-                  child: GraphView(
-                    graph: graph,
-                    algorithm:
-                        BuchheimWalkerAlgorithm(cfg, TreeEdgeRenderer(cfg)),
-                    paint: Paint()
-                      ..color = colorScheme.outline
-                      ..strokeWidth = 1.5
-                      ..style = PaintingStyle.stroke,
-                    builder: (Node node) {
-                      final pid = node.key!.value as String;
-                      final p = pm[pid];
-                      if (p == null) return const SizedBox.shrink();
-                      return _DescNode(
-                        person: p,
-                        isRoot: p.id == _rootPerson!.id,
-                        onTap: () => Navigator.push(
-                          context,
-                          fadeSlideRoute(
-                            builder: (_) => PersonDetailScreen(person: p),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // Zoom controls
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      FloatingActionButton.small(
-                        heroTag: 'desc_zoom_in',
-                        onPressed: () => _changeScale(1.3),
-                        tooltip: 'Zoom in',
-                        child: const Icon(Icons.add),
-                      ),
-                      const SizedBox(height: 8),
-                      FloatingActionButton.small(
-                        heroTag: 'desc_zoom_out',
-                        onPressed: () => _changeScale(0.77),
-                        tooltip: 'Zoom out',
-                        child: const Icon(Icons.remove),
-                      ),
-                      const SizedBox(height: 8),
-                      FloatingActionButton.small(
-                        heroTag: 'desc_reset',
-                        onPressed: _resetView,
-                        tooltip: 'Reset view',
-                        child: const Icon(Icons.fit_screen),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
     );
   }
 }
 
-class _DescNode extends StatelessWidget {
-  final Person person;
-  final bool isRoot;
-  final VoidCallback onTap;
+// ── Root-person picker ────────────────────────────────────────────────────────
 
-  const _DescNode({
-    required this.person,
-    required this.isRoot,
-    required this.onTap,
+class _RootPicker extends StatelessWidget {
+  final List<Person> persons;
+  final String rootId;
+  final Map<String, Person> pm;
+  final ColorScheme colorScheme;
+  final ValueChanged<Person> onChanged;
+
+  const _RootPicker({
+    required this.persons,
+    required this.rootId,
+    required this.pm,
+    required this.colorScheme,
+    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    Color bg;
-    if (isRoot) {
-      bg = cs.tertiary;
-    } else if (person.gender?.toLowerCase() == 'male') {
-      bg = cs.primary;
-    } else if (person.gender?.toLowerCase() == 'female') {
-      bg = cs.error;
-    } else {
-      bg = cs.secondary;
-    }
-    final fg =
-        ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
-            ? cs.onPrimary
-            : cs.onSurface;
+    return DropdownButton<String>(
+      value: rootId,
+      dropdownColor: colorScheme.surface,
+      underline: const SizedBox.shrink(),
+      style: TextStyle(
+        color: colorScheme.onPrimary,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
+      icon: Icon(Icons.arrow_drop_down, color: colorScheme.onPrimary),
+      selectedItemBuilder: (_) => persons
+          .map((p) => Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  p.name,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(color: colorScheme.onPrimary, fontSize: 13),
+                ),
+              ))
+          .toList(),
+      items: persons
+          .map((p) => DropdownMenuItem(
+                value: p.id,
+                child: Text(p.name, overflow: TextOverflow.ellipsis),
+              ))
+          .toList(),
+      onChanged: (id) {
+        if (id != null && pm.containsKey(id)) onChanged(pm[id]!);
+      },
+    );
+  }
+}
 
+// ── Couple-knot widget ────────────────────────────────────────────────────────
+
+class _CoupleKnot extends StatelessWidget {
+  final _NodeInfo node;
+  final List<Partnership> partnerships;
+  final ColorScheme colorScheme;
+
+  const _CoupleKnot({
+    required this.node,
+    required this.partnerships,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final partId =
+        node.id.startsWith('knot_') ? node.id.substring(5) : '';
+    final part = partnerships.where((p) => p.id == partId).firstOrNull;
+    final year = part?.startDate?.year;
+    return Center(
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: colorScheme.tertiaryContainer,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.tertiary, width: 1.5),
+        ),
+        child: Center(
+          child: year != null
+              ? Text(
+                  '${year % 100}',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                )
+              : Icon(Icons.favorite, size: 10, color: colorScheme.tertiary),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Person card ───────────────────────────────────────────────────────────────
+
+/// Ancestry-style card: white surface, coloured left-strip + avatar, name and
+/// birth/death years on the right.  Matches the visual language of
+/// tree_diagram_screen.dart's _PersonNodeWidget.
+class _DescCard extends StatelessWidget {
+  final Person person;
+  final bool isRoot;
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+
+  const _DescCard({
+    required this.person,
+    required this.isRoot,
+    required this.colorScheme,
+    required this.onTap,
+  });
+
+  Color _accentColor() {
+    if (isRoot) return colorScheme.tertiary;
+    if (person.gender?.toLowerCase() == 'male') return colorScheme.primary;
+    if (person.gender?.toLowerCase() == 'female') return colorScheme.error;
+    return colorScheme.secondary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _accentColor();
+    final isDead = person.deathDate != null;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 110,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(8),
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accent, width: isRoot ? 2.0 : 1.5),
           boxShadow: [
             BoxShadow(
-              color: bg.withOpacity(0.35),
-              blurRadius: 4,
+              color: accent.withOpacity(isRoot ? 0.25 : 0.12),
+              blurRadius: isRoot ? 8 : 4,
               offset: const Offset(0, 2),
-            )
+            ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            Text(
-              person.name,
-              style: TextStyle(
-                  color: fg,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (person.birthDate != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                'b. ${person.birthDate!.year}',
-                style:
-                    TextStyle(color: fg.withOpacity(0.8), fontSize: 10),
+            // Coloured left strip
+            Container(
+              width: 6,
+              decoration: BoxDecoration(
+                color: accent.withOpacity(0.85),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
+                ),
               ),
-            ],
+            ),
+            const SizedBox(width: 8),
+            // Avatar circle
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: accent.withOpacity(0.15),
+              child: Text(
+                person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
+                style: TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Name + dates + location
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            person.name,
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isDead)
+                          Icon(
+                            Icons.star,
+                            size: 10,
+                            color:
+                                colorScheme.onSurfaceVariant.withOpacity(0.6),
+                          ),
+                      ],
+                    ),
+                    if (person.birthDate != null || person.deathDate != null)
+                      ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (person.birthDate != null)
+                            '${person.birthDate!.year}',
+                          if (person.deathDate != null)
+                            '${person.deathDate!.year}',
+                        ].join(' – '),
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    if (person.birthPlace != null) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        person.birthPlace!,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
           ],
         ),
       ),
