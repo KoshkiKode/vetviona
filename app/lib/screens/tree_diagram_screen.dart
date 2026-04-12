@@ -180,6 +180,9 @@ class _TreeLayout {
       }
     }
 
+    // Refine layout: iteratively centre parents over children and resolve overlaps.
+    _refineLayout(byGen);
+
     // Canvas size
     double maxX = 0, maxY = 0;
     for (final n in nodes.values) {
@@ -193,6 +196,70 @@ class _TreeLayout {
     final genNums = byGen.keys.toList()..sort();
     for (final gen in genNums) {
       generationRows.add(_GenRow(gen, gen * (_kNodeH + _kRowGap)));
+    }
+  }
+
+  /// Iterative layout refinement:
+  ///   1. Bottom-up: centre each non-knot parent node over its children.
+  ///   2. Push apart overlapping nodes in each generation row.
+  ///   3. Re-centre couple knots between their two partners.
+  /// Three passes are enough for typical genealogy trees while remaining fast.
+  void _refineLayout(Map<int, List<String>> byGen) {
+    // Map: layoutParent -> [layoutChildren] using non-couple edges only.
+    final childrenOf = <String, List<String>>{};
+    for (final e in edges) {
+      if (!e.isCouple) childrenOf.putIfAbsent(e.from, () => []).add(e.to);
+    }
+
+    final sortedGens = byGen.keys.toList()..sort(); // ascending (gen 0 = root)
+    const step = _kNodeW + _kColGap;
+
+    for (int iter = 0; iter < 3; iter++) {
+      // --- Pass A: bottom-up centering of parents over their children ---
+      for (final gen in sortedGens.reversed) {
+        for (final id in (byGen[gen] ?? [])) {
+          if (nodes[id]!.isCoupleKnot) continue; // handled in pass C
+          final kids = (childrenOf[id] ?? [])
+              .where((k) => nodes.containsKey(k))
+              .toList();
+          if (kids.isEmpty) continue;
+          final childCx = kids
+                  .map((k) => nodes[k]!.x + _kNodeW / 2)
+                  .reduce((a, b) => a + b) /
+              kids.length;
+          nodes[id]!.x = childCx - _kNodeW / 2;
+        }
+
+        // --- Pass B: push apart overlapping nodes in this row ---
+        final rowNodes = (byGen[gen] ?? [])
+            .map((id) => nodes[id]!)
+            .toList()
+          ..sort((a, b) => a.x.compareTo(b.x));
+        for (int i = 1; i < rowNodes.length; i++) {
+          final minX = rowNodes[i - 1].x + step;
+          if (rowNodes[i].x < minX) rowNodes[i].x = minX;
+        }
+      }
+
+      // --- Pass C: centre couple knots between their two partners ---
+      for (final node in nodes.values) {
+        if (!node.isCoupleKnot) continue;
+        final p1 = nodes[node.knotPartner1];
+        final p2 = nodes[node.knotPartner2];
+        if (p1 != null && p2 != null) {
+          node.x = (p1.x + p2.x + _kNodeW) / 2.0 - _kNodeW / 2.0;
+        }
+      }
+    }
+
+    // Normalise: shift everything so the leftmost node is at x = 0.
+    if (nodes.isNotEmpty) {
+      final minX = nodes.values.map((n) => n.x).reduce(math.min);
+      if (minX < 0) {
+        for (final n in nodes.values) {
+          n.x -= minX;
+        }
+      }
     }
   }
 }
@@ -398,6 +465,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     }
     if (newIds.isNotEmpty) {
       setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     }
   }
 
@@ -408,6 +476,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         .toSet();
     if (newIds.isNotEmpty) {
       setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     }
   }
 
@@ -425,6 +494,63 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     }
     if (newIds.isNotEmpty) {
       setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+    }
+  }
+
+  /// BFS-expands ALL ancestors of [person] (and each ancestor's partners).
+  void _expandAllAncestors(
+    Person person,
+    Map<String, Person> personMap,
+    List<Partnership> partnerships,
+  ) {
+    final newIds = <String>{};
+    final queue = <Person>[person];
+    while (queue.isNotEmpty) {
+      final p = queue.removeAt(0);
+      for (final parentId in p.parentIds) {
+        if (!personMap.containsKey(parentId)) continue;
+        if (!_visiblePersonIds.contains(parentId) && !newIds.contains(parentId)) {
+          newIds.add(parentId);
+          queue.add(personMap[parentId]!);
+        }
+        // Include each parent's partners so couple knots render correctly.
+        for (final part in partnerships) {
+          String? partnerId;
+          if (part.person1Id == parentId) partnerId = part.person2Id;
+          if (part.person2Id == parentId) partnerId = part.person1Id;
+          if (partnerId != null &&
+              personMap.containsKey(partnerId) &&
+              !_visiblePersonIds.contains(partnerId) &&
+              !newIds.contains(partnerId)) {
+            newIds.add(partnerId);
+          }
+        }
+      }
+    }
+    if (newIds.isNotEmpty) {
+      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+    }
+  }
+
+  /// BFS-expands ALL descendants of [person].
+  void _expandAllDescendants(Person person, Map<String, Person> personMap) {
+    final newIds = <String>{};
+    final queue = <Person>[person];
+    while (queue.isNotEmpty) {
+      final p = queue.removeAt(0);
+      for (final childId in p.childIds) {
+        if (!personMap.containsKey(childId)) continue;
+        if (!_visiblePersonIds.contains(childId) && !newIds.contains(childId)) {
+          newIds.add(childId);
+          queue.add(personMap[childId]!);
+        }
+      }
+    }
+    if (newIds.isNotEmpty) {
+      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     }
   }
 
@@ -433,7 +559,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
   void _zoom(double factor) {
     final s = _txCtrl.value.getMaxScaleOnAxis();
-    final ns = (s * factor).clamp(0.15, 5.0);
+    final ns = (s * factor).clamp(0.05, 5.0);
     _txCtrl.value = _txCtrl.value.clone()..scale(ns / s);
   }
   void _resetView() => _txCtrl.value = Matrix4.identity();
@@ -449,7 +575,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     const padding = 48.0;
     final sx = (vp.width  - padding * 2) / layout.canvasSize.width;
     final sy = (vp.height - padding * 2) / layout.canvasSize.height;
-    final scale = (sx < sy ? sx : sy).clamp(0.08, 1.0);
+    final scale = (sx < sy ? sx : sy).clamp(0.05, 1.0);
     final scaledW = layout.canvasSize.width  * scale;
     final scaledH = layout.canvasSize.height * scale;
     final tx = (vp.width  - scaledW) / 2;
@@ -586,6 +712,32 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                         onPressed: () {
                           Navigator.pop(ctx);
                           _expandSiblings(person, personMap);
+                        }),
+                  ],
+                ),
+              ],
+              // "Expand all" chain actions
+              if (hasHiddenParents || hasHiddenChildren) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (hasHiddenParents)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.account_tree, size: 16),
+                        label: const Text('All Ancestors'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _expandAllAncestors(person, personMap, partnerships);
+                        }),
+                    if (hasHiddenChildren)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.account_tree, size: 16),
+                        label: const Text('All Descendants'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _expandAllDescendants(person, personMap);
                         }),
                   ],
                 ),
@@ -751,9 +903,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             InteractiveViewer(
               transformationController: _txCtrl,
               constrained: false,
-              minScale: 0.1,
+              minScale: 0.05,
               maxScale: 5.0,
-              boundaryMargin: const EdgeInsets.all(200),
+              boundaryMargin: const EdgeInsets.all(6000),
               child: SizedBox(
                 width: layout.canvasSize.width,
                 height: layout.canvasSize.height,
@@ -790,6 +942,20 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                               isHighlighted: searchLower.isNotEmpty &&
                                   (personMap[node.id]?.name.toLowerCase().contains(searchLower) ?? false),
                               isSelected: _selectedPersonId == node.id,
+                              hasHiddenAncestors: (() {
+                                final p = personMap[node.id];
+                                if (p == null) return false;
+                                return p.parentIds.any((id) =>
+                                    personMap.containsKey(id) &&
+                                    !_visiblePersonIds.contains(id));
+                              })(),
+                              hasHiddenDescendants: (() {
+                                final p = personMap[node.id];
+                                if (p == null) return false;
+                                return p.childIds.any((id) =>
+                                    personMap.containsKey(id) &&
+                                    !_visiblePersonIds.contains(id));
+                              })(),
                               onTap: () {
                                 final p = personMap[node.id];
                                 if (p == null) return;
@@ -864,11 +1030,16 @@ class _PersonNodeWidget extends StatelessWidget {
   final ColorScheme colorScheme;
   final bool isHighlighted;
   final bool isSelected;
+  final bool hasHiddenAncestors;
+  final bool hasHiddenDescendants;
   final VoidCallback onTap;
 
   const _PersonNodeWidget({
     required this.person, required this.colorScheme,
-    required this.isHighlighted, required this.isSelected, required this.onTap});
+    required this.isHighlighted, required this.isSelected,
+    this.hasHiddenAncestors = false,
+    this.hasHiddenDescendants = false,
+    required this.onTap});
 
   Color _borderColor() {
     if (isHighlighted) return Colors.amber;
@@ -889,7 +1060,7 @@ class _PersonNodeWidget extends StatelessWidget {
     final borderColor = _borderColor();
     final avatarBg = _avatarBg();
     final bool isDead = person.deathDate != null;
-    return GestureDetector(
+    final card = GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -929,6 +1100,48 @@ class _PersonNodeWidget extends StatelessWidget {
           )),
         ]),
       ),
+    );
+
+    // Wrap in a Stack to overlay expand indicator dots.
+    if (!hasHiddenAncestors && !hasHiddenDescendants) return card;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        card,
+        if (hasHiddenAncestors)
+          Positioned(
+            top: -7,
+            left: 0, right: 0,
+            child: Center(child: _ExpandDot(
+              icon: Icons.keyboard_arrow_up, colorScheme: colorScheme))),
+        if (hasHiddenDescendants)
+          Positioned(
+            bottom: -7,
+            left: 0, right: 0,
+            child: Center(child: _ExpandDot(
+              icon: Icons.keyboard_arrow_down, colorScheme: colorScheme))),
+      ],
+    );
+  }
+}
+
+/// Small circular indicator showing that hidden relatives exist in a direction.
+class _ExpandDot extends StatelessWidget {
+  final IconData icon;
+  final ColorScheme colorScheme;
+  const _ExpandDot({required this.icon, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: colorScheme.primary.withOpacity(0.4), blurRadius: 4)],
+      ),
+      child: Icon(icon, size: 12, color: colorScheme.onPrimary),
     );
   }
 }
