@@ -92,6 +92,17 @@ class Person {
   /// edited record.
   int? updatedAt;
 
+  /// WikiTree profile ID / page name, e.g. `"Churchill-4"`.
+  ///
+  /// Stored so any device can independently refresh this person's data from
+  /// WikiTree via [WikiTreeService].  Shared across devices via RootLoop™ sync.
+  String? wikitreeId;
+
+  /// Find A Grave memorial ID (the numeric portion of the memorial URL).
+  ///
+  /// e.g. memorial URL `https://www.findagrave.com/memorial/1836/…` → `"1836"`.
+  String? findAGraveId;
+
   static const List<String> allBloodTypes = [
     'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown',
   ];
@@ -142,6 +153,8 @@ class Person {
     this.education,
     List<String>? aliases,
     this.updatedAt,
+    this.wikitreeId,
+    this.findAGraveId,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
@@ -216,6 +229,8 @@ class Person {
       'education': education,
       'aliases': aliases.join(';'),
       'updatedAt': updatedAt,
+      'wikitreeId': wikitreeId,
+      'findAGraveId': findAGraveId,
     };
   }
 
@@ -300,6 +315,8 @@ class Person {
               .toList() ??
           [],
       updatedAt: map['updatedAt'] as int?,
+      wikitreeId: map['wikitreeId'] as String?,
+      findAGraveId: map['findAGraveId'] as String?,
     );
   }
 }

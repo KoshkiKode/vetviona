@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../services/sound_service.dart';
@@ -19,6 +20,9 @@ import 'photo_gallery_screen.dart';
 import 'relationship_screen.dart';
 import 'research_tasks_screen.dart';
 import 'descendants_screen.dart';
+import 'wikitree_screen.dart';
+import '../services/find_a_grave_service.dart';
+import '../services/wikitree_service.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -62,6 +66,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   late TextEditingController _educationController;
   String? _bloodType;
   late List<String> _aliases;
+
+  // External IDs
+  String? _wikitreeId;
+  String? _findAGraveId;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
 
@@ -115,6 +123,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         TextEditingController(text: widget.person?.education ?? '');
     _bloodType = widget.person?.bloodType;
     _aliases = List<String>.from(widget.person?.aliases ?? []);
+    _wikitreeId = widget.person?.wikitreeId;
+    _findAGraveId = widget.person?.findAGraveId;
   }
 
   @override
@@ -761,6 +771,25 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               ),
             ],
             const SizedBox(height: 24),
+            // ── External IDs ──────────────────────────────────────────────
+            _buildSection(
+              context,
+              icon: Icons.link,
+              title: 'External IDs',
+              children: [
+                _ExternalIdSection(
+                  wikitreeId: _wikitreeId,
+                  findAGraveId: _findAGraveId,
+                  personName: _nameController.text,
+                  birthYear: _birthDate?.year,
+                  onWikiTreeIdChanged: (id) =>
+                      setState(() => _wikitreeId = id),
+                  onFindAGraveIdChanged: (id) =>
+                      setState(() => _findAGraveId = id),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             FilledButton.icon(
               icon: const Icon(Icons.save),
               label: const Text('Save Person'),
@@ -1012,6 +1041,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           ? null
           : _educationController.text.trim(),
       aliases: _aliases,
+      wikitreeId: _wikitreeId,
+      findAGraveId: _findAGraveId,
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
@@ -1846,6 +1877,210 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _ExternalIdSection — WikiTree + Find A Grave IDs with search/link actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ExternalIdSection extends StatefulWidget {
+  final String? wikitreeId;
+  final String? findAGraveId;
+  final String personName;
+  final int? birthYear;
+  final ValueChanged<String?> onWikiTreeIdChanged;
+  final ValueChanged<String?> onFindAGraveIdChanged;
+
+  const _ExternalIdSection({
+    required this.wikitreeId,
+    required this.findAGraveId,
+    required this.personName,
+    required this.birthYear,
+    required this.onWikiTreeIdChanged,
+    required this.onFindAGraveIdChanged,
+  });
+
+  @override
+  State<_ExternalIdSection> createState() => _ExternalIdSectionState();
+}
+
+class _ExternalIdSectionState extends State<_ExternalIdSection> {
+  late TextEditingController _wtCtrl;
+  late TextEditingController _fagCtrl;
+  bool _searching = false;
+  List<WikiTreeProfile> _searchResults = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _wtCtrl = TextEditingController(text: widget.wikitreeId ?? '');
+    _fagCtrl = TextEditingController(text: widget.findAGraveId ?? '');
+  }
+
+  @override
+  void dispose() {
+    _wtCtrl.dispose();
+    _fagCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchWikiTree() async {
+    if (widget.personName.trim().isEmpty) return;
+    setState(() {
+      _searching = true;
+      _searchResults = [];
+    });
+    final results = await WikiTreeService.instance.searchPerson(
+      widget.personName,
+      birthYear: widget.birthYear,
+      limit: 5,
+    );
+    if (mounted) setState(() { _searching = false; _searchResults = results; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── WikiTree ─────────────────────────────────────────────────────
+        Row(children: [
+          Icon(Icons.account_tree_outlined, size: 16, color: colorScheme.primary),
+          const SizedBox(width: 6),
+          Text('WikiTree', style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(
+            child: TextFormField(
+              controller: _wtCtrl,
+              decoration: const InputDecoration(
+                labelText: 'WikiTree ID (e.g. Churchill-4)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (v) => widget.onWikiTreeIdChanged(v.trim().isEmpty ? null : v.trim()),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (widget.wikitreeId != null && widget.wikitreeId!.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.open_in_new, size: 20),
+              tooltip: 'Open WikiTree profile',
+              onPressed: () => launchUrl(
+                Uri.parse('https://www.wikitree.com/wiki/${widget.wikitreeId}'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+        ]),
+        const SizedBox(height: 4),
+        Row(children: [
+          if (_searching)
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator.adaptive(strokeWidth: 2))
+          else
+            TextButton.icon(
+              onPressed: _searchWikiTree,
+              icon: const Icon(Icons.search, size: 16),
+              label: const Text('Search WikiTree for this person'),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            ),
+          const Spacer(),
+          TextButton(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WikiTreeScreen())),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: const Text('Open WikiTree Hub →'),
+          ),
+        ]),
+        ..._searchResults.map((p) => _WikiTreeResultChip(
+          profile: p,
+          onSelect: (id) {
+            widget.onWikiTreeIdChanged(id);
+            setState(() { _wtCtrl.text = id; _searchResults = []; });
+          },
+        )),
+        const SizedBox(height: 12),
+        // ── Find A Grave ─────────────────────────────────────────────────
+        Row(children: [
+          Icon(Icons.location_on_outlined, size: 16, color: colorScheme.secondary),
+          const SizedBox(width: 6),
+          Text('Find A Grave', style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(
+            child: TextFormField(
+              controller: _fagCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Memorial ID (e.g. 1836)',
+                hintText: 'Paste URL or memorial ID',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.url,
+              onChanged: (v) {
+                final extracted = FindAGraveService.instance.extractIdFromUrl(v) ??
+                    (RegExp(r'^\d+$').hasMatch(v.trim()) ? v.trim() : null);
+                widget.onFindAGraveIdChanged(extracted);
+                if (extracted != null && extracted != v.trim()) {
+                  _fagCtrl.text = extracted;
+                  _fagCtrl.selection = TextSelection.fromPosition(TextPosition(offset: extracted.length));
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (widget.findAGraveId != null && widget.findAGraveId!.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.open_in_new, size: 20),
+              tooltip: 'Open Find A Grave memorial',
+              onPressed: () => launchUrl(
+                Uri.parse(FindAGraveService.instance.memorialUrl(widget.findAGraveId!)),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+        ]),
+      ],
+    );
+  }
+}
+
+class _WikiTreeResultChip extends StatelessWidget {
+  final WikiTreeProfile profile;
+  final void Function(String wikiTreeId) onSelect;
+  const _WikiTreeResultChip({required this.profile, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final sub = [
+      if (profile.birthDate != null) 'b. ${profile.birthDate!.year}',
+      if (profile.birthPlace != null) profile.birthPlace!,
+      profile.wikiTreeId,
+    ].join(' · ');
+    return InkWell(
+      onTap: () => onSelect(profile.wikiTreeId),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.primaryContainer, width: 1),
+        ),
+        child: Row(children: [
+          Icon(Icons.account_tree_outlined, size: 14, color: colorScheme.primary),
+          const SizedBox(width: 6),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(profile.displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(sub, style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
+          ])),
+          Icon(Icons.check_circle_outline, size: 16, color: colorScheme.primary),
+        ]),
       ),
     );
   }

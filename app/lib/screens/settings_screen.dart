@@ -18,7 +18,9 @@ import '../providers/tree_provider.dart';
 import '../services/purchase_service.dart';
 import '../services/sound_service.dart';
 import '../services/sync_service.dart';
+import '../services/wikitree_service.dart';
 import 'sync_screen.dart';
+import 'wikitree_screen.dart';
 
 /// Whether Bluetooth sync is supported on the current platform.
 bool get _bluetoothSupported =>
@@ -344,6 +346,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── External Sources ───────────────────────────────────
+          _SectionCard(
+            icon: Icons.link_outlined,
+            title: 'External Sources',
+            children: [
+              ListenableBuilder(
+                listenable: WikiTreeService.instance,
+                builder: (context, _) {
+                  final svc = WikiTreeService.instance;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Icon(Icons.account_tree_outlined,
+                            size: 16,
+                            color: colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          svc.isLoggedIn
+                              ? 'WikiTree: ${svc.loggedInUser}'
+                              : 'WikiTree: not logged in',
+                          style: TextStyle(
+                              color: svc.isLoggedIn
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ]),
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text(
+                            'Open WikiTree & Find A Grave Hub'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          fadeSlideRoute(
+                              builder: (_) => const WikiTreeScreen()),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
 

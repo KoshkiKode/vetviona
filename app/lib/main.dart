@@ -6,7 +6,10 @@ import 'config/app_config.dart';
 import 'config/build_metadata.dart';
 import 'providers/theme_provider.dart';
 import 'services/sound_service.dart';
+import 'services/wikitree_service.dart';
 import 'utils/platform_utils.dart';
+
+// ignore_for_file: unawaited_futures
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +19,9 @@ void main() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
   await SoundService.instance.init();
+  // Pre-load stored WikiTree credentials so the service is ready before
+  // any screen opens.
+  unawaited(WikiTreeService.instance.loadCredentials());
   runApp(const _RootWidget());
 }
 

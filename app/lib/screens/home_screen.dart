@@ -17,6 +17,7 @@ import '../services/purchase_service.dart';
 import '../utils/page_routes.dart';
 import '../utils/platform_utils.dart';
 import 'calendar_screen.dart';
+import 'wikitree_screen.dart';
 import 'conflict_resolver_screen.dart';
 import 'descendants_screen.dart';
 import 'family_timeline_screen.dart';
@@ -821,6 +822,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 fadeSlideRoute(
                     builder: (_) => const ResearchTasksScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.account_tree_outlined),
+            title: const Text('WikiTree & Find A Grave'),
+            subtitle: const Text('Import, sync, link external profiles'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                fadeSlideRoute(builder: (_) => const WikiTreeScreen()),
               );
             },
           ),
