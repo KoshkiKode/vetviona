@@ -179,7 +179,8 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
     final parsed = _parsed!;
 
     // ── Phase 1: Persons ────────────────────────────────────────────────────
-    if (_personIdx == 0) {
+    // Guard: skip if this phase was already completed (checkpoint == total).
+    if (_personIdx < parsed.persons.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
@@ -237,7 +238,8 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
     }
 
     // ── Phase 2: Partnerships ───────────────────────────────────────────────
-    if (_partnerIdx == 0) {
+    // Guard: skip if this phase was already completed.
+    if (_partnerIdx < parsed.partnerships.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
@@ -277,7 +279,8 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
     }
 
     // ── Phase 3: Life Events ────────────────────────────────────────────────
-    if (_eventIdx == 0) {
+    // Guard: skip if this phase was already completed.
+    if (_eventIdx < parsed.lifeEvents.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
@@ -286,10 +289,13 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
       await Future.delayed(Duration.zero);
 
       final knownPersonIds = {for (final p in provider.persons) p.id};
+      // Dedup: skip events that were already imported (guards against re-run).
+      final existingEventIds = {for (final e in provider.lifeEvents) e.id};
       final toAdd = <LifeEvent>[];
       for (final event in parsed.lifeEvents) {
         final resolvedPersonId = _idMap[event.personId] ?? event.personId;
         if (!knownPersonIds.contains(resolvedPersonId)) continue;
+        if (existingEventIds.contains(event.id)) continue;
         toAdd.add(LifeEvent(
           id: event.id,
           personId: resolvedPersonId,
@@ -312,7 +318,8 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
     }
 
     // ── Phase 4: Sources ────────────────────────────────────────────────────
-    if (_sourceIdx == 0) {
+    // Guard: skip if this phase was already completed.
+    if (_sourceIdx < parsed.sources.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
@@ -321,10 +328,13 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
       await Future.delayed(Duration.zero);
 
       final knownPersonIds = {for (final p in provider.persons) p.id};
+      // Dedup: skip sources that were already imported (guards against re-run).
+      final existingSourceIds = {for (final s in provider.sources) s.id};
       final toAdd = <Source>[];
       for (final src in parsed.sources) {
         final resolvedPersonId = _idMap[src.personId] ?? src.personId;
         if (!knownPersonIds.contains(resolvedPersonId)) continue;
+        if (existingSourceIds.contains(src.id)) continue;
         toAdd.add(Source(
           id: src.id,
           personId: resolvedPersonId,

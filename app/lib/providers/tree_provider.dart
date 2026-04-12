@@ -1480,20 +1480,50 @@ class TreeProvider extends ChangeNotifier {
   }
 
   /// Inserts [list] in a single SQLite batch transaction and appends them to
-  /// [sources].  Calls [notifyListeners] once after the commit.
+  /// [sources].  Also updates each linked person's [Person.sourceIds] list in
+  /// memory and persists those updates to the DB so that relationship
+  /// certificates, sync export, and other features that iterate
+  /// [Person.sourceIds] show the imported citations correctly.
+  /// Calls [notifyListeners] once after all commits.
   Future<void> importSourcesBatch(List<Source> list) async {
     if (list.isEmpty) return;
     final db = await _database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final batch = db.batch();
+
+    // Phase A: insert the sources.
+    final sourceBatch = db.batch();
     for (final s in list) {
       s.treeId = currentTreeId;
       s.updatedAt = now;
-      batch.insert('sources', s.toMap(),
+      sourceBatch.insert('sources', s.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    await batch.commit(noResult: true);
+    await sourceBatch.commit(noResult: true);
     sources.addAll(list);
+
+    // Phase B: update person.sourceIds for each linked person so that code
+    // which reads person.sourceIds (e.g. relationship certificates) sees the
+    // newly imported citations.
+    final affectedPersonIds = <String>{
+      for (final s in list)
+        if (s.personId.isNotEmpty) s.personId,
+    };
+    if (affectedPersonIds.isNotEmpty) {
+      final personsBatch = db.batch();
+      for (final p in persons) {
+        if (!affectedPersonIds.contains(p.id)) continue;
+        // Collect source IDs for this person from the batch.
+        for (final s in list) {
+          if (s.personId == p.id && !p.sourceIds.contains(s.id)) {
+            p.sourceIds.add(s.id);
+          }
+        }
+        personsBatch.update('persons', p.toMap(),
+            where: 'id = ?', whereArgs: [p.id]);
+      }
+      await personsBatch.commit(noResult: true);
+    }
+
     _emitDelta(sources: list.map((s) => s.toMap()).toList());
     notifyListeners();
   }
