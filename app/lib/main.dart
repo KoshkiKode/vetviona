@@ -71,8 +71,8 @@ class _DesktopLockScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'This build requires a Desktop Pro licence.\n'
-                  'Run with --dart-define=PAID=true, or purchase a licence at:',
+                  'This build requires a Desktop Pro license.\n'
+                  'Run with --dart-define=PAID=true, or purchase a license at:',
                   style: TextStyle(
                       fontSize: 15, color: Colors.grey.shade700, height: 1.5),
                   textAlign: TextAlign.center,
