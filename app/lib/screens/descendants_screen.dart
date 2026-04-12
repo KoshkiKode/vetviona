@@ -81,11 +81,18 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
     if (nodeMap.containsKey(_rootPerson!.id)) {
       graph.addNode(nodeMap[_rootPerson!.id]!);
     }
+    // Build edges from child → first-available-parent so that every non-root
+    // node has AT MOST ONE incoming edge.  Using parent.childIds instead would
+    // add two edges to any child that has both parents in the descendant set,
+    // turning the graph into a DAG and breaking BuchheimWalker's tree layout.
     for (final p in descs) {
-      for (final cid in p.childIds) {
-        if (nodeMap.containsKey(cid)) {
-          graph.addEdge(nodeMap[p.id]!, nodeMap[cid]!);
-        }
+      if (p.id == _rootPerson!.id) continue;
+      final parentId = p.parentIds.firstWhere(
+        (pid) => nodeMap.containsKey(pid),
+        orElse: () => '',
+      );
+      if (parentId.isNotEmpty) {
+        graph.addEdge(nodeMap[parentId]!, nodeMap[p.id]!);
       }
     }
 
