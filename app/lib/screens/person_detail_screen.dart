@@ -167,11 +167,41 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isEditing = widget.person != null;
+    final provider = context.watch<TreeProvider>();
+    final isHomePerson =
+        isEditing && provider.homePersonId == widget.person!.id;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Edit Person' : 'Add Person'),
         actions: [
+          if (isEditing)
+            Tooltip(
+              message: isHomePerson
+                  ? 'Home person (tap to clear)'
+                  : 'Set as home person',
+              child: IconButton(
+                icon: Icon(
+                  isHomePerson ? Icons.home : Icons.home_outlined,
+                  color: colorScheme.onPrimary,
+                ),
+                onPressed: () async {
+                  final newId =
+                      isHomePerson ? null : widget.person!.id;
+                  await context
+                      .read<TreeProvider>()
+                      .setHomePersonId(newId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(
+                      content: Text(newId != null
+                          ? '${widget.person!.name} set as home person'
+                          : 'Home person cleared'),
+                    ));
+                  }
+                },
+              ),
+            ),
           TextButton.icon(
             icon: Icon(Icons.save, color: colorScheme.onPrimary),
             label: Text('Save',

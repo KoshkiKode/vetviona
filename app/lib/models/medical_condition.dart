@@ -10,6 +10,10 @@ class MedicalCondition {
   /// Local file paths for attached medical records, lab results, or scans.
   List<String> attachmentPaths;
 
+  /// Unix-millisecond timestamp of the last local modification.
+  /// Used for timestamp-based merge during RootLoop™ sync.
+  int? updatedAt;
+
   static const List<String> categories = [
     'Cardiovascular',
     'Cancer',
@@ -225,6 +229,7 @@ class MedicalCondition {
     this.ageOfOnset,
     this.notes,
     this.treeId,
+    this.updatedAt,
     List<String>? attachmentPaths,
   }) : attachmentPaths = attachmentPaths ?? [];
 
@@ -237,6 +242,7 @@ class MedicalCondition {
         'notes': notes,
         'treeId': treeId,
         'attachmentPaths': attachmentPaths.join(';'),
+        'updatedAt': updatedAt,
       };
 
   factory MedicalCondition.fromMap(Map<String, dynamic> map) =>
@@ -248,6 +254,7 @@ class MedicalCondition {
         ageOfOnset: map['ageOfOnset'] as String?,
         notes: map['notes'] as String?,
         treeId: map['treeId'] as String?,
+        updatedAt: map['updatedAt'] as int?,
         attachmentPaths: (map['attachmentPaths'] as String?)
                 ?.split(';')
                 .where((s) => s.isNotEmpty)

@@ -564,6 +564,26 @@ class _PersonTile extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
             '${conditions.length} condition${conditions.length == 1 ? '' : 's'}'),
+        trailing: Tooltip(
+          message: "Share this person's medical history via RootLoop™ sync",
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.sync,
+                  size: 16,
+                  color: person.syncMedical
+                      ? colorScheme.primary
+                      : colorScheme.outline),
+              Switch(
+                value: person.syncMedical,
+                onChanged: (_) {
+                  person.syncMedical = !person.syncMedical;
+                  provider.updatePerson(person);
+                },
+              ),
+            ],
+          ),
+        ),
         children: conditions
             .map((mc) =>
                 _ConditionCard(condition: mc, provider: provider))

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+
 // ── Product IDs ──────────────────────────────────────────────────────────────
 
 /// The store product ID for upgrading from Mobile Free → Mobile Paid.
@@ -63,6 +65,10 @@ class PurchaseService extends ChangeNotifier {
     // Restore persisted purchase state.
     final prefs = await SharedPreferences.getInstance();
     _isPurchased = prefs.getBool(_purchasedKey) ?? false;
+    // Unlock paid features immediately if a previous purchase was found —
+    // this ensures currentAppTier returns mobilePaid on every app restart
+    // without requiring the user to go through the store again.
+    if (_isPurchased) setMobilePaidUnlocked(true);
 
     if (!await InAppPurchase.instance.isAvailable()) {
       _errorMessage = 'In-app purchases are not available on this device.';
@@ -171,6 +177,7 @@ class PurchaseService extends ChangeNotifier {
   Future<void> _deliverPurchase(PurchaseDetails purchase) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_purchasedKey, true);
+    setMobilePaidUnlocked(true);
     _isPurchased = true;
     _isLoading = false;
     _errorMessage = null;

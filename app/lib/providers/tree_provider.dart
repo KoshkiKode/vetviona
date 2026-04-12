@@ -43,13 +43,16 @@ class TreeProvider extends ChangeNotifier {
 
   Stream<Map<String, dynamic>> get liveChanges => _liveChangeController.stream;
 
-  /// Emits a delta containing [persons], [partnerships], [sources], and
-  /// [lifeEvents] (any of which may be empty) to [liveChanges].
+  /// Emits a delta containing [persons], [partnerships], [sources],
+  /// [lifeEvents], [medicalConditions], and [researchTasks] (any of which may
+  /// be empty) to [liveChanges].
   void _emitDelta({
     List<Map<String, dynamic>> persons = const [],
     List<Map<String, dynamic>> partnerships = const [],
     List<Map<String, dynamic>> sources = const [],
     List<Map<String, dynamic>> lifeEvents = const [],
+    List<Map<String, dynamic>> medicalConditions = const [],
+    List<Map<String, dynamic>> researchTasks = const [],
   }) {
     if (_liveChangeController.hasListener) {
       _liveChangeController.add({
@@ -57,6 +60,8 @@ class TreeProvider extends ChangeNotifier {
         'partnerships': partnerships,
         'sources': sources,
         'lifeEvents': lifeEvents,
+        'medicalConditions': medicalConditions,
+        'researchTasks': researchTasks,
       });
     }
   }
@@ -138,7 +143,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -174,6 +179,7 @@ class TreeProvider extends ChangeNotifier {
             deathPostalCode TEXT,
             burialPostalCode TEXT,
             isPrivate INTEGER NOT NULL DEFAULT 0,
+            syncMedical INTEGER NOT NULL DEFAULT 0,
             preferredSourceIds TEXT,
             causeOfDeath TEXT,
             bloodType TEXT,
@@ -253,7 +259,8 @@ class TreeProvider extends ChangeNotifier {
             ageOfOnset TEXT,
             notes TEXT,
             treeId TEXT,
-            attachmentPaths TEXT
+            attachmentPaths TEXT,
+            updatedAt INTEGER
           )
         ''');
         await db.execute('''
@@ -425,6 +432,12 @@ class TreeProvider extends ChangeNotifier {
           await db.execute(
               'ALTER TABLE life_events ADD COLUMN updatedAt INTEGER');
         }
+        if (oldVersion < 9) {
+          await db.execute(
+              'ALTER TABLE persons ADD COLUMN syncMedical INTEGER NOT NULL DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE medical_conditions ADD COLUMN updatedAt INTEGER');
+        }
       },
     );
   }
@@ -562,12 +575,15 @@ class TreeProvider extends ChangeNotifier {
   Future<void> deletePerson(String id) async {
     final db = await _database;
     await db.delete('persons', where: 'id = ?', whereArgs: [id]);
-    // Remove all partnerships involving this person
+    // Cascade-delete all data associated with this person.
     await db.delete('partnerships',
         where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
     partnerships.removeWhere(
         (pt) => pt.person1Id == id || pt.person2Id == id);
-    // Remove medical conditions and research tasks linked to this person
+    await db.delete('sources', where: 'personId = ?', whereArgs: [id]);
+    sources.removeWhere((s) => s.personId == id);
+    await db.delete('life_events', where: 'personId = ?', whereArgs: [id]);
+    lifeEvents.removeWhere((e) => e.personId == id);
     await db.delete('medical_conditions',
         where: 'personId = ?', whereArgs: [id]);
     medicalConditions.removeWhere((mc) => mc.personId == id);
@@ -729,20 +745,26 @@ class TreeProvider extends ChangeNotifier {
         orElse: () =>
             throw StateError('Person ${condition.personId} not found'));
     condition.treeId = person.treeId;
+    condition.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.insert('medical_conditions', condition.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     medicalConditions.add(condition);
+    // Always emit; SyncService filters per-peer using syncMedical / consent.
+    _emitDelta(medicalConditions: [condition.toMap()]);
     notifyListeners();
   }
 
   Future<void> updateMedicalCondition(MedicalCondition condition) async {
+    condition.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('medical_conditions', condition.toMap(),
         where: 'id = ?', whereArgs: [condition.id]);
     final idx =
         medicalConditions.indexWhere((mc) => mc.id == condition.id);
     if (idx != -1) medicalConditions[idx] = condition;
+    // Always emit; SyncService filters per-peer using syncMedical / consent.
+    _emitDelta(medicalConditions: [condition.toMap()]);
     notifyListeners();
   }
 
@@ -765,6 +787,7 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('research_tasks', task.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     researchTasks.add(task);
+    _emitDelta(researchTasks: [task.toMap()]);
     notifyListeners();
   }
 
@@ -774,6 +797,7 @@ class TreeProvider extends ChangeNotifier {
         where: 'id = ?', whereArgs: [task.id]);
     final idx = researchTasks.indexWhere((t) => t.id == task.id);
     if (idx != -1) researchTasks[idx] = task;
+    _emitDelta(researchTasks: [task.toMap()]);
     notifyListeners();
   }
 
@@ -820,12 +844,14 @@ class TreeProvider extends ChangeNotifier {
         columns: ['id'], where: 'treeId = ?', whereArgs: [treeId]);
     final personIds = personMaps.map((m) => m['id'] as String).toList();
     if (personIds.isNotEmpty) {
-      // Delete sources whose personId belongs to this tree.
       final placeholders = personIds.map((_) => '?').join(',');
       await db.delete('sources',
           where: 'personId IN ($placeholders)', whereArgs: personIds);
       sources.removeWhere(
           (s) => personIds.contains(s.personId));
+      await db.delete('life_events',
+          where: 'personId IN ($placeholders)', whereArgs: personIds);
+      lifeEvents.removeWhere((e) => personIds.contains(e.personId));
       await db.delete('medical_conditions',
           where: 'personId IN ($placeholders)', whereArgs: personIds);
       medicalConditions.removeWhere((mc) => personIds.contains(mc.personId));
@@ -1069,10 +1095,22 @@ class TreeProvider extends ChangeNotifier {
 
   /// Serialises the current tree (persons, partnerships, sources) into a plain
   /// Dart map suitable for encryption and transmission.
-  Map<String, dynamic> exportForSync() {
+  ///
+  /// If [includeAllMedical] is `true` (only set when the triple-consent
+  /// handshake has been completed with the target peer), **all** non-private
+  /// persons' medical conditions are included regardless of the per-person
+  /// `syncMedical` flag.
+  Map<String, dynamic> exportForSync({bool includeAllMedical = false}) {
     // Private persons are excluded from sync — their data stays strictly local.
     final publicPersons = persons.where((p) => !p.isPrivate).toList();
     final publicPersonIds = publicPersons.map((p) => p.id).toSet();
+    // Build O(1) lookup for the per-person syncMedical gate.
+    final syncMedicalIds = includeAllMedical
+        ? publicPersonIds // bulk consent: all non-private persons
+        : publicPersons
+            .where((p) => p.syncMedical)
+            .map((p) => p.id)
+            .toSet();
     return {
       'persons': publicPersons.map((p) => p.toMap()).toList(),
       'partnerships': partnerships
@@ -1088,6 +1126,14 @@ class TreeProvider extends ChangeNotifier {
       'lifeEvents': lifeEvents
           .where((e) => publicPersonIds.contains(e.personId))
           .map((e) => e.toMap())
+          .toList(),
+      'researchTasks': researchTasks
+          .where((t) => t.treeId == currentTreeId || t.treeId == null)
+          .map((t) => t.toMap())
+          .toList(),
+      'medicalConditions': medicalConditions
+          .where((mc) => syncMedicalIds.contains(mc.personId))
+          .map((mc) => mc.toMap())
           .toList(),
     };
   }
@@ -1136,6 +1182,18 @@ class TreeProvider extends ChangeNotifier {
         ((data['lifeEvents'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
                 [])
             .map(LifeEvent.fromMap)
+            .toList();
+    final inMedicalConditions =
+        ((data['medicalConditions'] as List<dynamic>?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(MedicalCondition.fromMap)
+            .toList();
+    final inResearchTasks =
+        ((data['researchTasks'] as List<dynamic>?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(ResearchTask.fromMap)
             .toList();
 
     int added = 0;
@@ -1201,6 +1259,29 @@ class TreeProvider extends ChangeNotifier {
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
+    // ── Medical Conditions ────────────────────────────────────────────────────
+    for (final mc in inMedicalConditions) {
+      final existing =
+          medicalConditions.where((m) => m.id == mc.id).firstOrNull;
+      if (existing != null) {
+        final localTs = existing.updatedAt ?? 0;
+        final incomingTs = mc.updatedAt ?? 0;
+        if (localTs > 0 && incomingTs <= localTs) continue;
+      }
+      mc.treeId ??= currentTreeId;
+      await db.insert('medical_conditions', mc.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    // ── Research Tasks ─────────────────────────────────────────────────────────
+    for (final task in inResearchTasks) {
+      // Research tasks have no updatedAt timestamp, so incoming records always
+      // replace local ones (unconditional last-write-wins at the payload level).
+      task.treeId ??= currentTreeId;
+      await db.insert('research_tasks', task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
     await loadPersons();
     return added;
   }
@@ -1212,10 +1293,14 @@ class TreeProvider extends ChangeNotifier {
     await db.delete('sources');
     await db.delete('partnerships');
     await db.delete('life_events');
+    await db.delete('medical_conditions');
+    await db.delete('research_tasks');
     persons.clear();
     sources.clear();
     partnerships.clear();
     lifeEvents.clear();
+    medicalConditions.clear();
+    researchTasks.clear();
     notifyListeners();
   }
 
@@ -1237,6 +1322,11 @@ class TreeProvider extends ChangeNotifier {
           .where((e) => personIds.contains(e.personId))
           .map((e) => e.toMap())
           .toList(),
+      'medicalConditions': medicalConditions
+          .where((mc) => personIds.contains(mc.personId))
+          .map((mc) => mc.toMap())
+          .toList(),
+      'researchTasks': researchTasks.map((t) => t.toMap()).toList(),
     };
     return jsonEncode(data);
   }
@@ -1257,7 +1347,11 @@ class TreeProvider extends ChangeNotifier {
           where: 'personId IN ($placeholders)', whereArgs: existingIds);
       await db.delete('sources',
           where: 'personId IN ($placeholders)', whereArgs: existingIds);
+      await db.delete('medical_conditions',
+          where: 'personId IN ($placeholders)', whereArgs: existingIds);
     }
+    await db.delete('research_tasks',
+        where: 'treeId = ?', whereArgs: [currentTreeId]);
     await db.delete('persons',
         where: 'treeId = ?', whereArgs: [currentTreeId]);
     await db.delete('partnerships',
@@ -1279,6 +1373,15 @@ class TreeProvider extends ChangeNotifier {
         ((data['lifeEvents'] as List?)?.cast<Map<String, dynamic>>() ?? [])
             .map(LifeEvent.fromMap)
             .toList();
+    final inMedicalConditions =
+        ((data['medicalConditions'] as List?)?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(MedicalCondition.fromMap)
+            .toList();
+    final inResearchTasks =
+        ((data['researchTasks'] as List?)?.cast<Map<String, dynamic>>() ?? [])
+            .map(ResearchTask.fromMap)
+            .toList();
 
     for (final person in inPersons) {
       person.treeId = currentTreeId;
@@ -1297,6 +1400,16 @@ class TreeProvider extends ChangeNotifier {
     for (final event in inLifeEvents) {
       event.treeId = currentTreeId;
       await db.insert('life_events', event.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    for (final mc in inMedicalConditions) {
+      mc.treeId ??= currentTreeId;
+      await db.insert('medical_conditions', mc.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    for (final task in inResearchTasks) {
+      task.treeId ??= currentTreeId;
+      await db.insert('research_tasks', task.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
@@ -1351,8 +1464,9 @@ class TreeProvider extends ChangeNotifier {
     return groups;
   }
 
-  /// Merges [mergeId] into [keepId]: references updated, fields copied, then
-  /// the merged person is deleted.
+  /// Merges [mergeId] into [keepId]: references updated, fields copied, all
+  /// associated records (sources, life events, partnerships) re-pointed to
+  /// [keepId], then the now-empty duplicate is deleted.
   Future<void> mergePersons(String keepId, String mergeId) async {
     final keepIdx = persons.indexWhere((p) => p.id == keepId);
     final mergeIdx = persons.indexWhere((p) => p.id == mergeId);
@@ -1382,6 +1496,57 @@ class TreeProvider extends ChangeNotifier {
       }
     }
 
+    // Re-point sources from mergeId → keepId so they are preserved.
+    for (final source in sources.where((s) => s.personId == mergeId).toList()) {
+      source.personId = keepId;
+      await db.update('sources', source.toMap(),
+          where: 'id = ?', whereArgs: [source.id]);
+    }
+
+    // Re-point life events from mergeId → keepId.
+    for (final event in lifeEvents.where((e) => e.personId == mergeId).toList()) {
+      event.personId = keepId;
+      await db.update('life_events', event.toMap(),
+          where: 'id = ?', whereArgs: [event.id]);
+    }
+
+    // Re-point medical conditions from mergeId → keepId.
+    for (final mc in medicalConditions.where((m) => m.personId == mergeId).toList()) {
+      mc.personId = keepId;
+      await db.update('medical_conditions', mc.toMap(),
+          where: 'id = ?', whereArgs: [mc.id]);
+    }
+
+    // Re-point research tasks linked to mergeId → keepId.
+    for (final task in researchTasks.where((t) => t.personId == mergeId).toList()) {
+      task.personId = keepId;
+      await db.update('research_tasks', task.toMap(),
+          where: 'id = ?', whereArgs: [task.id]);
+    }
+
+    // Re-point partnerships: replace mergeId with keepId, but only when keep
+    // is not already a partner in the same relationship (avoid duplicates).
+    // Build a Set of partner IDs already linked to keepId for O(1) look-up.
+    final keepPartnerIds = partnerships
+        .where((p) => p.person1Id == keepId || p.person2Id == keepId)
+        .map((p) => p.person1Id == keepId ? p.person2Id : p.person1Id)
+        .toSet();
+    for (final pt in partnerships
+        .where((p) => p.person1Id == mergeId || p.person2Id == mergeId)
+        .toList()) {
+      final otherId =
+          pt.person1Id == mergeId ? pt.person2Id : pt.person1Id;
+      // Skip if the kept person already has a partnership with this person.
+      if (keepPartnerIds.contains(otherId)) continue;
+      if (pt.person1Id == mergeId) {
+        pt.person1Id = keepId;
+      } else {
+        pt.person2Id = keepId;
+      }
+      await db.update('partnerships', pt.toMap(),
+          where: 'id = ?', whereArgs: [pt.id]);
+    }
+
     // Merge photo paths (dedup).
     for (final path in merge.photoPaths) {
       if (!keep.photoPaths.contains(path)) keep.photoPaths.add(path);
@@ -1403,6 +1568,8 @@ class TreeProvider extends ChangeNotifier {
     }
 
     await updatePerson(keep);
+    // deletePerson(mergeId) will find no sources/events/partnerships left for
+    // mergeId (all migrated above) and cleanly removes the person record.
     await deletePerson(mergeId);
   }
 }

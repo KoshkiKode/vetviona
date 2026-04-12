@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +47,8 @@ class _SyncScreenState extends State<SyncScreen> {
   final _portController = TextEditingController(text: '4982');
   final _secretController = TextEditingController();
 
+  StreamSubscription<MedicalConsentEvent>? _consentSub;
+
   @override
   void initState() {
     super.initState();
@@ -53,11 +57,64 @@ class _SyncScreenState extends State<SyncScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to incoming medical consent events. We do this here (not
+    // initState) so the BuildContext is available for showDialog.
+    _consentSub?.cancel();
+    final sync = context.read<SyncService>();
+    _consentSub = sync.medicalConsentEvents.listen(_onConsentEvent);
+  }
+
+  @override
   void dispose() {
+    _consentSub?.cancel();
     _hostController.dispose();
     _portController.dispose();
     _secretController.dispose();
     super.dispose();
+  }
+
+  /// Handles an incoming [MedicalConsentEvent] from a remote peer.
+  Future<void> _onConsentEvent(MedicalConsentEvent event) async {
+    if (!mounted) return;
+    final sync = context.read<SyncService>();
+
+    if (event.step == 1) {
+      // Show step-1 dialog with a 15-second countdown.
+      final accepted = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _MedicalConsentRequestDialog(peerLabel: event.peerLabel),
+      );
+      sync.respondToMedicalRequest(accepted ?? false);
+    } else if (event.step == 3) {
+      // Show step-3 final confirmation (no countdown — user already accepted).
+      if (!mounted) return;
+      final ready = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.medical_services_outlined, size: 36),
+          title: const Text('Confirm Medical Sync'),
+          content: Text(
+            '${event.peerLabel} has confirmed. Grant full medical history '
+            'sync with this device?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Deny'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Allow'),
+            ),
+          ],
+        ),
+      );
+      sync.respondToMedicalConfirm(ready ?? false);
+    }
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -840,14 +897,35 @@ class _PeerTile extends StatelessWidget {
         style: const TextStyle(fontSize: 12),
       ),
       trailing: pairedDevice != null
-          ? FilledButton.tonalIcon(
-              icon: const Icon(Icons.sync, size: 16),
-              label: const Text('Sync'),
-              onPressed: () => syncService.syncWithPeer(
-                host: peer.host,
-                port: peer.port,
-                sharedSecret: pairedDevice.sharedSecret,
-              ),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FilledButton.tonalIcon(
+                  icon: const Icon(Icons.sync, size: 16),
+                  label: const Text('Sync'),
+                  onPressed: () => syncService.syncWithPeer(
+                    host: peer.host,
+                    port: peer.port,
+                    sharedSecret: pairedDevice.sharedSecret,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(
+                    Icons.medical_services_outlined,
+                    color: syncService.isMedicalConsentedPeer(
+                            '${peer.host}:${peer.port}')
+                        ? Colors.green
+                        : null,
+                  ),
+                  tooltip: syncService.isMedicalConsentedPeer(
+                          '${peer.host}:${peer.port}')
+                      ? 'Medical sync active'
+                      : 'Request medical history sync',
+                  onPressed: () => _requestMedicalSync(
+                      context, pairedDevice.sharedSecret),
+                ),
+              ],
             )
           : OutlinedButton.icon(
               icon: const Icon(Icons.handshake_outlined, size: 16),
@@ -855,6 +933,68 @@ class _PeerTile extends StatelessWidget {
               onPressed: () => _showPairDialog(context),
             ),
     );
+  }
+
+  Future<void> _requestMedicalSync(
+      BuildContext context, String sharedSecret) async {
+    // Step 2 callback: show a local confirmation dialog to the initiating user.
+    Future<bool> localConfirm() async {
+      if (!context.mounted) return false;
+      final ok = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.medical_services_outlined, size: 36),
+          title: const Text('Medical History Sync'),
+          content: Text(
+            '${peer.name} has accepted your request.\n\n'
+            'Confirm to share the full medical history of all non-private '
+            'family members with this device.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      );
+      return ok ?? false;
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Requesting medical sync with ${peer.name}…'),
+        duration: const Duration(seconds: 30),
+      ),
+    );
+
+    final result = await syncService.requestMedicalConsent(
+      host: peer.host,
+      port: peer.port,
+      sharedSecret: sharedSecret,
+      localConfirmCallback: localConfirm,
+    );
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+
+    final msg = switch (result) {
+      MedicalConsentResult.granted =>
+        'Medical history sync with ${peer.name} is now active ✓',
+      MedicalConsentResult.denied =>
+        '${peer.name} did not allow medical sync.',
+      MedicalConsentResult.cancelledLocally => 'Cancelled.',
+      MedicalConsentResult.networkError =>
+        'Could not complete medical sync request.',
+    };
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _showPairDialog(BuildContext context) async {
@@ -974,7 +1114,7 @@ class _PairedDeviceTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (discovered != null)
+          if (discovered != null) ...[
             IconButton(
               icon: const Icon(Icons.sync),
               tooltip: 'Sync Now',
@@ -984,6 +1124,23 @@ class _PairedDeviceTile extends StatelessWidget {
                 sharedSecret: device.sharedSecret,
               ),
             ),
+            IconButton(
+              icon: Icon(
+                Icons.medical_services_outlined,
+                color: syncService.isMedicalConsentedPeer(
+                        '${discovered.host}:${discovered.port}') ||
+                        syncService.isMedicalConsentedPeer(device.id)
+                    ? Colors.green
+                    : null,
+              ),
+              tooltip: syncService.isMedicalConsentedPeer(
+                      '${discovered.host}:${discovered.port}') ||
+                      syncService.isMedicalConsentedPeer(device.id)
+                  ? 'Medical sync active'
+                  : 'Request medical history sync',
+              onPressed: () => _requestMedicalSync(context, discovered),
+            ),
+          ],
           IconButton(
             icon: Icon(Icons.delete_outline, color: cs.error),
             tooltip: 'Remove',
@@ -992,6 +1149,67 @@ class _PairedDeviceTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _requestMedicalSync(
+      BuildContext context, DiscoveredPeer discovered) async {
+    Future<bool> localConfirm() async {
+      if (!context.mounted) return false;
+      final ok = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.medical_services_outlined, size: 36),
+          title: const Text('Medical History Sync'),
+          content: const Text(
+            'The other device has accepted your request.\n\n'
+            'Confirm to share the full medical history of all non-private '
+            'family members with this device.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      );
+      return ok ?? false;
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Requesting medical sync…'),
+        duration: Duration(seconds: 35),
+      ),
+    );
+
+    final result = await syncService.requestMedicalConsent(
+      host: discovered.host,
+      port: discovered.port,
+      sharedSecret: device.sharedSecret,
+      localConfirmCallback: localConfirm,
+    );
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+
+    final msg = switch (result) {
+      MedicalConsentResult.granted =>
+        'Medical history sync is now active ✓',
+      MedicalConsentResult.denied =>
+        'The other device did not allow medical sync.',
+      MedicalConsentResult.cancelledLocally => 'Cancelled.',
+      MedicalConsentResult.networkError =>
+        'Could not complete medical sync request.',
+    };
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 }
 
@@ -1532,6 +1750,126 @@ class _QrCodeCardState extends State<_QrCodeCard> {
                   ?.copyWith(color: cs.onSurfaceVariant),
             ),
         ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Medical consent request dialog (step 1 — receiver side, countdown timer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shown on the **receiving** device when a peer requests bulk medical sync.
+///
+/// Displays a countdown from 15 → 0 seconds.  If the user does not respond,
+/// the dialog auto-closes with `false` (deny) when the timer reaches zero.
+class _MedicalConsentRequestDialog extends StatefulWidget {
+  final String peerLabel;
+
+  const _MedicalConsentRequestDialog({required this.peerLabel});
+
+  @override
+  State<_MedicalConsentRequestDialog> createState() =>
+      _MedicalConsentRequestDialogState();
+}
+
+class _MedicalConsentRequestDialogState
+    extends State<_MedicalConsentRequestDialog> {
+  static const _timeoutSeconds = 15;
+  int _remaining = _timeoutSeconds;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _remaining--;
+      });
+      if (_remaining <= 0) {
+        _timer?.cancel();
+        if (mounted) Navigator.of(context).pop(false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final progress = _remaining / _timeoutSeconds;
+
+    return AlertDialog(
+      icon: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: CircularProgressIndicator(
+              value: progress,
+              backgroundColor: cs.surfaceContainerHighest,
+              color: progress > 0.4 ? cs.primary : cs.error,
+              strokeWidth: 4,
+            ),
+          ),
+          const Icon(Icons.medical_services_outlined, size: 28),
+        ],
+      ),
+      title: const Text('Medical History Sync Request'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              style: Theme.of(context).textTheme.bodyMedium,
+              children: [
+                TextSpan(
+                  text: widget.peerLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: cs.primary,
+                  ),
+                ),
+                const TextSpan(
+                  text:
+                      ' is requesting access to the full medical history of '
+                      'all non-private family members in your tree.',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Auto-denying in $_remaining s…',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: _remaining <= 5 ? cs.error : cs.onSurfaceVariant,
+                ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            _timer?.cancel();
+            Navigator.of(context).pop(false);
+          },
+          child: const Text('Deny'),
+        ),
+        FilledButton(
+          onPressed: () {
+            _timer?.cancel();
+            Navigator.of(context).pop(true);
+          },
+          child: const Text('Allow'),
+        ),
       ],
     );
   }
