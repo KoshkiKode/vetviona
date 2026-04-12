@@ -61,9 +61,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Start building your family history',
+                  'Set an optional local PIN to protect this device.',
                   style: textTheme.bodyMedium
                       ?.copyWith(color: colorScheme.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 16, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Your data stays on-device. This PIN is not required to use Vetviona.',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 32),
 

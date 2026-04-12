@@ -876,31 +876,34 @@ class _HomeScreenState extends State<HomeScreen> {
             }),
             const Divider(),
           ],
-          ListTile(
-            leading: const Icon(Icons.upload_file_outlined),
-            title: const Text('Import GEDCOM'),
-            onTap: () {
-              Navigator.pop(context);
-              _importGEDCOM(context, provider);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.merge_outlined),
-            title: const Text('Combine GEDCOM'),
-            subtitle: const Text('Merge into existing tree (deduplicates)'),
-            onTap: () {
-              Navigator.pop(context);
-              _combineGEDCOM(context, provider);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.download_outlined),
-            title: const Text('Export GEDCOM'),
-            onTap: () {
-              Navigator.pop(context);
-              _exportGEDCOM(context, provider);
-            },
-          ),
+          // GEDCOM import/export is a Desktop Pro feature.
+          if (currentAppTier == AppTier.desktopPro) ...[
+            ListTile(
+              leading: const Icon(Icons.upload_file_outlined),
+              title: const Text('Import GEDCOM'),
+              onTap: () {
+                Navigator.pop(context);
+                _importGEDCOM(context, provider);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.merge_outlined),
+              title: const Text('Combine GEDCOM'),
+              subtitle: const Text('Merge into existing tree (deduplicates)'),
+              onTap: () {
+                Navigator.pop(context);
+                _combineGEDCOM(context, provider);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('Export GEDCOM'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportGEDCOM(context, provider);
+              },
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.table_view_outlined),
             title: const Text('Export to CSV'),

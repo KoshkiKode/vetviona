@@ -8,12 +8,14 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../config/build_metadata.dart';
 import '../models/person.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
+import '../services/purchase_service.dart';
 import '../services/sound_service.dart';
 import '../services/sync_service.dart';
 import 'sync_screen.dart';
@@ -409,6 +411,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 12),
 
+          // ── Purchases (mobile only) ───────────────────────────
+          if (currentAppTier != AppTier.desktopPro)
+            _SectionCard(
+              icon: Icons.storefront_outlined,
+              title: 'Purchases',
+              children: [
+                Consumer<PurchaseService>(
+                  builder: (ctx, purchaseService, _) {
+                    if (purchaseService.isPurchased) {
+                      return Row(
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              color: colorScheme.primary, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Mobile Paid — purchased',
+                            style: TextStyle(color: colorScheme.primary),
+                          ),
+                        ],
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Already purchased on another device? Restore your purchase here.',
+                          style: Theme.of(ctx)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 10),
+                        if (purchaseService.errorMessage != null) ...[
+                          Text(
+                            purchaseService.errorMessage!,
+                            style: TextStyle(
+                                color: colorScheme.error, fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        OutlinedButton.icon(
+                          icon: purchaseService.isLoading
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.restore, size: 18),
+                          label: const Text('Restore Purchases'),
+                          onPressed: purchaseService.isLoading
+                              ? null
+                              : () => purchaseService.restorePurchases(),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+
+          if (currentAppTier != AppTier.desktopPro) const SizedBox(height: 12),
+
           // ── Privacy & Legal ───────────────────────────────────
           _SectionCard(
             icon: Icons.privacy_tip_outlined,
@@ -466,13 +531,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showUrl(BuildContext context, String url) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(url),
-        action: SnackBarAction(label: 'OK', onPressed: () {}),
-      ),
-    );
+  Future<void> _showUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open $url'),
+          action: SnackBarAction(label: 'OK', onPressed: () {}),
+        ),
+      );
+    }
   }
 
   List<Widget> _buildSyncChildren(BuildContext context, SyncService syncService) {
