@@ -383,7 +383,7 @@ class _TaskCard extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
-      useSafeArea: true,
+          useSafeArea: true,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),

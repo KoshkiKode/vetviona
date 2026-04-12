@@ -47,17 +47,17 @@ SystemUiOverlayStyle systemUiStyleFor({
   required Color backgroundColor,
   required Brightness surfaceBrightness,
 }) {
-  final iconsAreDark = surfaceBrightness == Brightness.dark;
+  final surfaceIsDark = surfaceBrightness == Brightness.dark;
   return SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness:
-        iconsAreDark ? Brightness.light : Brightness.dark,
+        surfaceIsDark ? Brightness.light : Brightness.dark,
     // iOS uses statusBarBrightness (inverted polarity vs Android)
     statusBarBrightness:
-        iconsAreDark ? Brightness.dark : Brightness.light,
+        surfaceIsDark ? Brightness.dark : Brightness.light,
     systemNavigationBarColor: backgroundColor,
     systemNavigationBarIconBrightness:
-        iconsAreDark ? Brightness.light : Brightness.dark,
+        surfaceIsDark ? Brightness.light : Brightness.dark,
   );
 }
 
