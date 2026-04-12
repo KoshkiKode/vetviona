@@ -1360,8 +1360,9 @@ class TreeProvider extends ChangeNotifier {
     return groups;
   }
 
-  /// Merges [mergeId] into [keepId]: references updated, fields copied, then
-  /// the merged person is deleted.
+  /// Merges [mergeId] into [keepId]: references updated, fields copied, all
+  /// associated records (sources, life events, partnerships) re-pointed to
+  /// [keepId], then the now-empty duplicate is deleted.
   Future<void> mergePersons(String keepId, String mergeId) async {
     final keepIdx = persons.indexWhere((p) => p.id == keepId);
     final mergeIdx = persons.indexWhere((p) => p.id == mergeId);
@@ -1391,6 +1392,56 @@ class TreeProvider extends ChangeNotifier {
       }
     }
 
+    // Re-point sources from mergeId → keepId so they are preserved.
+    for (final source in sources.where((s) => s.personId == mergeId).toList()) {
+      source.personId = keepId;
+      await db.update('sources', source.toMap(),
+          where: 'id = ?', whereArgs: [source.id]);
+    }
+
+    // Re-point life events from mergeId → keepId.
+    for (final event in lifeEvents.where((e) => e.personId == mergeId).toList()) {
+      event.personId = keepId;
+      await db.update('life_events', event.toMap(),
+          where: 'id = ?', whereArgs: [event.id]);
+    }
+
+    // Re-point medical conditions from mergeId → keepId.
+    for (final mc in medicalConditions.where((m) => m.personId == mergeId).toList()) {
+      mc.personId = keepId;
+      await db.update('medical_conditions', mc.toMap(),
+          where: 'id = ?', whereArgs: [mc.id]);
+    }
+
+    // Re-point research tasks linked to mergeId → keepId.
+    for (final task in researchTasks.where((t) => t.personId == mergeId).toList()) {
+      task.personId = keepId;
+      await db.update('research_tasks', task.toMap(),
+          where: 'id = ?', whereArgs: [task.id]);
+    }
+
+    // Re-point partnerships: replace mergeId with keepId, but only when keep
+    // is not already a partner in the same relationship (avoid duplicates).
+    for (final pt in partnerships
+        .where((p) => p.person1Id == mergeId || p.person2Id == mergeId)
+        .toList()) {
+      final otherId =
+          pt.person1Id == mergeId ? pt.person2Id : pt.person1Id;
+      // Skip if the kept person already has a partnership with this person.
+      final alreadyExists = partnerships.any((p) =>
+          p.id != pt.id &&
+          ((p.person1Id == keepId && p.person2Id == otherId) ||
+              (p.person1Id == otherId && p.person2Id == keepId)));
+      if (alreadyExists) continue;
+      if (pt.person1Id == mergeId) {
+        pt.person1Id = keepId;
+      } else {
+        pt.person2Id = keepId;
+      }
+      await db.update('partnerships', pt.toMap(),
+          where: 'id = ?', whereArgs: [pt.id]);
+    }
+
     // Merge photo paths (dedup).
     for (final path in merge.photoPaths) {
       if (!keep.photoPaths.contains(path)) keep.photoPaths.add(path);
@@ -1412,6 +1463,8 @@ class TreeProvider extends ChangeNotifier {
     }
 
     await updatePerson(keep);
+    // deletePerson(mergeId) will find no sources/events/partnerships left for
+    // mergeId (all migrated above) and cleanly removes the person record.
     await deletePerson(mergeId);
   }
 }

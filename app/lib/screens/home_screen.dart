@@ -135,6 +135,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TreeProvider>();
+    // Watch PurchaseService so the FAB and person-count label rebuild
+    // immediately after a successful in-app purchase or restore.
+    context.watch<PurchaseService>();
     final colorScheme = Theme.of(context).colorScheme;
     final filteredPersons = _applyFiltersAndSort(provider.persons);
 
