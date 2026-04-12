@@ -125,9 +125,9 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
       final profile =
           await WikiTreeService.instance.getProfile(person.wikitreeId!);
       if (profile != null) {
-        final updated_person =
+        final updatedPerson =
             WikiTreeService.instance.profileToPerson(profile, existing: person);
-        await provider.updatePerson(updated_person);
+        await provider.updatePerson(updatedPerson);
         updated++;
       }
     }
