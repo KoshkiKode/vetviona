@@ -397,21 +397,14 @@ class _TimelineTile extends StatelessWidget {
     return '${d.day} ${_month(d.month)} ${d.year}';
   }
 
-  static String _month(int m) => const [
-        '',
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ][m];
+  static String _month(int m) {
+    const names = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    if (m < 1 || m > 12) return '';
+    return names[m];
+  }
 
   @override
   Widget build(BuildContext context) {

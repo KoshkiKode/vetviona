@@ -18,6 +18,14 @@ const double _kNodeH = 88.0;
 const double _kColGap = 44.0;
 const double _kRowGap = 100.0;
 
+// Zoom / viewer constants
+const double _kMinScale = 0.05;
+const double _kMaxScale = 5.0;
+
+/// How far (in logical pixels) the user can pan past the canvas edge in any
+/// direction.  Large enough to comfortably explore huge trees.
+const double _kBoundaryMargin = 6000.0;
+
 // Internal node info
 class _NodeInfo {
   final String id;
@@ -560,7 +568,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
   void _zoom(double factor) {
     final s = _txCtrl.value.getMaxScaleOnAxis();
-    final ns = (s * factor).clamp(0.05, 5.0);
+    final ns = (s * factor).clamp(_kMinScale, _kMaxScale);
     _txCtrl.value = _txCtrl.value.clone()..scale(ns / s);
   }
   void _resetView() => _txCtrl.value = Matrix4.identity();
@@ -576,7 +584,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     const padding = 48.0;
     final sx = (vp.width  - padding * 2) / layout.canvasSize.width;
     final sy = (vp.height - padding * 2) / layout.canvasSize.height;
-    final scale = (sx < sy ? sx : sy).clamp(0.05, 1.0);
+    final scale = (sx < sy ? sx : sy).clamp(_kMinScale, 1.0);
     final scaledW = layout.canvasSize.width  * scale;
     final scaledH = layout.canvasSize.height * scale;
     final tx = (vp.width  - scaledW) / 2;
@@ -904,9 +912,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             InteractiveViewer(
               transformationController: _txCtrl,
               constrained: false,
-              minScale: 0.05,
-              maxScale: 5.0,
-              boundaryMargin: const EdgeInsets.all(6000),
+              minScale: _kMinScale,
+              maxScale: _kMaxScale,
+              boundaryMargin: const EdgeInsets.all(_kBoundaryMargin),
               child: SizedBox(
                 width: layout.canvasSize.width,
                 height: layout.canvasSize.height,

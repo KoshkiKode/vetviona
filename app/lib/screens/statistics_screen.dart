@@ -9,6 +9,10 @@ import '../providers/tree_provider.dart';
 import 'person_detail_screen.dart';
 import '../utils/page_routes.dart';
 
+/// Lifespans outside this range are treated as data-entry errors and excluded
+/// from lifespan statistics.
+const int _kMaxReasonableLifespan = 130;
+
 /// A full-screen statistics & insights view for the family tree.
 ///
 /// Displays:
@@ -244,7 +248,7 @@ class _TreeStats {
     final lifespans = persons
         .where((p) => p.birthDate != null && p.deathDate != null)
         .map((p) => p.deathDate!.year - p.birthDate!.year)
-        .where((y) => y >= 0 && y <= 130)
+        .where((y) => y >= 0 && y <= _kMaxReasonableLifespan)
         .toList();
     double? avgLifespan;
     int? minLifespan;
