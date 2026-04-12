@@ -234,7 +234,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   controller: _nameController,
                   decoration: const InputDecoration(
                     labelText: 'Full Name',
-                    helperText: 'Enter the full legal name or most commonly known name',
+                    helperText: 'Legal name or commonly known name',
                     helperMaxLines: 2,
                   ),
                   textCapitalization: TextCapitalization.words,
@@ -459,7 +459,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     controller: _heightController,
                     decoration: const InputDecoration(
                       labelText: 'Height',
-                      hintText: 'e.g. 178 cm or 5\'10"',
+                      hintText: "e.g. 178 cm or 5'10\"",
                     ),
                   ),
                   const Divider(height: 28),

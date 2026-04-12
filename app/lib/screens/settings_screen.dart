@@ -227,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Tooltip(
-                      message: 'Control whether historical or colonial place names are shown alongside modern names',
+                      message: 'Show historical or colonial place names alongside modern ones',
                       child: DropdownButtonFormField<int>(
                         decoration: const InputDecoration(
                             labelText: 'Historical Place Names'),
