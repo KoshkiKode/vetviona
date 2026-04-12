@@ -29,7 +29,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.person_add_alt_1_outlined,
       title: 'Start with yourself',
       subtitle:
-          'Add people to your tree with names, photos, birth dates, life events and more.',
+          'Add people to your tree with names, photos, birth dates, life events, and more.',
       detail:
           'Tap the + button on the home screen to add your first family member.',
     ),
@@ -45,7 +45,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.account_tree_outlined,
       title: 'Explore your tree',
       subtitle:
-          'Visualise your family as an interactive tree, pedigree fan chart or descendants diagram.',
+          'Visualise your family as an interactive tree, pedigree fan chart, or descendants diagram.',
       detail: 'Access diagrams from the side menu or a person\'s profile page.',
     ),
     _OnboardingPageData(
