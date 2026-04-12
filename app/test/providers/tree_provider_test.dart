@@ -4,6 +4,8 @@
 // methods (search, BFS, export, auth) can be exercised directly without
 // platform channels or SQLite.
 
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -360,14 +362,16 @@ void main() {
       provider = TreeProvider();
     });
 
-    test('includes persons, partnerships, and sources keys', () {
+    test('includes persons, partnerships, sources, and lifeEvents keys', () {
       provider.persons = [];
       provider.partnerships = [];
       provider.sources = [];
+      provider.lifeEvents = [];
       final data = provider.exportForSync();
       expect(data.containsKey('persons'), true);
       expect(data.containsKey('partnerships'), true);
       expect(data.containsKey('sources'), true);
+      expect(data.containsKey('lifeEvents'), true);
     });
 
     test('persons list matches current persons', () {
@@ -945,6 +949,304 @@ void main() {
       final groups = provider.findDuplicates();
       final allIds = groups.expand((g) => g.map((p) => p.id)).toList();
       expect(allIds.length, equals(allIds.toSet().length));
+    });
+  });
+
+  // ── exportForSync – lifeEvents and privacy ────────────────────────────────
+  group('TreeProvider.exportForSync — lifeEvents and privacy', () {
+    test('lifeEvents for public persons are included in export', () {
+      final provider = TreeProvider();
+      provider.persons = [Person(id: 'p1', name: 'Alice')];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'p1', title: 'Immigration'),
+      ];
+      final data = provider.exportForSync();
+      expect((data['lifeEvents'] as List).length, 1);
+    });
+
+    test('lifeEvents for missing / private persons are excluded', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'pub', name: 'Public'),
+        Person(id: 'priv', name: 'Private', isPrivate: true),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'pub', title: 'Graduation'),
+        LifeEvent(id: 'e2', personId: 'priv', title: 'Baptism'),
+        LifeEvent(id: 'e3', personId: 'nobody', title: 'Immigration'),
+      ];
+      final data = provider.exportForSync();
+      final exported = data['lifeEvents'] as List;
+      expect(exported.length, 1);
+      expect((exported.first as Map)['personId'], 'pub');
+    });
+
+    test('private persons are excluded from persons list', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Public'),
+        Person(id: 'p2', name: 'Private', isPrivate: true),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final data = provider.exportForSync();
+      final exportedPersons = data['persons'] as List;
+      expect(exportedPersons.length, 1);
+      expect((exportedPersons.first as Map)['id'], 'p1');
+    });
+
+    test('partnerships where either partner is private are excluded', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'pub1', name: 'Public1'),
+        Person(id: 'pub2', name: 'Public2'),
+        Person(id: 'priv', name: 'Private', isPrivate: true),
+      ];
+      provider.partnerships = [
+        Partnership(id: 'pt1', person1Id: 'pub1', person2Id: 'pub2'),
+        Partnership(id: 'pt2', person1Id: 'pub1', person2Id: 'priv'),
+      ];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final data = provider.exportForSync();
+      expect((data['partnerships'] as List).length, 1);
+    });
+
+    test('sources of private persons are excluded', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'pub', name: 'Public'),
+        Person(id: 'priv', name: 'Private', isPrivate: true),
+      ];
+      provider.partnerships = [];
+      provider.sources = [
+        Source(id: 's1', personId: 'pub', title: 'T', type: 'doc', url: 'http://x'),
+        Source(id: 's2', personId: 'priv', title: 'T', type: 'doc', url: 'http://y'),
+      ];
+      provider.lifeEvents = [];
+      final data = provider.exportForSync();
+      expect((data['sources'] as List).length, 1);
+    });
+
+    test('empty lifeEvents list is exported as empty list', () {
+      final provider = TreeProvider();
+      provider.persons = [Person(id: 'p1', name: 'Alice')];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final data = provider.exportForSync();
+      expect(data['lifeEvents'], isA<List>());
+      expect((data['lifeEvents'] as List), isEmpty);
+    });
+  });
+
+  // ── TreeProvider settings ──────────────────────────────────────────────────
+  group('TreeProvider settings', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('setDateFormat updates dateFormat in memory', () async {
+      final provider = TreeProvider();
+      await provider.setDateFormat('MM/dd/yyyy');
+      expect(provider.dateFormat, 'MM/dd/yyyy');
+    });
+
+    test('setDateFormat persists to SharedPreferences', () async {
+      final provider = TreeProvider();
+      await provider.setDateFormat('yyyy-MM-dd');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('dateFormat'), 'yyyy-MM-dd');
+    });
+
+    test('setColonizationLevel updates colonizationLevel in memory', () async {
+      final provider = TreeProvider();
+      await provider.setColonizationLevel(2);
+      expect(provider.colonizationLevel, 2);
+    });
+
+    test('setColonizationLevel persists to SharedPreferences', () async {
+      final provider = TreeProvider();
+      await provider.setColonizationLevel(1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('colonizationLevel'), 1);
+    });
+
+    test('setHomePersonId stores id and updates homePersonId', () async {
+      final provider = TreeProvider();
+      await provider.setHomePersonId('person-42');
+      expect(provider.homePersonId, 'person-42');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('homePersonId'), 'person-42');
+    });
+
+    test('setHomePersonId with null clears homePersonId', () async {
+      final provider = TreeProvider();
+      await provider.setHomePersonId('person-42');
+      await provider.setHomePersonId(null);
+      expect(provider.homePersonId, isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('homePersonId'), false);
+    });
+
+    test('setHomePersonId with empty string clears homePersonId', () async {
+      final provider = TreeProvider();
+      await provider.setHomePersonId('person-42');
+      await provider.setHomePersonId('');
+      expect(provider.homePersonId, isNull);
+    });
+
+    test('setDateFormat triggers a change notification', () async {
+      final provider = TreeProvider();
+      var notified = false;
+      provider.addListener(() => notified = true);
+      await provider.setDateFormat('dd/MM/yyyy');
+      expect(notified, true);
+    });
+
+    test('setColonizationLevel triggers a change notification', () async {
+      final provider = TreeProvider();
+      var notified = false;
+      provider.addListener(() => notified = true);
+      await provider.setColonizationLevel(1);
+      expect(notified, true);
+    });
+
+    test('setHomePersonId triggers a change notification', () async {
+      final provider = TreeProvider();
+      var notified = false;
+      provider.addListener(() => notified = true);
+      await provider.setHomePersonId('p1');
+      expect(notified, true);
+    });
+  });
+
+  // ── TreeProvider.exportBackupJson ─────────────────────────────────────────
+  group('TreeProvider.exportBackupJson', () {
+    test('returns valid JSON string', () async {
+      final provider = TreeProvider();
+      provider.persons = [];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final json = await provider.exportBackupJson();
+      expect(json, isA<String>());
+      expect(json, isNotEmpty);
+      // Should be parseable
+      final decoded = jsonDecode(json);
+      expect(decoded, isA<Map>());
+    });
+
+    test('backup JSON contains version, exportDate, persons, partnerships, sources, lifeEvents',
+        () async {
+      final provider = TreeProvider();
+      provider.persons = [];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      expect(decoded.containsKey('version'), true);
+      expect(decoded.containsKey('exportDate'), true);
+      expect(decoded.containsKey('persons'), true);
+      expect(decoded.containsKey('partnerships'), true);
+      expect(decoded.containsKey('sources'), true);
+      expect(decoded.containsKey('lifeEvents'), true);
+    });
+
+    test('backup JSON version is 1', () async {
+      final provider = TreeProvider();
+      provider.persons = [];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      expect(decoded['version'], 1);
+    });
+
+    test('all persons are included in the backup', () async {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice'),
+        Person(id: 'p2', name: 'Bob'),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      expect((decoded['persons'] as List).length, 2);
+    });
+
+    test('backup includes private persons (unlike exportForSync)', () async {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Public'),
+        Person(id: 'p2', name: 'Private', isPrivate: true),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      expect((decoded['persons'] as List).length, 2);
+    });
+
+    test('sources not linked to any person are excluded from backup', () async {
+      final provider = TreeProvider();
+      provider.persons = [Person(id: 'p1', name: 'Alice')];
+      provider.partnerships = [];
+      provider.sources = [
+        Source(id: 's1', personId: 'p1', title: 'T', type: 'doc', url: 'http://x'),
+        Source(id: 's2', personId: 'orphan', title: 'T', type: 'doc', url: 'http://y'),
+      ];
+      provider.lifeEvents = [];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      expect((decoded['sources'] as List).length, 1);
+    });
+
+    test('life events linked to persons are included in backup', () async {
+      final provider = TreeProvider();
+      provider.persons = [Person(id: 'p1', name: 'Alice')];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'p1', title: 'Immigration'),
+        LifeEvent(id: 'e2', personId: 'orphan', title: 'Graduation'),
+      ];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      expect((decoded['lifeEvents'] as List).length, 1);
+    });
+
+    test('exportDate is a valid ISO-8601 timestamp', () async {
+      final before = DateTime.now();
+      final provider = TreeProvider();
+      provider.persons = [];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      final exportDate = DateTime.parse(decoded['exportDate'] as String);
+      final after = DateTime.now();
+      expect(exportDate.isAfter(before.subtract(const Duration(seconds: 1))), true);
+      expect(exportDate.isBefore(after.add(const Duration(seconds: 1))), true);
+    });
+
+    test('all partnerships are included in the backup', () async {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice'),
+        Person(id: 'p2', name: 'Bob'),
+      ];
+      provider.partnerships = [
+        Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2'),
+      ];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      final decoded = jsonDecode(await provider.exportBackupJson()) as Map;
+      expect((decoded['partnerships'] as List).length, 1);
     });
   });
 }
