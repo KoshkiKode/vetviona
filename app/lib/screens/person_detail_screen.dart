@@ -210,11 +210,20 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 720;
+          return Form(
+            key: _formKey,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isWide ? 680 : double.infinity,
+                ),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
             if (widget.person != null) _buildPersonHeader(context),
             _buildSection(
               context,
@@ -223,8 +232,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration:
-                      const InputDecoration(labelText: 'Full Name'),
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    helperText: 'Legal name or commonly known name',
+                    helperMaxLines: 2,
+                  ),
                   textCapitalization: TextCapitalization.words,
                   validator: (v) =>
                       v == null || v.trim().isEmpty
@@ -251,6 +263,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   value: _isLiving,
                   onChanged: (v) => setState(() => _isLiving = v),
                   title: const Text('Currently living'),
+                  subtitle: const Text('Turn off to enter death information'),
                   contentPadding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -363,126 +376,211 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               children: [
                 TextFormField(
                   controller: _notesController,
-                  decoration:
-                      const InputDecoration(labelText: 'Notes (optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                    helperText: 'Any extra biographical details, stories, or observations',
+                    helperMaxLines: 2,
+                  ),
                   minLines: 3,
                   maxLines: 6,
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            _buildSection(
-              context,
-              icon: Icons.accessibility_new,
-              title: 'Physical Traits',
-              children: [
-                DropdownButtonFormField<String?>(
-                  value: _bloodType,
-                  decoration:
-                      const InputDecoration(labelText: 'Blood Type'),
-                  items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('Not specified')),
-                    ...Person.allBloodTypes.map(
-                        (t) => DropdownMenuItem(value: t, child: Text(t))),
-                  ],
-                  onChanged: (v) => setState(() => _bloodType = v),
+            // ── Advanced Details (collapsed by default) ───────────────────
+            Card(
+              child: ExpansionTile(
+                leading: const Icon(Icons.tune),
+                title: const Text(
+                  'Advanced Details',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _eyeColourController,
-                  decoration:
-                      const InputDecoration(labelText: 'Eye Colour'),
-                  textCapitalization: TextCapitalization.words,
+                subtitle: const Text(
+                  'Physical traits, aliases & more (optional)',
+                  style: TextStyle(fontSize: 12),
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _hairColourController,
-                  decoration:
-                      const InputDecoration(labelText: 'Hair Colour'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _heightController,
-                  decoration: const InputDecoration(
-                      labelText: 'Height (e.g. 178 cm)'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildSection(
-              context,
-              icon: Icons.badge_outlined,
-              title: 'Aliases / Also Known As',
-              children: [
-                ..._aliases.asMap().entries.map((entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(entry.value,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 18),
-                            tooltip: 'Remove alias',
-                            onPressed: () =>
-                                setState(() => _aliases.removeAt(entry.key)),
-                          ),
-                        ],
-                      ),
-                    )),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add Alias'),
-                  onPressed: () => _addAlias(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildSection(
-              context,
-              icon: Icons.info_outline,
-              title: 'Additional Details',
-              children: [
-                TextFormField(
-                  controller: _occupationController,
-                  decoration:
-                      const InputDecoration(labelText: 'Occupation'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _nationalityController,
-                  decoration:
-                      const InputDecoration(labelText: 'Nationality'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _maidenNameController,
-                  decoration:
-                      const InputDecoration(labelText: 'Maiden Name'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _religionController,
-                  decoration:
-                      const InputDecoration(labelText: 'Religion / Faith'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _educationController,
-                  decoration: const InputDecoration(
-                      labelText: 'Education Level'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-              ],
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Physical Traits subsection
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.accessibility_new,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Physical Traits',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  DropdownButtonFormField<String?>(
+                    value: _bloodType,
+                    decoration: const InputDecoration(
+                      labelText: 'Blood Type',
+                      helperText: 'Useful for medical history tracking',
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                          value: null, child: Text('Not specified')),
+                      ...Person.allBloodTypes.map(
+                          (t) => DropdownMenuItem(value: t, child: Text(t))),
+                    ],
+                    onChanged: (v) => setState(() => _bloodType = v),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _eyeColourController,
+                    decoration: const InputDecoration(
+                      labelText: 'Eye Colour',
+                      hintText: 'e.g. Brown, Blue, Green',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _hairColourController,
+                    decoration: const InputDecoration(
+                      labelText: 'Hair Colour',
+                      hintText: 'e.g. Black, Blonde, Auburn',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _heightController,
+                    decoration: const InputDecoration(
+                      labelText: 'Height',
+                      hintText: "e.g. 178 cm or 5'10\"",
+                    ),
+                  ),
+                  const Divider(height: 28),
+                  // Aliases subsection
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.badge_outlined,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Aliases / Also Known As',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    'Add birth names, nicknames, or other names this person was known by.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  ..._aliases.asMap().entries.map((entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(entry.value,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              tooltip: 'Remove alias',
+                              onPressed: () =>
+                                  setState(() => _aliases.removeAt(entry.key)),
+                            ),
+                          ],
+                        ),
+                      )),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add Alias'),
+                    onPressed: () => _addAlias(context),
+                  ),
+                  const Divider(height: 28),
+                  // Additional Details subsection
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Additional Details',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextFormField(
+                    controller: _occupationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Occupation',
+                      hintText: 'e.g. Farmer, Teacher, Engineer',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _nationalityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nationality',
+                      hintText: 'e.g. Czech, Polish, Ukrainian',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _maidenNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Maiden Name',
+                      helperText: 'Birth surname before marriage',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _religionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Religion / Faith',
+                      hintText: 'e.g. Catholic, Orthodox, None',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _educationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Education Level',
+                      hintText: 'e.g. Primary, Secondary, University',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                ],
+              ),
             ),
             if (!_isLiving) ...[
               const SizedBox(height: 16),
@@ -669,6 +767,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             const SizedBox(height: 16),
           ],
         ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

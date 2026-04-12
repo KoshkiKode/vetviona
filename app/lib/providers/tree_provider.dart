@@ -1416,10 +1416,137 @@ class TreeProvider extends ChangeNotifier {
     await loadPersons();
   }
 
-  // ── Duplicate Detection ────────────────────────────────────────────────────
+  // ── Batch Import ─────────────────────────────────────────────────────────────
+
+  /// Inserts [personList] in a single SQLite batch transaction and appends
+  /// them to [persons].  Calls [notifyListeners] once after the commit.
+  ///
+  /// Use this instead of repeated [addPerson] calls during GEDCOM import so
+  /// that 2,500 rows become one round-trip to the database and one UI rebuild
+  /// instead of 2,500 of each.
+  Future<void> importPersonsBatch(List<Person> personList) async {
+    if (personList.isEmpty) return;
+    final db = await _database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final batch = db.batch();
+    for (final p in personList) {
+      p.treeId = currentTreeId;
+      p.updatedAt = now;
+      batch.insert('persons', p.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    persons.addAll(personList);
+    _emitDelta(persons: personList.map((p) => p.toMap()).toList());
+    notifyListeners();
+  }
+
+  /// Inserts [list] in a single SQLite batch transaction and appends them to
+  /// [partnerships].  Calls [notifyListeners] once after the commit.
+  Future<void> importPartnershipsBatch(List<Partnership> list) async {
+    if (list.isEmpty) return;
+    final db = await _database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final batch = db.batch();
+    for (final pt in list) {
+      pt.treeId = currentTreeId;
+      pt.updatedAt = now;
+      batch.insert('partnerships', pt.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    partnerships.addAll(list);
+    _emitDelta(partnerships: list.map((p) => p.toMap()).toList());
+    notifyListeners();
+  }
+
+  /// Inserts [list] in a single SQLite batch transaction and appends them to
+  /// [lifeEvents].  Calls [notifyListeners] once after the commit.
+  Future<void> importLifeEventsBatch(List<LifeEvent> list) async {
+    if (list.isEmpty) return;
+    final db = await _database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final batch = db.batch();
+    for (final e in list) {
+      e.treeId = currentTreeId;
+      e.updatedAt = now;
+      batch.insert('life_events', e.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    lifeEvents.addAll(list);
+    _emitDelta(lifeEvents: list.map((e) => e.toMap()).toList());
+    notifyListeners();
+  }
+
+  /// Inserts [list] in a single SQLite batch transaction and appends them to
+  /// [sources].  Also updates each linked person's [Person.sourceIds] list in
+  /// memory and persists those updates to the DB so that relationship
+  /// certificates, sync export, and other features that iterate
+  /// [Person.sourceIds] show the imported citations correctly.
+  /// Calls [notifyListeners] once after all commits.
+  Future<void> importSourcesBatch(List<Source> list) async {
+    if (list.isEmpty) return;
+    final db = await _database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // Phase A: insert the sources.
+    final sourceBatch = db.batch();
+    for (final s in list) {
+      s.treeId = currentTreeId;
+      s.updatedAt = now;
+      sourceBatch.insert('sources', s.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await sourceBatch.commit(noResult: true);
+    sources.addAll(list);
+
+    // Phase B: update person.sourceIds for each linked person so that code
+    // which reads person.sourceIds (e.g. relationship certificates) sees the
+    // newly imported citations.
+    final affectedPersonIds = <String>{
+      for (final s in list)
+        if (s.personId.isNotEmpty) s.personId,
+    };
+    if (affectedPersonIds.isNotEmpty) {
+      final personsBatch = db.batch();
+      for (final p in persons) {
+        if (!affectedPersonIds.contains(p.id)) continue;
+        // Collect source IDs for this person from the batch.
+        for (final s in list) {
+          if (s.personId == p.id && !p.sourceIds.contains(s.id)) {
+            p.sourceIds.add(s.id);
+          }
+        }
+        personsBatch.update('persons', p.toMap(),
+            where: 'id = ?', whereArgs: [p.id]);
+      }
+      await personsBatch.commit(noResult: true);
+    }
+
+    _emitDelta(sources: list.map((s) => s.toMap()).toList());
+    notifyListeners();
+  }
 
   /// Returns groups of persons that are likely duplicates.
-  /// Groups by: same normalized name, or same first word + birth years within 2 years.
+  ///
+  /// Two persons are flagged as likely duplicates only when ALL of the
+  /// following are true:
+  ///   1. Their **full** normalized names match exactly (e.g. "Henry Smith"
+  ///      and "HENRY SMITH" both normalize to "henry smith" and are equal).
+  ///      A match on first name alone is not sufficient — this prevents every
+  ///      "Henry X" from being grouped with every "Henry Y".
+  ///   2. Their dates are consistent with being the same person:
+  ///      - If both have birth years: |birthYearA - birthYearB| ≤ 2.
+  ///      - If one has a birth year but the other does not: flagged (no info to
+  ///        rule it out).
+  ///      - If neither has a birth year but both have death years:
+  ///        |deathYearA - deathYearB| ≤ 2.
+  ///      - If neither has any dates: same name is enough to flag.
+  ///
+  /// This means descendants with the same full name who are born decades apart
+  /// (e.g. grandfather "John Smith" 1820 and grandson "John Smith" 1880) are
+  /// correctly **not** flagged.
   List<List<Person>> findDuplicates() {
     final groups = <List<Person>>[];
     final processed = <String>{};
@@ -1427,29 +1554,39 @@ class TreeProvider extends ChangeNotifier {
     String normalize(String name) =>
         name.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9 ]'), '');
 
+    bool likelyDuplicate(Person a, Person b) {
+      // Full normalized name must match exactly.
+      if (normalize(a.name) != normalize(b.name)) return false;
+
+      final birthYearA = a.birthDate?.year;
+      final birthYearB = b.birthDate?.year;
+
+      // Both have birth years → must be within 2 years.
+      if (birthYearA != null && birthYearB != null) {
+        return (birthYearA - birthYearB).abs() <= 2;
+      }
+
+      // One has a birth year and the other doesn't → no evidence to exclude.
+      if (birthYearA != null || birthYearB != null) return true;
+
+      // Neither has a birth year — fall back to death year proximity.
+      final deathYearA = a.deathDate?.year;
+      final deathYearB = b.deathDate?.year;
+      if (deathYearA != null && deathYearB != null) {
+        return (deathYearA - deathYearB).abs() <= 2;
+      }
+
+      // No date information at all: same full name is enough to flag.
+      return true;
+    }
+
     for (int i = 0; i < persons.length; i++) {
       if (processed.contains(persons[i].id)) continue;
       final group = <Person>[persons[i]];
-      final nameA = normalize(persons[i].name);
-      final firstWordA =
-          nameA.split(' ').where((w) => w.isNotEmpty).firstOrNull ?? '';
-      final birthYearA = persons[i].birthDate?.year;
 
       for (int j = i + 1; j < persons.length; j++) {
         if (processed.contains(persons[j].id)) continue;
-        final nameB = normalize(persons[j].name);
-        final firstWordB =
-            nameB.split(' ').where((w) => w.isNotEmpty).firstOrNull ?? '';
-        final birthYearB = persons[j].birthDate?.year;
-
-        final sameName = nameA == nameB;
-        final sameFirstAndNearBirth = firstWordA.isNotEmpty &&
-            firstWordA == firstWordB &&
-            birthYearA != null &&
-            birthYearB != null &&
-            (birthYearA - birthYearB).abs() <= 2;
-
-        if (sameName || sameFirstAndNearBirth) {
+        if (likelyDuplicate(persons[i], persons[j])) {
           group.add(persons[j]);
           processed.add(persons[j].id);
         }

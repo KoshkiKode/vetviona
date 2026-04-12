@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/life_event.dart';
+import '../models/partnership.dart';
+import '../models/person.dart';
 import '../models/source.dart';
 import '../providers/tree_provider.dart';
 import '../services/gedcom_parser.dart';
@@ -163,39 +165,51 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
   }
 
   // ── Import loop ─────────────────────────────────────────────────────────────
+  //
+  // Each phase now uses a single SQLite batch transaction instead of individual
+  // per-row inserts.  This drops the time for a 2,500-person import from
+  // ~20 minutes (2,500 DB round-trips + 2,500 notifyListeners rebuilds) to a
+  // few seconds (4 batch commits + 4 notifyListeners calls total).
+  //
+  // Phase checkpointing (for the resume-on-crash feature) is done once per
+  // phase rather than once per row.  The trade-off is acceptable: a crash
+  // mid-phase restarts only that phase, not the whole import.
   Future<void> _runImport(
       TreeProvider provider, SharedPreferences prefs) async {
     final parsed = _parsed!;
 
     // ── Phase 1: Persons ────────────────────────────────────────────────────
-    final persons = parsed.persons;
-    while (_personIdx < persons.length) {
+    // Guard: skip if this phase was already completed (checkpoint == total).
+    if (_personIdx < parsed.persons.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
 
-      final person = persons[_personIdx];
-      _setStatus(
-          'Importing people… (${_personIdx + 1} / ${persons.length})');
+      _setStatus('Preparing ${parsed.persons.length} people…');
+      await Future.delayed(Duration.zero); // let the UI update
 
-      // In merge mode, skip people that map to an existing DB ID.
-      final resolvedId = _idMap[person.id] ?? person.id;
-      final isDuplicate =
-          widget.mergeMode && resolvedId != person.id;
-
-      if (!isDuplicate && !provider.persons.any((p) => p.id == person.id)) {
+      // Build the list of persons to actually insert (skip duplicates).
+      final toAdd = <Person>[];
+      final existingIds = {for (final p in provider.persons) p.id};
+      for (final person in parsed.persons) {
+        final resolvedId = _idMap[person.id] ?? person.id;
+        final isDuplicate = widget.mergeMode && resolvedId != person.id;
+        if (isDuplicate || existingIds.contains(person.id)) {
+          _skippedPersons++;
+          continue;
+        }
         // Remap parentIds and childIds using the ID map.
-        person.parentIds = person.parentIds
-            .map((id) => _idMap[id] ?? id)
-            .toList();
-        person.childIds = person.childIds
-            .map((id) => _idMap[id] ?? id)
-            .toList();
-        person.treeId = provider.currentTreeId;
-        try {
-          await provider.addPerson(person);
-          _addedPersons++;
-        } on StateError {
+        person.parentIds =
+            person.parentIds.map((id) => _idMap[id] ?? id).toList();
+        person.childIds =
+            person.childIds.map((id) => _idMap[id] ?? id).toList();
+        toAdd.add(person);
+      }
+
+      // Free-tier limit check.
+      if (provider.personLimit != null) {
+        final available = provider.personLimit! - provider.persons.length;
+        if (available <= 0) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text(
@@ -203,64 +217,86 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
           }
           return _cancelImport(prefs);
         }
-      } else {
-        _skippedPersons++;
+        if (toAdd.length > available) toAdd.length = available;
       }
 
-      _personIdx++;
+      _setStatus('Importing ${toAdd.length} people…');
+      await Future.delayed(Duration.zero);
+
+      await provider.importPersonsBatch(toAdd);
+      _addedPersons = toAdd.length;
+
+      _personIdx = parsed.persons.length; // mark phase complete
       await prefs.setInt(_kPersonIdx, _personIdx);
-      await Future.delayed(Duration.zero); // yield to UI
     }
 
     // In merge mode, update existing parents so they list the new children.
     if (widget.mergeMode) {
+      _setStatus('Linking family relationships…');
+      await Future.delayed(Duration.zero);
       await _linkOrphanedChildren(provider);
     }
 
     // ── Phase 2: Partnerships ───────────────────────────────────────────────
-    final partnerships = parsed.partnerships;
-    while (_partnerIdx < partnerships.length) {
+    // Guard: skip if this phase was already completed.
+    if (_partnerIdx < parsed.partnerships.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
 
-      _setStatus(
-          'Importing families… (${_partnerIdx + 1} / ${partnerships.length})');
+      _setStatus('Preparing ${parsed.partnerships.length} families…');
+      await Future.delayed(Duration.zero);
 
-      final partnership = partnerships[_partnerIdx];
-      // Remap partner IDs.
-      partnership.person1Id = _idMap[partnership.person1Id] ?? partnership.person1Id;
-      partnership.person2Id = _idMap[partnership.person2Id] ?? partnership.person2Id;
-      partnership.treeId = provider.currentTreeId;
-
-      final alreadyExists = provider.partnerships.any((pt) =>
-          (pt.person1Id == partnership.person1Id &&
-              pt.person2Id == partnership.person2Id) ||
-          (pt.person1Id == partnership.person2Id &&
-              pt.person2Id == partnership.person1Id));
-      if (!alreadyExists) {
-        await provider.addPartnership(partnership);
-        _addedPartnerships++;
+      final existingPairs = <String>{};
+      for (final pt in provider.partnerships) {
+        existingPairs.add('${pt.person1Id}|${pt.person2Id}');
+        existingPairs.add('${pt.person2Id}|${pt.person1Id}');
       }
 
-      _partnerIdx++;
-      await prefs.setInt(_kPartnerIdx, _partnerIdx);
+      final toAdd = <Partnership>[];
+      for (final partnership in parsed.partnerships) {
+        partnership.person1Id =
+            _idMap[partnership.person1Id] ?? partnership.person1Id;
+        partnership.person2Id =
+            _idMap[partnership.person2Id] ?? partnership.person2Id;
+        final key = '${partnership.person1Id}|${partnership.person2Id}';
+        if (!existingPairs.contains(key)) {
+          toAdd.add(partnership);
+          existingPairs.add(key);
+          existingPairs
+              .add('${partnership.person2Id}|${partnership.person1Id}');
+        }
+      }
+
+      _setStatus('Importing ${toAdd.length} families…');
       await Future.delayed(Duration.zero);
+
+      await provider.importPartnershipsBatch(toAdd);
+      _addedPartnerships = toAdd.length;
+
+      _partnerIdx = parsed.partnerships.length;
+      await prefs.setInt(_kPartnerIdx, _partnerIdx);
     }
 
     // ── Phase 3: Life Events ────────────────────────────────────────────────
-    final events = parsed.lifeEvents;
-    while (_eventIdx < events.length) {
+    // Guard: skip if this phase was already completed.
+    if (_eventIdx < parsed.lifeEvents.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
 
-      _setStatus('Importing events… (${_eventIdx + 1} / ${events.length})');
+      _setStatus('Preparing ${parsed.lifeEvents.length} life events…');
+      await Future.delayed(Duration.zero);
 
-      final event = events[_eventIdx];
-      final resolvedPersonId = _idMap[event.personId] ?? event.personId;
-      if (provider.persons.any((p) => p.id == resolvedPersonId)) {
-        await provider.addLifeEvent(LifeEvent(
+      final knownPersonIds = {for (final p in provider.persons) p.id};
+      // Dedup: skip events that were already imported (guards against re-run).
+      final existingEventIds = {for (final e in provider.lifeEvents) e.id};
+      final toAdd = <LifeEvent>[];
+      for (final event in parsed.lifeEvents) {
+        final resolvedPersonId = _idMap[event.personId] ?? event.personId;
+        if (!knownPersonIds.contains(resolvedPersonId)) continue;
+        if (existingEventIds.contains(event.id)) continue;
+        toAdd.add(LifeEvent(
           id: event.id,
           personId: resolvedPersonId,
           title: event.title,
@@ -269,28 +305,37 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
           notes: event.notes,
           treeId: provider.currentTreeId,
         ));
-        _addedEvents++;
       }
 
-      _eventIdx++;
-      await prefs.setInt(_kEventIdx, _eventIdx);
+      _setStatus('Importing ${toAdd.length} life events…');
       await Future.delayed(Duration.zero);
+
+      await provider.importLifeEventsBatch(toAdd);
+      _addedEvents = toAdd.length;
+
+      _eventIdx = parsed.lifeEvents.length;
+      await prefs.setInt(_kEventIdx, _eventIdx);
     }
 
     // ── Phase 4: Sources ────────────────────────────────────────────────────
-    final sourcesIn = parsed.sources;
-    while (_sourceIdx < sourcesIn.length) {
+    // Guard: skip if this phase was already completed.
+    if (_sourceIdx < parsed.sources.length) {
       if (_isCancelled) return _cancelImport(prefs);
       if (_isPaused) await _waitForResume();
       if (_isCancelled) return _cancelImport(prefs);
 
-      _setStatus(
-          'Linking sources… (${_sourceIdx + 1} / ${sourcesIn.length})');
+      _setStatus('Preparing ${parsed.sources.length} sources…');
+      await Future.delayed(Duration.zero);
 
-      final src = sourcesIn[_sourceIdx];
-      final resolvedPersonId = _idMap[src.personId] ?? src.personId;
-      if (provider.persons.any((p) => p.id == resolvedPersonId)) {
-        await provider.addSource(Source(
+      final knownPersonIds = {for (final p in provider.persons) p.id};
+      // Dedup: skip sources that were already imported (guards against re-run).
+      final existingSourceIds = {for (final s in provider.sources) s.id};
+      final toAdd = <Source>[];
+      for (final src in parsed.sources) {
+        final resolvedPersonId = _idMap[src.personId] ?? src.personId;
+        if (!knownPersonIds.contains(resolvedPersonId)) continue;
+        if (existingSourceIds.contains(src.id)) continue;
+        toAdd.add(Source(
           id: src.id,
           personId: resolvedPersonId,
           title: src.title,
@@ -301,12 +346,16 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
           volumePage: src.volumePage,
           treeId: provider.currentTreeId,
         ));
-        _addedSources++;
       }
 
-      _sourceIdx++;
-      await prefs.setInt(_kSourceIdx, _sourceIdx);
+      _setStatus('Linking ${toAdd.length} sources…');
       await Future.delayed(Duration.zero);
+
+      await provider.importSourcesBatch(toAdd);
+      _addedSources = toAdd.length;
+
+      _sourceIdx = parsed.sources.length;
+      await prefs.setInt(_kSourceIdx, _sourceIdx);
     }
 
     // ── Done ────────────────────────────────────────────────────────────────
@@ -319,6 +368,8 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
       });
     }
   }
+
+  // ── Orphaned-child linker ────────────────────────────────────────────────────
 
   /// After adding new persons (which have remapped parentIds), update any
   /// existing parent person in the DB whose childIds do not yet include the

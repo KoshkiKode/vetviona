@@ -168,50 +168,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.tune_outlined,
             title: 'Display',
             children: [
-              DropdownButtonFormField<String>(
-                decoration:
-                    const InputDecoration(labelText: 'Date Format'),
-                value: treeProvider.dateFormat,
-                items: const [
-                  DropdownMenuItem(
-                      value: 'dd MMM yyyy',
-                      child: Text('01 Jan 2000')),
-                  DropdownMenuItem(
-                      value: 'MM/dd/yyyy',
-                      child: Text('01/01/2000')),
-                  DropdownMenuItem(
-                      value: 'yyyy-MM-dd',
-                      child: Text('2000-01-01')),
-                ],
-                onChanged: (v) {
-                  if (v != null)
-                    context.read<TreeProvider>().setDateFormat(v);
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(
-                    labelText: 'Historical Place Names'),
-                value: treeProvider.colonizationLevel,
-                items: const [
-                  DropdownMenuItem(
-                      value: 0, child: Text('Modern names only')),
-                  DropdownMenuItem(
-                      value: 1,
-                      child: Text('Also show colonizer names')),
-                  DropdownMenuItem(
-                      value: 2,
-                      child: Text('Also show indigenous names')),
-                ],
-                onChanged: (v) {
-                  if (v != null)
-                    context
-                        .read<TreeProvider>()
-                        .setColonizationLevel(v);
-                },
-              ),
               if (treeProvider.persons.isNotEmpty) ...[
-                const SizedBox(height: 12),
                 const Text(
                   'Home Person',
                   style: TextStyle(fontSize: 12),
@@ -224,7 +181,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onSelected: (id) =>
                       context.read<TreeProvider>().setHomePersonId(id),
                 ),
+                const SizedBox(height: 12),
               ],
+              // Advanced display options – collapsed by default so beginners
+              // aren't overwhelmed, but easily accessible for power users.
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.settings_outlined,
+                      size: 20, color: colorScheme.primary),
+                  title: const Text(
+                    'Advanced Options',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: const Text(
+                    'Date format, place name style',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  children: [
+                    const SizedBox(height: 8),
+                    Tooltip(
+                      message: 'Choose how dates appear throughout the app',
+                      child: DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(labelText: 'Date Format'),
+                        value: treeProvider.dateFormat,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'dd MMM yyyy',
+                              child: Text('01 Jan 2000 (recommended)')),
+                          DropdownMenuItem(
+                              value: 'MM/dd/yyyy',
+                              child: Text('01/01/2000 (US style)')),
+                          DropdownMenuItem(
+                              value: 'yyyy-MM-dd',
+                              child: Text('2000-01-01 (ISO 8601)')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            context.read<TreeProvider>().setDateFormat(v);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Tooltip(
+                      message: 'Show historical or colonial place names alongside modern ones',
+                      child: DropdownButtonFormField<int>(
+                        decoration: const InputDecoration(
+                            labelText: 'Historical Place Names'),
+                        value: treeProvider.colonizationLevel,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 0, child: Text('Modern names only')),
+                          DropdownMenuItem(
+                              value: 1,
+                              child: Text('Also show colonizer names')),
+                          DropdownMenuItem(
+                              value: 2,
+                              child: Text('Also show indigenous names')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            context
+                                .read<TreeProvider>()
+                                .setColonizationLevel(v);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
+              ),
             ],
           ),
 
