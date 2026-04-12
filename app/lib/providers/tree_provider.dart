@@ -750,8 +750,7 @@ class TreeProvider extends ChangeNotifier {
     await db.insert('medical_conditions', condition.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     medicalConditions.add(condition);
-    final idx = persons.indexWhere((p) => p.id == condition.personId);
-    if (idx != -1 && persons[idx].syncMedical) {
+    if (person.syncMedical) {
       _emitDelta(medicalConditions: [condition.toMap()]);
     }
     notifyListeners();
@@ -765,8 +764,9 @@ class TreeProvider extends ChangeNotifier {
     final idx =
         medicalConditions.indexWhere((mc) => mc.id == condition.id);
     if (idx != -1) medicalConditions[idx] = condition;
-    final pIdx = persons.indexWhere((p) => p.id == condition.personId);
-    if (pIdx != -1 && persons[pIdx].syncMedical) {
+    final person =
+        persons.where((p) => p.id == condition.personId).firstOrNull;
+    if (person != null && person.syncMedical) {
       _emitDelta(medicalConditions: [condition.toMap()]);
     }
     notifyListeners();
@@ -1103,6 +1103,11 @@ class TreeProvider extends ChangeNotifier {
     // Private persons are excluded from sync — their data stays strictly local.
     final publicPersons = persons.where((p) => !p.isPrivate).toList();
     final publicPersonIds = publicPersons.map((p) => p.id).toSet();
+    // Build O(1) lookup for syncMedical check.
+    final syncMedicalIds = publicPersons
+        .where((p) => p.syncMedical)
+        .map((p) => p.id)
+        .toSet();
     return {
       'persons': publicPersons.map((p) => p.toMap()).toList(),
       'partnerships': partnerships
@@ -1124,12 +1129,7 @@ class TreeProvider extends ChangeNotifier {
           .map((t) => t.toMap())
           .toList(),
       'medicalConditions': medicalConditions
-          .where((mc) {
-            if (!publicPersonIds.contains(mc.personId)) return false;
-            final person =
-                persons.where((p) => p.id == mc.personId).firstOrNull;
-            return person?.syncMedical ?? false;
-          })
+          .where((mc) => syncMedicalIds.contains(mc.personId))
           .map((mc) => mc.toMap())
           .toList(),
     };
