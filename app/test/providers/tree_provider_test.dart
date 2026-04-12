@@ -873,28 +873,37 @@ void main() {
       expect(groups, hasLength(1));
     });
 
-    test('detects potential duplicate by matching first name and birth year within 2 years',
+    test('does NOT flag different people sharing only a first name as duplicates',
+        () {
+      // "John Adams" and "John Baker" share a first name but are different people.
+      // The old first-word heuristic incorrectly grouped them; the fixed logic
+      // requires the full name to match.
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'John Adams', birthDate: DateTime(1900)),
+        Person(id: 'p2', name: 'John Baker', birthDate: DateTime(1901)),
+      ];
+      expect(provider.findDuplicates(), isEmpty);
+    });
+
+    test('flags same full name with birth years within 2 years as duplicate',
         () {
       final provider = TreeProvider();
       provider.persons = [
-        Person(id: 'p1', name: 'John Adams',
-            birthDate: DateTime(1900)),
-        Person(id: 'p2', name: 'John Baker',
-            birthDate: DateTime(1901)),
+        Person(id: 'p1', name: 'John Smith', birthDate: DateTime(1900)),
+        Person(id: 'p2', name: 'John Smith', birthDate: DateTime(1901)),
       ];
       final groups = provider.findDuplicates();
       expect(groups, hasLength(1));
       expect(groups.first.map((p) => p.id), containsAll(['p1', 'p2']));
     });
 
-    test('does not flag same first name when birth years differ by more than 2',
-        () {
+    test('does NOT flag same full name when birth years differ by more than 2 '
+        '(e.g. grandfather vs grandson with same name)', () {
       final provider = TreeProvider();
       provider.persons = [
-        Person(id: 'p1', name: 'John Adams',
-            birthDate: DateTime(1900)),
-        Person(id: 'p2', name: 'John Baker',
-            birthDate: DateTime(1904)),
+        Person(id: 'p1', name: 'Henry Smith', birthDate: DateTime(1820)),
+        Person(id: 'p2', name: 'Henry Smith', birthDate: DateTime(1870)),
       ];
       expect(provider.findDuplicates(), isEmpty);
     });
@@ -949,6 +958,36 @@ void main() {
       final groups = provider.findDuplicates();
       final allIds = groups.expand((g) => g.map((p) => p.id)).toList();
       expect(allIds.length, equals(allIds.toSet().length));
+    });
+
+    test('flags same full name with death years within 2 (no birth dates)', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Mary Brown', deathDate: DateTime(1900)),
+        Person(id: 'p2', name: 'Mary Brown', deathDate: DateTime(1901)),
+      ];
+      final groups = provider.findDuplicates();
+      expect(groups, hasLength(1));
+      expect(groups.first.map((p) => p.id), containsAll(['p1', 'p2']));
+    });
+
+    test('does NOT flag same full name when death years differ by more than 2 '
+        'and neither has a birth date', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Mary Brown', deathDate: DateTime(1850)),
+        Person(id: 'p2', name: 'Mary Brown', deathDate: DateTime(1920)),
+      ];
+      expect(provider.findDuplicates(), isEmpty);
+    });
+
+    test('flags same full name with no dates at all', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Unknown Person'),
+        Person(id: 'p2', name: 'Unknown Person'),
+      ];
+      expect(provider.findDuplicates(), hasLength(1));
     });
   });
 
