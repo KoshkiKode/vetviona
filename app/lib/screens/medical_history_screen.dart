@@ -366,6 +366,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -574,7 +575,7 @@ class _PersonTile extends StatelessWidget {
                   color: person.syncMedical
                       ? colorScheme.primary
                       : colorScheme.outline),
-              Switch(
+              Switch.adaptive(
                 value: person.syncMedical,
                 onChanged: (_) {
                   person.syncMedical = !person.syncMedical;
@@ -726,6 +727,7 @@ Widget _conditionTrailing(
         onPressed: () => showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+      useSafeArea: true,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),

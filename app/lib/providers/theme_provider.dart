@@ -194,7 +194,20 @@ class ThemeProvider with ChangeNotifier {
         shadowColor: primary.withOpacity(0.3),
         surfaceTintColor: primary,
         centerTitle: _isCupertinoHost,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          // The AppBar itself is always the primary (dark green) colour so the
+          // status-bar icons should always be light.
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,     // Android
+          statusBarBrightness: Brightness.dark,           // iOS (inverted)
+          // Bottom navigation bar styling
+          systemNavigationBarColor: isDark
+              ? scheme.surfaceContainerLow
+              : scheme.surfaceContainerLow,
+          systemNavigationBarIconBrightness:
+              isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
         iconTheme: IconThemeData(color: scheme.onPrimary),
         actionsIconTheme: IconThemeData(color: scheme.onPrimary),
         titleTextStyle: TextStyle(

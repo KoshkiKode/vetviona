@@ -106,6 +106,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               prefixIcon: Icon(Icons.person_outline),
                             ),
                             textInputAction: TextInputAction.next,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            keyboardType: TextInputType.visiblePassword,
                             validator: (v) => v == null || v.trim().isEmpty
                                 ? 'Username is required'
                                 : null,
@@ -125,6 +128,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             obscureText: _obscure,
+                            autocorrect: false,
+                            enableSuggestions: false,
                             textInputAction: TextInputAction.done,
                             onFieldSubmitted: (_) => _login(),
                             validator: (v) => v == null || v.isEmpty

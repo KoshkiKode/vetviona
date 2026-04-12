@@ -11,6 +11,7 @@ import 'config/build_metadata.dart';
 import 'services/bluetooth_sync_service.dart';
 import 'services/purchase_service.dart';
 import 'services/sync_service.dart';
+import 'utils/platform_utils.dart';
 
 class VetvionaApp extends StatelessWidget {
   const VetvionaApp({super.key});
@@ -68,6 +69,9 @@ class VetvionaApp extends StatelessWidget {
         builder: (context, themeProvider, child) => MaterialApp(
           title: BuildMetadata.appName,
           theme: themeProvider.theme,
+          debugShowCheckedModeBanner: false,
+          // iOS/macOS gets elastic over-scroll; Android/desktop gets clamping.
+          scrollBehavior: _VetvionaScrollBehavior(),
           home: const _StartupRouter(),
         ),
       ),
@@ -126,4 +130,14 @@ class _StartupRouterState extends State<_StartupRouter> {
           : const SplashScreen(key: ValueKey('splash')),
     );
   }
+}
+
+// ── Adaptive scroll behaviour ──────────────────────────────────────────────
+
+/// Uses [BouncingScrollPhysics] on iOS/macOS (matching native elastic
+/// over-scroll) and [ClampingScrollPhysics] on Android/desktop.
+class _VetvionaScrollBehavior extends MaterialScrollBehavior {
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      adaptiveScrollPhysics();
 }

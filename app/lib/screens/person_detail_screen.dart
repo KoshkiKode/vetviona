@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -12,7 +13,7 @@ import '../models/geo_coord.dart';
 import '../models/life_event.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
-import 'map_picker_screen.dart';
+import '../utils/platform_utils.dart';
 import 'medical_history_screen.dart';
 import 'photo_gallery_screen.dart';
 import 'relationship_screen.dart';
@@ -238,6 +239,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     helperMaxLines: 2,
                   ),
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
                   validator: (v) =>
                       v == null || v.trim().isEmpty
                           ? 'Name is required'
@@ -901,11 +903,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   Future<void> _selectDate(BuildContext context, bool isBirth) async {
     final initial = (isBirth ? _birthDate : _deathDate) ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await pickDateAdaptive(
+      context,
       initialDate: initial,
-      firstDate: DateTime(1700),
-      lastDate: DateTime(2100),
     );
     if (picked != null) {
       setState(() {
@@ -920,11 +920,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   Future<void> _selectBurialDate(BuildContext context) async {
     final initial = _burialDate ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await pickDateAdaptive(
+      context,
       initialDate: initial,
-      firstDate: DateTime(1700),
-      lastDate: DateTime(2100),
     );
     if (picked != null) {
       setState(() => _burialDate = picked);
@@ -933,6 +931,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   Future<void> _savePerson() async {
     if (!_formKey.currentState!.validate()) return;
+    HapticFeedback.mediumImpact();
     final person = Person(
       id: widget.person?.id ?? const Uuid().v4(),
       name: _nameController.text.trim(),
@@ -1612,6 +1611,7 @@ class _LifeEventsSection extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1770,11 +1770,9 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
           const SizedBox(height: 12),
           InkWell(
             onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
+              final picked = await pickDateAdaptive(
+                context,
                 initialDate: _date ?? DateTime.now(),
-                firstDate: DateTime(1700),
-                lastDate: DateTime(2100),
               );
               if (picked != null) setState(() => _date = picked);
             },

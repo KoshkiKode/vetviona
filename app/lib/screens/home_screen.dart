@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -144,12 +145,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final fab = FloatingActionButton.extended(
       onPressed: provider.isAtPersonLimit
-          ? () => _showUpgradeDialog(context)
-          : () => Navigator.push(
+          ? () {
+              HapticFeedback.heavyImpact();
+              _showUpgradeDialog(context);
+            }
+          : () {
+              HapticFeedback.mediumImpact();
+              Navigator.push(
                 context,
                 fadeSlideRoute(
                     builder: (_) => const PersonDetailScreen()),
-              ),
+              );
+            },
       tooltip: provider.isAtPersonLimit
           ? 'Person limit reached — tap to upgrade'
           : 'Add a new person to your family tree',

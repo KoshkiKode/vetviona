@@ -614,6 +614,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
