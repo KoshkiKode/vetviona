@@ -1502,10 +1502,10 @@ class TreeProvider extends ChangeNotifier {
   ///
   /// Two persons are flagged as likely duplicates only when ALL of the
   /// following are true:
-  ///   1. Their **full** normalized names match exactly (e.g. "henry smith" ==
-  ///      "henry smith").  A match on first name alone ("henry" == "henry") is
-  ///      not sufficient — this prevents every "Henry X" from being grouped
-  ///      with every "Henry Y".
+  ///   1. Their **full** normalized names match exactly (e.g. "Henry Smith"
+  ///      and "HENRY SMITH" both normalize to "henry smith" and are equal).
+  ///      A match on first name alone is not sufficient — this prevents every
+  ///      "Henry X" from being grouped with every "Henry Y".
   ///   2. Their dates are consistent with being the same person:
   ///      - If both have birth years: |birthYearA - birthYearB| ≤ 2.
   ///      - If one has a birth year but the other does not: flagged (no info to

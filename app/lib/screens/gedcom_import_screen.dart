@@ -167,8 +167,8 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
   // ── Import loop ─────────────────────────────────────────────────────────────
   //
   // Each phase now uses a single SQLite batch transaction instead of individual
-  // per-row inserts.  This drops the time for a 2 500-person import from
-  // ~20 minutes (2 500 DB round-trips + 2 500 notifyListeners rebuilds) to a
+  // per-row inserts.  This drops the time for a 2,500-person import from
+  // ~20 minutes (2,500 DB round-trips + 2,500 notifyListeners rebuilds) to a
   // few seconds (4 batch commits + 4 notifyListeners calls total).
   //
   // Phase checkpointing (for the resume-on-crash feature) is done once per
@@ -357,6 +357,86 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
         _statusMessage = 'Import complete!';
       });
     }
+  }
+
+  // ── Orphaned-child linker ────────────────────────────────────────────────────
+
+  /// After adding new persons (which have remapped parentIds), update any
+  /// existing parent person in the DB whose childIds do not yet include the
+  /// new child.
+  Future<void> _linkOrphanedChildren(TreeProvider provider) async {
+    for (final person in _parsed!.persons) {
+      final resolvedId = _idMap[person.id] ?? person.id;
+      if (resolvedId == person.id) {
+        // This is a newly imported person — ensure existing parents list it.
+        for (final parentId in person.parentIds) {
+          final parentIdx =
+              provider.persons.indexWhere((p) => p.id == parentId);
+          if (parentIdx == -1) continue;
+          if (!provider.persons[parentIdx].childIds.contains(resolvedId)) {
+            provider.persons[parentIdx].childIds.add(resolvedId);
+            await provider.updatePerson(provider.persons[parentIdx]);
+          }
+        }
+      }
+    }
+  }
+
+  // ── Pause / Resume / Cancel ─────────────────────────────────────────────────
+  Future<void> _waitForResume() async {
+    _resumeCompleter = Completer<void>();
+    await _resumeCompleter!.future;
+    _resumeCompleter = null;
+  }
+
+  void _togglePause() {
+    if (!_isImporting) return;
+    setState(() => _isPaused = !_isPaused);
+    if (!_isPaused) {
+      _resumeCompleter?.complete();
+    }
+  }
+
+  Future<void> _cancelImport(SharedPreferences prefs) async {
+    await _clearSavedState(prefs);
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _requestCancel() {
+    _isCancelled = true;
+    _resumeCompleter?.complete(); // unblock if paused
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  Future<bool?> _askResume() => showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Resume Import?'),
+          content: const Text(
+              'A previous import of this file was interrupted. Resume where it left off?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Start Over')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Resume')),
+          ],
+        ),
+      );
+
+  Future<void> _clearSavedState(SharedPreferences prefs) async {
+    await prefs.remove(_kPath);
+    await prefs.remove(_kTreeId);
+    await prefs.remove(_kPersonIdx);
+    await prefs.remove(_kPartnerIdx);
+    await prefs.remove(_kEventIdx);
+    await prefs.remove(_kSourceIdx);
+  }
+
+  void _setStatus(String msg) {
+    if (mounted) setState(() => _statusMessage = msg);
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
