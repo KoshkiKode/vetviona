@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models/geo_coord.dart';
+import '../services/sound_service.dart';
 import '../models/life_event.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
