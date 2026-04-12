@@ -145,10 +145,14 @@ class _SplashScreenState extends State<SplashScreen>
                                     ),
                                   ],
                                 ),
-                                child: Icon(
-                                  Icons.park_outlined,
-                                  size: 52,
-                                  color: colorScheme.onPrimary,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Image.asset(
+                                    'assets/icon/app_icon.png',
+                                    width: 100,
+                                    height: 100,
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
                               ),
                             ),

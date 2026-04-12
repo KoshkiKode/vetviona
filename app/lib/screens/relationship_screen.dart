@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../utils/platform_utils.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main screen
@@ -201,6 +202,7 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     final result = await showModalBottomSheet<Partnership>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => _PartnershipSheet(
         currentPersonId: widget.person.id,
         provider: provider,
@@ -216,6 +218,7 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     final result = await showModalBottomSheet<Partnership>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => _PartnershipSheet(
         currentPersonId: widget.person.id,
         provider: provider,
@@ -738,11 +741,9 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
   Future<void> _pickDate(BuildContext context,
       {required bool isStart}) async {
     final current = isStart ? _startDate : _endDate;
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await pickDateAdaptive(
+      context,
       initialDate: current ?? DateTime.now(),
-      firstDate: DateTime(1700),
-      lastDate: DateTime(2100),
     );
     if (picked != null) {
       setState(() {

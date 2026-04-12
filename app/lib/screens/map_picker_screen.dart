@@ -225,8 +225,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                               child: SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2),
+                                child: CircularProgressIndicator.adaptive(),
                               ),
                             )
                           : _searchController.text.isNotEmpty
@@ -339,7 +338,7 @@ class _InfoPanel extends StatelessWidget {
       child: geocoding
           ? const SizedBox(
               height: 60,
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: CircularProgressIndicator.adaptive()),
             )
           : geocoded == null
               ? const SizedBox(

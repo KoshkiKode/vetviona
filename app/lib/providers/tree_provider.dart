@@ -143,7 +143,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -189,7 +189,9 @@ class TreeProvider extends ChangeNotifier {
             religion TEXT,
             education TEXT,
             aliases TEXT,
-            updatedAt INTEGER
+            updatedAt INTEGER,
+            wikitreeId TEXT,
+            findAGraveId TEXT
           )
         ''');
         await db.execute('''
@@ -437,6 +439,11 @@ class TreeProvider extends ChangeNotifier {
               'ALTER TABLE persons ADD COLUMN syncMedical INTEGER NOT NULL DEFAULT 0');
           await db.execute(
               'ALTER TABLE medical_conditions ADD COLUMN updatedAt INTEGER');
+        }
+        if (oldVersion < 10) {
+          // External ID columns: WikiTree profile ID and Find A Grave memorial ID.
+          await db.execute('ALTER TABLE persons ADD COLUMN wikitreeId TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN findAGraveId TEXT');
         }
       },
     );

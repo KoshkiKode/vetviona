@@ -63,7 +63,7 @@ On-demand sync you trigger inside the app, over Bluetooth or any local connectio
 | **Mobile Paid** | One-time purchase | Android & iOS | Unlimited | RootLoop™ Auto + Manual |
 | **Desktop Pro** | One-time purchase | Windows · macOS · Linux | Unlimited | Both tiers; respects connected device's tier |
 
-No subscriptions. No recurring fees. Desktop Pro unlocks GEDCOM import/export, WiFi auto-sync (RootLoop™ Auto), multiple family trees, and unlimited people. Separate family tree management is coming soon.
+No subscriptions. No recurring fees. Desktop Pro unlocks GEDCOM import/export, WiFi auto-sync (RootLoop™ Auto), multiple family trees, and unlimited people.
 
 > **Note:** There is no desktop free version. Desktop always requires a Pro purchase (`--dart-define=PAID=true`).
 

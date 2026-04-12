@@ -94,7 +94,7 @@ class _SyncScreenState extends State<SyncScreen> {
       final ready = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => AlertDialog.adaptive(
           icon: const Icon(Icons.medical_services_outlined, size: 36),
           title: const Text('Confirm Medical Sync'),
           content: Text(
@@ -523,7 +523,7 @@ class _SyncScreenState extends State<SyncScreen> {
   void _showUpgradeDialog(BuildContext context) {
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Pro Feature'),
         content: const Text(
           'WiFi Auto-Scan (mDNS) and Bluetooth peer discovery require the '
@@ -554,7 +554,7 @@ class _SyncScreenState extends State<SyncScreen> {
     final cs = Theme.of(context).colorScheme;
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: const Text('Pairing Code'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -943,7 +943,7 @@ class _PeerTile extends StatelessWidget {
       final ok = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => AlertDialog.adaptive(
           icon: const Icon(Icons.medical_services_outlined, size: 36),
           title: const Text('Medical History Sync'),
           content: Text(
@@ -1001,7 +1001,7 @@ class _PeerTile extends StatelessWidget {
     final codeController = TextEditingController();
     final confirmed = await showDialog<String?>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog.adaptive(
         title: Text('Pair with ${peer.name}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1158,7 +1158,7 @@ class _PairedDeviceTile extends StatelessWidget {
       final ok = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => AlertDialog.adaptive(
           icon: const Icon(Icons.medical_services_outlined, size: 36),
           title: const Text('Medical History Sync'),
           content: const Text(
@@ -1275,8 +1275,7 @@ class _StatusBanner extends StatelessWidget {
                   ? SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: color),
+                      child: CircularProgressIndicator.adaptive(),
                     )
                   : Icon(icon, size: 18, color: color),
               const SizedBox(width: 10),
@@ -1805,14 +1804,14 @@ class _MedicalConsentRequestDialogState
     final cs = Theme.of(context).colorScheme;
     final progress = _remaining / _timeoutSeconds;
 
-    return AlertDialog(
+    return AlertDialog.adaptive(
       icon: Stack(
         alignment: Alignment.center,
         children: [
           SizedBox(
             width: 56,
             height: 56,
-            child: CircularProgressIndicator(
+            child: CircularProgressIndicator.adaptive(
               value: progress,
               backgroundColor: cs.surfaceContainerHighest,
               color: progress > 0.4 ? cs.primary : cs.error,

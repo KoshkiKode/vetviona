@@ -143,6 +143,15 @@ class GEDCOMParser {
           currentPerson!.occupation = value;
         } else if (tag == 'RELI') {
           currentPerson!.religion = value;
+        } else if (tag == '_WIKITREEID' || tag == '_WT_USER' ||
+            tag == '_WIKITREE_ID') {
+          // WikiTree-exported GEDCOMs include the profile page name here.
+          // e.g.  1 _WIKITREEID Churchill-4
+          final wtId = value.trim();
+          if (wtId.isNotEmpty) currentPerson!.wikitreeId = wtId;
+        } else if (tag == '_FINDAGRAVEID' || tag == '_FINDAGRAVE') {
+          final fagId = value.trim();
+          if (fagId.isNotEmpty) currentPerson!.findAGraveId = fagId;
         } else if (_gedcomEventTags.containsKey(tag) || tag == 'BURI' ||
             tag == 'DEAT' || tag == 'BIRT') {
           // We handle BIRT/DEAT/BURI at level 2; for event tags start tracking.
@@ -279,27 +288,56 @@ class GEDCOMParser {
       }
     }
 
+    // Build sources and detect FindAGrave memorial IDs embedded in them.
+    final findAGraveIds = <String, String>{};
+    final builtSources = _buildSources(
+      sourRefs,
+      sourceDefs,
+      findAGravePersonIds: findAGraveIds,
+    );
+
+    // Apply any discovered FindAGrave IDs to the person records.
+    for (final entry in findAGraveIds.entries) {
+      final person = persons[entry.key];
+      if (person != null) person.findAGraveId ??= entry.value;
+    }
+
     return GedcomResult(
       persons: persons.values.toList(),
       partnerships: builtPartnerships,
       lifeEvents: builtLifeEvents,
-      sources: _buildSources(sourRefs, sourceDefs),
+      sources: builtSources,
     );
   }
 
   /// Build [Source] objects from the collected SOUR definitions and
   /// per-person references gathered during parsing.
+  ///
+  /// If the source title or URL contains a findagrave.com memorial URL, the
+  /// memorial ID is extracted and stored on the person via [findAGravePersonIds].
   static List<Source> _buildSources(
     List<Map<String, String?>> refs,
-    Map<String, Map<String, String>> defs,
-  ) {
+    Map<String, Map<String, String>> defs, {
+    Map<String, String>? findAGravePersonIds,
+  }) {
     final built = <Source>[];
+    final fagPattern = RegExp(r'findagrave\.com/memorial/(\d+)');
     for (final ref in refs) {
       final personId = ref['personId'];
       final sourceId = ref['sourceId'];
       if (personId == null || sourceId == null) continue;
       final def = defs[sourceId];
       final title = def?['title'] ?? sourceId;
+
+      // Detect Find A Grave memorial IDs in title or publisher field.
+      for (final haystack in [title, def?['publ'] ?? '']) {
+        final m = fagPattern.firstMatch(haystack);
+        if (m != null && findAGravePersonIds != null) {
+          findAGravePersonIds[personId] = m.group(1)!;
+          break;
+        }
+      }
+
       built.add(Source(
         id: _uuid.v4(),
         personId: personId,
@@ -395,6 +433,13 @@ class GEDCOMParser {
         }
         if (person.notes != null && person.notes!.isNotEmpty) {
           buf.writeln('1 NOTE ${person.notes}');
+        }
+        // External IDs — non-standard tags recognised by WikiTree / FTM / RootsMagic.
+        if (person.wikitreeId != null && person.wikitreeId!.isNotEmpty) {
+          buf.writeln('1 _WIKITREEID ${person.wikitreeId}');
+        }
+        if (person.findAGraveId != null && person.findAGraveId!.isNotEmpty) {
+          buf.writeln('1 _FINDAGRAVEID ${person.findAGraveId}');
         }
         // Life events
         for (final event in eventsByPerson[person.id] ?? []) {

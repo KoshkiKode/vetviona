@@ -58,7 +58,7 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
         future: _placesFuture,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator.adaptive());
           }
           final filtered = PlaceService.instance
               .search(_query, eventDate: widget.eventDate);
