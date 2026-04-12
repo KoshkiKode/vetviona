@@ -11,6 +11,18 @@ const bool _isPaidDesktop = bool.fromEnvironment('PAID', defaultValue: false);
 const bool _isMobilePaid =
     bool.fromEnvironment('MOBILE_PAID', defaultValue: false);
 
+/// Runtime unlock set by [PurchaseService] after a successful IAP purchase or
+/// restore.  Persisted in SharedPreferences across app restarts — see
+/// [PurchaseService.init] which calls [setMobilePaidUnlocked] during startup.
+bool _mobilePaidRuntimeUnlocked = false;
+
+/// Called by [PurchaseService] to unlock the Mobile Paid tier immediately
+/// after a purchase or a restore-purchase completes, and also on app startup
+/// when a previous purchase is found in SharedPreferences.
+void setMobilePaidUnlocked(bool value) {
+  _mobilePaidRuntimeUnlocked = value;
+}
+
 /// The three distinct pricing tiers in Vetviona.
 enum AppTier {
   /// Free Android / iOS app — QR-code pairing, manual WiFi sync, and
@@ -26,13 +38,13 @@ enum AppTier {
 }
 
 /// The tier this build is running as, determined at runtime from the current
-/// platform combined with compile-time flags.
+/// platform combined with compile-time flags and the IAP unlock state.
 AppTier get currentAppTier {
   if (!kIsWeb &&
       (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
     return AppTier.desktopPro;
   }
-  if (_isMobilePaid) return AppTier.mobilePaid;
+  if (_isMobilePaid || _mobilePaidRuntimeUnlocked) return AppTier.mobilePaid;
   return AppTier.mobileFree;
 }
 

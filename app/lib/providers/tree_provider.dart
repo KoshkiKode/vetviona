@@ -562,12 +562,15 @@ class TreeProvider extends ChangeNotifier {
   Future<void> deletePerson(String id) async {
     final db = await _database;
     await db.delete('persons', where: 'id = ?', whereArgs: [id]);
-    // Remove all partnerships involving this person
+    // Cascade-delete all data associated with this person.
     await db.delete('partnerships',
         where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
     partnerships.removeWhere(
         (pt) => pt.person1Id == id || pt.person2Id == id);
-    // Remove medical conditions and research tasks linked to this person
+    await db.delete('sources', where: 'personId = ?', whereArgs: [id]);
+    sources.removeWhere((s) => s.personId == id);
+    await db.delete('life_events', where: 'personId = ?', whereArgs: [id]);
+    lifeEvents.removeWhere((e) => e.personId == id);
     await db.delete('medical_conditions',
         where: 'personId = ?', whereArgs: [id]);
     medicalConditions.removeWhere((mc) => mc.personId == id);
@@ -820,12 +823,14 @@ class TreeProvider extends ChangeNotifier {
         columns: ['id'], where: 'treeId = ?', whereArgs: [treeId]);
     final personIds = personMaps.map((m) => m['id'] as String).toList();
     if (personIds.isNotEmpty) {
-      // Delete sources whose personId belongs to this tree.
       final placeholders = personIds.map((_) => '?').join(',');
       await db.delete('sources',
           where: 'personId IN ($placeholders)', whereArgs: personIds);
       sources.removeWhere(
           (s) => personIds.contains(s.personId));
+      await db.delete('life_events',
+          where: 'personId IN ($placeholders)', whereArgs: personIds);
+      lifeEvents.removeWhere((e) => personIds.contains(e.personId));
       await db.delete('medical_conditions',
           where: 'personId IN ($placeholders)', whereArgs: personIds);
       medicalConditions.removeWhere((mc) => personIds.contains(mc.personId));
@@ -1212,10 +1217,14 @@ class TreeProvider extends ChangeNotifier {
     await db.delete('sources');
     await db.delete('partnerships');
     await db.delete('life_events');
+    await db.delete('medical_conditions');
+    await db.delete('research_tasks');
     persons.clear();
     sources.clear();
     partnerships.clear();
     lifeEvents.clear();
+    medicalConditions.clear();
+    researchTasks.clear();
     notifyListeners();
   }
 
