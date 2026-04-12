@@ -945,4 +945,88 @@ void main() {
       expect(result.sources, isEmpty);
     });
   });
+
+  // ── GEDCOMParser.parse — additional life event tags ────────────────────────
+  group('GEDCOMParser.parse — additional life event tags', () {
+    test('CHR tag creates Christening LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Maria
+1 CHR
+2 DATE 5 FEB 1890
+2 PLAC Prague, Bohemia
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Christening');
+      expect(result.lifeEvents.first.date?.year, 1890);
+      expect(result.lifeEvents.first.place, 'Prague, Bohemia');
+    });
+
+    test('CONF tag creates Confirmation LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Hans
+1 CONF
+2 DATE 20 APR 1906
+2 PLAC Vienna, Austria
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Confirmation');
+      expect(result.lifeEvents.first.date?.year, 1906);
+    });
+
+    test('NATU tag creates Naturalization LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Olga
+1 NATU
+2 DATE 12 SEP 1945
+2 PLAC New York, USA
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Naturalization');
+      expect(result.lifeEvents.first.place, 'New York, USA');
+    });
+
+    test('MILI tag creates Military Service LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME John
+1 MILI
+2 DATE 1 JUN 1944
+2 PLAC Normandy, France
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Military Service');
+      expect(result.lifeEvents.first.date?.year, 1944);
+    });
+
+    test('RESI tag creates Residence LifeEvent', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Peter
+1 RESI
+2 DATE 1930
+2 PLAC Chicago, Illinois
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(1));
+      expect(result.lifeEvents.first.title, 'Residence');
+      expect(result.lifeEvents.first.place, 'Chicago, Illinois');
+    });
+  });
 }
