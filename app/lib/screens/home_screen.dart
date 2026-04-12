@@ -140,69 +140,141 @@ class _HomeScreenState extends State<HomeScreen> {
     context.watch<PurchaseService>();
     final colorScheme = Theme.of(context).colorScheme;
     final filteredPersons = _applyFiltersAndSort(provider.persons);
+    final isWide = MediaQuery.sizeOf(context).width >= 720;
+
+    final fab = FloatingActionButton.extended(
+      onPressed: provider.isAtPersonLimit
+          ? () => _showUpgradeDialog(context)
+          : () => Navigator.push(
+                context,
+                fadeSlideRoute(
+                    builder: (_) => const PersonDetailScreen()),
+              ),
+      tooltip: provider.isAtPersonLimit
+          ? 'Person limit reached — tap to upgrade'
+          : 'Add a new person to your family tree',
+      icon: Icon(
+          provider.isAtPersonLimit ? Icons.lock_outline : Icons.person_add),
+      label: Text(
+          provider.isAtPersonLimit ? 'Limit Reached' : 'Add Person'),
+    );
+
+    final mainContent = _buildMainContent(
+        context, provider, filteredPersons, colorScheme, isWide);
+
+    if (isWide) {
+      // Tablet / desktop: NavigationRail on the left, content on the right.
+      return Scaffold(
+        key: _scaffoldKey,
+        appBar: _buildGlassAppBar(context, colorScheme, provider),
+        drawer: _buildDrawer(context, provider),
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            NavigationRail(
+              selectedIndex: 0,
+              labelType: NavigationRailLabelType.all,
+              onDestinationSelected: (index) {
+                switch (index) {
+                  case 1:
+                    Navigator.push(context,
+                        fadeSlideRoute(builder: (_) => const TreeDiagramScreen()));
+                  case 2:
+                    Navigator.push(context,
+                        fadeSlideRoute(builder: (_) => const CalendarScreen()));
+                  case 3:
+                    _scaffoldKey.currentState?.openDrawer();
+                }
+              },
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.people_outline),
+                  selectedIcon: Icon(Icons.people),
+                  label: Text('People'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.account_tree_outlined),
+                  selectedIcon: Icon(Icons.account_tree),
+                  label: Text('Tree'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.calendar_month_outlined),
+                  selectedIcon: Icon(Icons.calendar_month),
+                  label: Text('Calendar'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.menu),
+                  selectedIcon: Icon(Icons.menu_open),
+                  label: Text('More'),
+                ),
+              ],
+            ),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(child: mainContent),
+          ],
+        ),
+        floatingActionButton: fab,
+      );
+    }
 
     return Scaffold(
       key: _scaffoldKey,
       extendBodyBehindAppBar: false,
       appBar: _buildGlassAppBar(context, colorScheme, provider),
       drawer: _buildDrawer(context, provider),
-      body: filteredPersons.isEmpty
-          ? _buildEmptyState(context, provider)
-          : Column(
-              children: [
-                _buildStatsBar(context, provider),
-                if (provider.persons.isNotEmpty)
-                  _StatisticsCard(
-                    persons: provider.persons,
-                    partnerships: provider.partnerships,
-                  ),
-                _buildDuplicateBanner(context, provider),
-                if (_recentIds.isNotEmpty && _searchQuery.isEmpty)
-                  _buildRecentPeople(context, provider),
-                _buildFilterSortBar(context),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 100),
-                    itemCount: filteredPersons.length,
-                    itemBuilder: (context, i) {
-                      final person = filteredPersons[i];
-                      return _PersonCard(
-                        person: person,
-                        onTap: () async {
-                          await _saveRecentId(person.id);
-                          if (context.mounted) {
-                            Navigator.push(
-                              context,
-                              fadeSlideRoute(
-                                builder: (_) =>
-                                    PersonDetailScreen(person: person),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+      body: mainContent,
       bottomNavigationBar: _buildNavBar(context),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: provider.isAtPersonLimit
-            ? () => _showUpgradeDialog(context)
-            : () => Navigator.push(
-                  context,
-                  fadeSlideRoute(
-                      builder: (_) => const PersonDetailScreen()),
-                ),
-        tooltip: provider.isAtPersonLimit
-            ? 'Person limit reached'
-            : 'Add Person',
-        icon: Icon(
-            provider.isAtPersonLimit ? Icons.lock_outline : Icons.person_add),
-        label: Text(
-            provider.isAtPersonLimit ? 'Limit Reached' : 'Add Person'),
-      ),
+      floatingActionButton: fab,
+    );
+  }
+
+  Widget _buildMainContent(
+    BuildContext context,
+    TreeProvider provider,
+    List<Person> filteredPersons,
+    ColorScheme colorScheme,
+    bool isWide,
+  ) {
+    if (filteredPersons.isEmpty) {
+      return _buildEmptyState(context, provider);
+    }
+    return Column(
+      children: [
+        _buildStatsBar(context, provider),
+        if (provider.persons.isNotEmpty)
+          _StatisticsCard(
+            persons: provider.persons,
+            partnerships: provider.partnerships,
+          ),
+        _buildDuplicateBanner(context, provider),
+        if (_recentIds.isNotEmpty && _searchQuery.isEmpty)
+          _buildRecentPeople(context, provider),
+        _buildFilterSortBar(context),
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.only(bottom: isWide ? 80 : 100),
+            itemCount: filteredPersons.length,
+            itemBuilder: (context, i) {
+              final person = filteredPersons[i];
+              return _PersonCard(
+                person: person,
+                onTap: () async {
+                  await _saveRecentId(person.id);
+                  if (context.mounted) {
+                    Navigator.push(
+                      context,
+                      fadeSlideRoute(
+                        builder: (_) =>
+                            PersonDetailScreen(person: person),
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -348,7 +420,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       color: colorScheme.primaryContainer.withOpacity(0.3),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           _StatChip(
             icon: Icons.people,
@@ -357,46 +432,45 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? colorScheme.outlineVariant
                 : colorScheme.primary,
           ),
-          if (!isFree) ...[
-            const SizedBox(width: 8),
+          if (!isFree)
             _StatChip(
               icon: Icons.park,
               label:
                   '${provider.treeNames.length} tree${provider.treeNames.length == 1 ? '' : 's'}',
               color: colorScheme.tertiary,
             ),
-          ],
-          if (isFree && provider.isAtPersonLimit) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _showUpgradeDialog(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: colorScheme.primary.withOpacity(0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.rocket_launch_outlined,
-                        size: 14, color: colorScheme.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Upgrade',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ],
+          if (isFree && provider.isAtPersonLimit)
+            Tooltip(
+              message: 'You have reached the free-tier person limit. Tap to upgrade.',
+              child: GestureDetector(
+                onTap: () => _showUpgradeDialog(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: colorScheme.primary.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.rocket_launch_outlined,
+                          size: 14, color: colorScheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Upgrade',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
         ],
       ),
     );
