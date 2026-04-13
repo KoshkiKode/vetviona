@@ -38,7 +38,7 @@ jobs:
 
       - name: Generate app icons
         working-directory: app
-        run: dart run flutter_launcher_icons -f flutter_launcher_icons-ios.yaml
+        run: dart run flutter_launcher_icons -f icons_ios.yaml
 
       # ── Free tier ──────────────────────────────────────────────────────────
       - name: Build iOS free (no code sign)
