@@ -231,6 +231,21 @@ void main() {
         final p = Person(id: 'x', name: 'X');
         expect(p.preferredSourceIds, isEmpty);
       });
+
+      test('syncMedical defaults to false', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.syncMedical, false);
+      });
+
+      test('wikitreeId defaults to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.wikitreeId, isNull);
+      });
+
+      test('findAGraveId defaults to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.findAGraveId, isNull);
+      });
     });
 
     group('allBloodTypes', () {
@@ -356,6 +371,47 @@ void main() {
         expect(r.preferredSourceIds, isEmpty);
       });
 
+      test('syncMedical survives roundtrip (true)', () {
+        final p = Person(id: 'x', name: 'Alice', syncMedical: true);
+        final r = Person.fromMap(p.toMap());
+        expect(r.syncMedical, isTrue);
+      });
+
+      test('syncMedical survives roundtrip (false)', () {
+        final p = Person(id: 'x', name: 'Alice');
+        final r = Person.fromMap(p.toMap());
+        expect(r.syncMedical, isFalse);
+      });
+
+      test('fromMap with null syncMedical defaults to false', () {
+        final map = <String, dynamic>{'id': 'x', 'name': 'T'};
+        expect(Person.fromMap(map).syncMedical, isFalse);
+      });
+
+      test('wikitreeId survives roundtrip', () {
+        final p = Person(id: 'x', name: 'Winston', wikitreeId: 'Churchill-4');
+        final r = Person.fromMap(p.toMap());
+        expect(r.wikitreeId, 'Churchill-4');
+      });
+
+      test('null wikitreeId roundtrips to null', () {
+        final p = Person(id: 'x', name: 'X');
+        final r = Person.fromMap(p.toMap());
+        expect(r.wikitreeId, isNull);
+      });
+
+      test('findAGraveId survives roundtrip', () {
+        final p = Person(id: 'x', name: 'Jane', findAGraveId: '1836');
+        final r = Person.fromMap(p.toMap());
+        expect(r.findAGraveId, '1836');
+      });
+
+      test('null findAGraveId roundtrips to null', () {
+        final p = Person(id: 'x', name: 'X');
+        final r = Person.fromMap(p.toMap());
+        expect(r.findAGraveId, isNull);
+      });
+
       test('postal code fields survive roundtrip', () {
         final p = Person(
           id: 'x',
@@ -422,6 +478,10 @@ void main() {
           education: "Master's degree",
           aliases: ['Marie Martin', 'Mme Dupont'],
           preferredSourceIds: {'Birth Date': 's1'},
+          syncMedical: true,
+          updatedAt: 1700000000000,
+          wikitreeId: 'Dupont-42',
+          findAGraveId: '9876',
         );
         final r = Person.fromMap(original.toMap());
         expect(r.occupation, original.occupation);
@@ -440,6 +500,10 @@ void main() {
         expect(r.education, original.education);
         expect(r.aliases, original.aliases);
         expect(r.preferredSourceIds, original.preferredSourceIds);
+        expect(r.syncMedical, original.syncMedical);
+        expect(r.updatedAt, original.updatedAt);
+        expect(r.wikitreeId, original.wikitreeId);
+        expect(r.findAGraveId, original.findAGraveId);
       });
     });
   });

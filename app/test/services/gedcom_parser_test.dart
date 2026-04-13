@@ -1129,4 +1129,110 @@ void main() {
       expect(result.lifeEvents.first.place, 'Hamburg, Germany');
     });
   });
+
+  group('GEDCOMParser — WikiTree & Find A Grave external IDs', () {
+    test('_WIKITREEID tag parses to wikitreeId', () async {
+      final path = await writeGedcom('''
+0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Winston /Churchill/
+1 _WIKITREEID Churchill-4
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.wikitreeId, 'Churchill-4');
+    });
+
+    test('_WT_USER tag also parses to wikitreeId', () async {
+      final path = await writeGedcom('''
+0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Ada /Lovelace/
+1 _WT_USER Lovelace-1
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.wikitreeId, 'Lovelace-1');
+    });
+
+    test('_FINDAGRAVEID tag parses to findAGraveId', () async {
+      final path = await writeGedcom('''
+0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Jane /Smith/
+1 _FINDAGRAVEID 1836
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.findAGraveId, '1836');
+    });
+
+    test('export writes _WIKITREEID for person with wikitreeId', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Winston Churchill',
+          deathDate: DateTime(1965),
+          wikitreeId: 'Churchill-4',
+        ),
+      ];
+      final path = '${tempDir.path}/wikitree_export.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _WIKITREEID Churchill-4'));
+    });
+
+    test('export writes _FINDAGRAVEID for person with findAGraveId', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Jane Smith',
+          deathDate: DateTime(1901),
+          findAGraveId: '1836',
+        ),
+      ];
+      final path = '${tempDir.path}/findagrave_export.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _FINDAGRAVEID 1836'));
+    });
+
+    test('export/import roundtrip preserves wikitreeId and findAGraveId',
+        () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Marie Curie',
+          deathDate: DateTime(1934, 7, 4),
+          wikitreeId: 'Curie-7',
+          findAGraveId: '5555',
+        ),
+      ];
+      final path = '${tempDir.path}/roundtrip_ids.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.wikitreeId, 'Curie-7');
+      expect(result.persons.first.findAGraveId, '5555');
+    });
+
+    test('person without wikitreeId does not emit _WIKITREEID tag', () async {
+      final persons = [
+        Person(id: 'P1', name: 'No ID', deathDate: DateTime(1900)),
+      ];
+      final path = '${tempDir.path}/no_ids.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, isNot(contains('_WIKITREEID')));
+      expect(content, isNot(contains('_FINDAGRAVEID')));
+    });
+  });
 }
