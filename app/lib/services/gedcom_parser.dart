@@ -165,6 +165,10 @@ class GEDCOMParser {
             pendingSourRef = {'personId': currentId!, 'sourceId': refId};
             sourRefs.add(pendingSourRef!);
           }
+        } else if (tag == 'NOTE') {
+          // Individual-level note (inline text; @N1@ pointer form is ignored).
+          final noteText = value.replaceAll('@', '').trim();
+          if (noteText.isNotEmpty) currentPerson!.notes = noteText;
         }
       } else if (level == 1 && currentSourceDef != null) {
         currentTag = tag;

@@ -1047,6 +1047,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (name != null && name.isNotEmpty) {
       await provider.addTree(name);
     }
+    controller.dispose();
   }
 
   Future<void> _renameTreeDialog(BuildContext context, TreeProvider provider,
@@ -1074,6 +1075,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (newName != null && newName.isNotEmpty && newName != currentName) {
       await provider.renameTree(treeId, newName);
     }
+    controller.dispose();
   }
 
   Future<void> _deleteTreeConfirm(BuildContext context, TreeProvider provider,

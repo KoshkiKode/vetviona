@@ -939,6 +939,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         ],
       ),
     );
+    ctrl.dispose();
     if (result != null && result.isNotEmpty && !_aliases.contains(result)) {
       setState(() => _aliases.add(result));
     }

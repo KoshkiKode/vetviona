@@ -1254,6 +1254,7 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = source.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
+      source.treeId ??= currentTreeId;
       await db.insert('sources', source.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -1406,6 +1407,7 @@ class TreeProvider extends ChangeNotifier {
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
     for (final source in inSources) {
+      source.treeId ??= currentTreeId;
       await db.insert('sources', source.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
