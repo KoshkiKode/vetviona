@@ -46,6 +46,10 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      - name: Generate app icons
+        working-directory: app
+        run: dart run flutter_launcher_icons
+
       - name: Build Linux (Desktop Pro — paid)
         working-directory: app
         run: flutter build linux --release --dart-define=PAID=true
@@ -159,9 +163,9 @@ jobs:
       - name: Enable Linux desktop
         run: flutter config --enable-linux-desktop
 
-      - name: Scaffold Linux + Android + iOS platform
+      - name: Scaffold Linux platform
         working-directory: app
-        run: flutter create --platforms=linux,android,ios --org com.koshkikode .
+        run: flutter create --platforms=linux --org com.koshkikode .
 
       - name: Install dependencies
         working-directory: app

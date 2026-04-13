@@ -40,6 +40,7 @@ parts:
       git clone --depth 1 -b stable https://github.com/flutter/flutter.git /tmp/flutter
       export PATH="/tmp/flutter/bin:$PATH"
       flutter config --enable-linux-desktop
+      flutter create --platforms=linux --org com.koshkikode .
       flutter pub get
       flutter build linux --release --dart-define=PAID=true
       # Install into snap
@@ -52,7 +53,12 @@ parts:
       - pkg-config
       - libgtk-3-dev
       - liblzma-dev
+      - libunwind-dev
       - git
+      - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
     stage-packages:
       - libgtk-3-0
       - libblkid1

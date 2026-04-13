@@ -1814,7 +1814,8 @@ class _MedicalConsentRequestDialogState
             child: CircularProgressIndicator.adaptive(
               value: progress,
               backgroundColor: cs.surfaceContainerHighest,
-              color: progress > 0.4 ? cs.primary : cs.error,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  progress > 0.4 ? cs.primary : cs.error),
               strokeWidth: 4,
             ),
           ),

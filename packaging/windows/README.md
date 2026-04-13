@@ -1,11 +1,12 @@
 # Windows Packaging — Vetviona
 
-This directory contains the WiX v4 installer source (`vetviona.wxs`) used to produce a signed `.msi` installer for Vetviona Desktop Pro on Windows.
+This directory contains the WiX v5 installer source (`vetviona.wxs`) used to produce a signed `.msi` installer for Vetviona Desktop Pro on Windows.
 
 ## Prerequisites
 
 - [.NET SDK](https://dotnet.microsoft.com/download) ≥ 6
-- WiX v4 dotnet tool: `dotnet tool install --global wix`
+- WiX v5 dotnet tool: `dotnet tool install --global wix --version 5.0.2`
+- WiX UI extension: `wix extension add -g WixToolset.UI.wixext/5.0.2`
 - A Windows Developer certificate (optional, for signing)
 
 ## Building the MSI locally
@@ -16,15 +17,17 @@ This directory contains the WiX v4 installer source (`vetviona.wxs`) used to pro
    flutter build windows --release --dart-define=PAID=true
    ```
 
-2. Copy the WiX source into the build output:
+2. Copy the WiX source and licence file into the build output:
    ```powershell
    copy packaging\windows\vetviona.wxs app\build\windows\x64\runner\Release\
+   copy packaging\windows\LICENSE.rtf  app\build\windows\x64\runner\Release\
    ```
 
-3. Build the MSI:
+3. Harvest the release directory and build the MSI:
    ```powershell
    cd app\build\windows\x64\runner\Release
-   wix build vetviona.wxs -o vetviona-setup.msi
+   wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
+   wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
    ```
 
 ## Signing the installer (optional)

@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter create --platforms=android --org com.koshkikode .
@@ -56,10 +56,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
+      - name: Scaffold iOS platform
+        working-directory: app
+        run: flutter create --platforms=ios --org com.koshkikode .
+      - name: Set iOS minimum deployment target
+        run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '15.5'/" app/ios/Podfile
       - working-directory: app
         run: |
-          flutter create --platforms=ios --org com.koshkikode .
           flutter pub get
           dart run flutter_launcher_icons
           flutter build ios --release --no-codesign
@@ -94,7 +98,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter config --enable-windows-desktop
@@ -106,9 +110,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows-exe
-          path: |
-            app/build/windows/x64/runner/Release/vetviona.exe
-            app/build/windows/x64/runner/Release/*.dll
+          path: app/build/windows/x64/runner/Release/
 
   # ── Windows MSI ───────────────────────────────────────────────────────────
   windows-msi:
@@ -119,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter config --enable-windows-desktop
@@ -130,12 +132,14 @@ jobs:
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
       - run: |
           dotnet tool install --global wix --version 5.0.2
-          wix extension add -g WixToolset.UI.wixext
+          wix extension add -g WixToolset.UI.wixext/5.0.2
       - run: |
           cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
           cp packaging/windows/LICENSE.rtf app/build/windows/x64/runner/Release/LICENSE.rtf
       - working-directory: app/build/windows/x64/runner/Release
-        run: wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
+        run: |
+          wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
+          wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows-msi
@@ -150,11 +154,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+      - name: Scaffold macOS platform
+        working-directory: app
+        run: flutter create --platforms=macos --org com.koshkikode .
+      - name: Set macOS minimum deployment target
+        run: sed -i '' "s/.*platform :osx, .*/platform :osx, '10.15'/" app/macos/Podfile
+      - name: Copy entitlements
+        run: |
+          cp packaging/macos/entitlements.plist app/macos/Runner/Release.entitlements
+          cp packaging/macos/entitlements.plist app/macos/Runner/DebugProfile.entitlements
       - working-directory: app
         run: |
-          flutter config --enable-macos-desktop
-          flutter create --platforms=macos --org com.koshkikode .
           flutter pub get
           dart run flutter_launcher_icons
           flutter build macos --release --dart-define=PAID=true
@@ -179,10 +192,11 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             dpkg-dev
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter config --enable-linux-desktop
@@ -229,7 +243,7 @@ jobs:
         run: |
           mkdir -p app/snap
           cp packaging/linux/snap/snapcraft.yaml app/snap/snapcraft.yaml
-      - uses: snapcore/action-build@v1
+      - uses: canonical/action-build@v1.3.0
         id: build-snap
         with:
           path: app
@@ -250,14 +264,15 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             flatpak flatpak-builder
           sudo flatpak remote-add --if-not-exists flathub \
-            https://flathub.org/repo/flathub.flatpakrepo
+            https://dl.flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y flathub org.freedesktop.Platform//23.08 \
             org.freedesktop.Sdk//23.08
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - name: Build Linux bundle
         working-directory: app
         run: |
@@ -293,16 +308,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.8
         with:
           path: release-artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.6.1
         with:
-          name: "Vetviona ${{ github.ref_name }}"
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: "Vetviona ${{ inputs.tag || github.ref_name }}"
           body: |
-            ## Vetviona ${{ github.ref_name }}
+            ## Vetviona ${{ inputs.tag || github.ref_name }}
 
             ### Downloads
 
@@ -329,4 +345,4 @@ jobs:
             See [vetviona.koshkikode.com](https://vetviona.koshkikode.com) for full release notes.
           files: release-artifacts/**/*
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(inputs.tag || github.ref_name, '-') }}
