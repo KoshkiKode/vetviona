@@ -23,6 +23,7 @@ import 'descendants_screen.dart';
 import 'wikitree_screen.dart';
 import '../services/find_a_grave_service.dart';
 import '../services/wikitree_service.dart';
+import 'map_picker_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
