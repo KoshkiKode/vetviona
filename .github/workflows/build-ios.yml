@@ -52,6 +52,10 @@ jobs:
           path: app/build/ios/iphoneos/Runner.app
 
       # ── Paid tier ──────────────────────────────────────────────────────────
+      - name: Clean before paid build
+        working-directory: app
+        run: flutter clean
+
       - name: Build iOS paid (no code sign)
         working-directory: app
         run: flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true

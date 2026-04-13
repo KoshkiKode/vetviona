@@ -46,9 +46,10 @@ jobs:
         working-directory: app
         run: flutter pub get
 
-      - name: Generate app icons
-        working-directory: app
-        run: dart run flutter_launcher_icons -f icons_linux.yaml
+      - name: Copy app icon into Linux runner resources
+        run: |
+          mkdir -p app/linux/runner/resources
+          cp app/assets/icon/app_icon.png app/linux/runner/resources/app_icon.png
 
       - name: Build Linux (Desktop Pro — paid)
         working-directory: app
@@ -64,6 +65,7 @@ jobs:
           mkdir -p "$PKGDIR/DEBIAN"
 
           cp -r app/build/linux/x64/release/bundle/* "$PKGDIR/usr/bin/"
+          cp app/assets/icon/app_icon.png "$PKGDIR/usr/share/icons/hicolor/256x256/apps/vetviona.png"
 
           cat > "$PKGDIR/DEBIAN/control" <<EOF
           Package: vetviona
@@ -125,7 +127,8 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f icons_linux.yaml
+          mkdir -p linux/runner/resources
+          cp assets/icon/app_icon.png linux/runner/resources/app_icon.png
           flutter build linux --release --dart-define=PAID=true
 
       - name: Stage bundle for snap
@@ -189,9 +192,11 @@ jobs:
         working-directory: app
         run: flutter pub get
 
-      - name: Generate app icons
+      - name: Copy app icon into Linux runner resources
         working-directory: app
-        run: dart run flutter_launcher_icons -f icons_linux.yaml
+        run: |
+          mkdir -p linux/runner/resources
+          cp assets/icon/app_icon.png linux/runner/resources/app_icon.png
 
       - name: Build Linux app for Flatpak
         working-directory: app

@@ -1,5 +1,4 @@
 import 'dart:collection';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,12 +10,7 @@ import '../services/sync_service.dart';
 import '../utils/page_routes.dart';
 import 'pedigree_screen.dart';
 import 'person_detail_screen.dart';
-
-// Layout constants
-const double _kNodeW = 128.0;
-const double _kNodeH = 88.0;
-const double _kColGap = 44.0;
-const double _kRowGap = 100.0;
+import 'tree_layout.dart';
 
 // Zoom / viewer constants
 const double _kMinScale = 0.05;
@@ -26,258 +20,23 @@ const double _kMaxScale = 5.0;
 /// direction.  Large enough to comfortably explore huge trees.
 const double _kBoundaryMargin = 6000.0;
 
-// Internal node info
-class _NodeInfo {
-  final String id;
-  bool isCoupleKnot;
-  String? knotPartner1;
-  String? knotPartner2;
-  int generation;
-  double x = 0;
-  double y = 0;
+/// Vertical offset of generation row labels above the top of their row.
+/// Sits inside the [kTreeRowGap] space between consecutive rows.
+const double _kGenLabelTopOffset = 20.0;
 
-  _NodeInfo({
-    required this.id,
-    this.isCoupleKnot = false,
-    this.knotPartner1,
-    this.knotPartner2,
-    required this.generation,
-  });
-}
+/// Controls the Bézier S-curve tension: proportional fraction of [dy] used
+/// as the control-point offset from each end of the edge.
+const double _kEdgeTensionFactor = 0.5;
 
-class _EdgeInfo {
-  final String from;
-  final String to;
-  final bool isCouple;
-  _EdgeInfo(this.from, this.to, {this.isCouple = false});
-}
-
-/// One entry per generation row used for the left-rail generation labels.
-class _GenRow {
-  final int generation;
-  final double y;
-  _GenRow(this.generation, this.y);
-}
-
-// Layout engine
-class _TreeLayout {
-  final List<Person> persons;
-  final List<Partnership> partnerships;
-  _TreeLayout(this.persons, this.partnerships);
-
-  final Map<String, _NodeInfo> nodes = {};
-  final List<_EdgeInfo> edges = [];
-  final List<_GenRow> generationRows = [];
-  Size canvasSize = Size.zero;
-
-  void compute() {
-    if (persons.isEmpty) return;
-    final personMap = {for (final p in persons) p.id: p};
-    final generation = <String, int>{};
-
-    // BFS from roots
-    final roots = persons.where((p) =>
-        p.parentIds.isEmpty ||
-        !p.parentIds.any((id) => personMap.containsKey(id))).toList();
-    final queue = <String>[];
-    for (final r in roots) { generation[r.id] = 0; queue.add(r.id); }
-    for (final p in persons) {
-      if (!generation.containsKey(p.id)) { generation[p.id] = 0; queue.add(p.id); }
-    }
-    int qi = 0;
-    while (qi < queue.length) {
-      final current = queue[qi++];
-      final person = personMap[current];
-      if (person == null) continue;
-      final g = generation[current]!;
-      for (final childId in person.childIds) {
-        if (!personMap.containsKey(childId)) continue;
-        if (!generation.containsKey(childId)) {
-          generation[childId] = g + 1; queue.add(childId);
-        } else if (generation[childId]! < g + 1) {
-          generation[childId] = g + 1;
-        }
-      }
-    }
-
-    // Build person nodes
-    for (final p in persons) {
-      nodes[p.id] = _NodeInfo(id: p.id, generation: generation[p.id] ?? 0);
-    }
-
-    // Build couple knots
-    final knotMap = <String, String>{};
-    for (final p in partnerships) {
-      if (!personMap.containsKey(p.person1Id) || !personMap.containsKey(p.person2Id)) continue;
-      final knotId = 'knot_${p.id}';
-      final knotGen = math.min(generation[p.person1Id] ?? 0, generation[p.person2Id] ?? 0);
-      nodes[knotId] = _NodeInfo(
-        id: knotId, isCoupleKnot: true,
-        knotPartner1: p.person1Id, knotPartner2: p.person2Id, generation: knotGen,
-      );
-      knotMap[p.id] = knotId;
-      edges.add(_EdgeInfo(p.person1Id, knotId, isCouple: true));
-      edges.add(_EdgeInfo(p.person2Id, knotId, isCouple: true));
-    }
-
-    // Parent-child edges routed through knots
-    for (final p in persons) {
-      for (final childId in p.childIds) {
-        if (!personMap.containsKey(childId)) continue;
-        final childPerson = personMap[childId]!;
-        Partnership? matchingPart;
-        for (final part in partnerships) {
-          if ((part.person1Id == p.id || part.person2Id == p.id) &&
-              childPerson.parentIds.contains(part.person1Id) &&
-              childPerson.parentIds.contains(part.person2Id)) {
-            matchingPart = part; break;
-          }
-        }
-        if (matchingPart != null && knotMap.containsKey(matchingPart.id)) {
-          final knotId = knotMap[matchingPart.id]!;
-          if (!edges.any((e) => e.from == knotId && e.to == childId)) {
-            edges.add(_EdgeInfo(knotId, childId));
-          }
-        } else {
-          edges.add(_EdgeInfo(p.id, childId));
-        }
-      }
-    }
-
-    // Assign x/y per generation
-    final byGen = <int, List<String>>{};
-    for (final n in nodes.values) {
-      byGen.putIfAbsent(n.generation, () => []).add(n.id);
-    }
-
-    for (final entry in byGen.entries) {
-      final gen = entry.key;
-      final nodeIds = entry.value;
-      nodeIds.sort((a, b) {
-        final aK = nodes[a]!.isCoupleKnot ? 1 : 0;
-        final bK = nodes[b]!.isCoupleKnot ? 1 : 0;
-        return aK - bK;
-      });
-      final ordered = <String>[];
-      final added = <String>{};
-      for (final nid in nodeIds) {
-        if (added.contains(nid) || nodes[nid]!.isCoupleKnot) continue;
-        ordered.add(nid); added.add(nid);
-      }
-      for (final nid in nodeIds) {
-        final node = nodes[nid]!;
-        if (!node.isCoupleKnot) continue;
-        final p1 = node.knotPartner1!; final p2 = node.knotPartner2!;
-        final i1 = ordered.indexOf(p1); final i2 = ordered.indexOf(p2);
-        if (i1 >= 0 && i2 >= 0) {
-          if ((i2 - i1).abs() > 1) {
-            ordered.remove(p2);
-            final p1Idx = ordered.indexOf(p1);
-            ordered.insert(p1Idx + 1, p2);
-          }
-          final p1Idx2 = ordered.indexOf(p1); final p2Idx2 = ordered.indexOf(p2);
-          ordered.insert(math.min(p1Idx2, p2Idx2) + 1, nid); added.add(nid);
-        } else {
-          ordered.add(nid); added.add(nid);
-        }
-      }
-      final step = _kNodeW + _kColGap;
-      for (int i = 0; i < ordered.length; i++) {
-        final node = nodes[ordered[i]]!;
-        node.x = i * step;
-        node.y = gen * (_kNodeH + _kRowGap);
-      }
-    }
-
-    // Refine layout: iteratively centre parents over children and resolve overlaps.
-    _refineLayout(byGen);
-
-    // Canvas size
-    double maxX = 0, maxY = 0;
-    for (final n in nodes.values) {
-      maxX = math.max(maxX, n.x + _kNodeW);
-      maxY = math.max(maxY, n.y + _kNodeH);
-    }
-    canvasSize = Size(maxX + 40, maxY + 40);
-
-    // Generation row labels (sorted ascending)
-    generationRows.clear();
-    final genNums = byGen.keys.toList()..sort();
-    for (final gen in genNums) {
-      generationRows.add(_GenRow(gen, gen * (_kNodeH + _kRowGap)));
-    }
-  }
-
-  /// Iterative layout refinement:
-  ///   1. Bottom-up: centre each non-knot parent node over its children.
-  ///   2. Push apart overlapping nodes in each generation row.
-  ///   3. Re-centre couple knots between their two partners.
-  /// Three passes are enough for typical genealogy trees while remaining fast.
-  void _refineLayout(Map<int, List<String>> byGen) {
-    // Map: layoutParent -> [layoutChildren] using non-couple edges only.
-    final childrenOf = <String, List<String>>{};
-    for (final e in edges) {
-      if (!e.isCouple) childrenOf.putIfAbsent(e.from, () => []).add(e.to);
-    }
-
-    final sortedGens = byGen.keys.toList()..sort(); // ascending (gen 0 = root)
-    const step = _kNodeW + _kColGap;
-
-    for (int iter = 0; iter < 3; iter++) {
-      // --- Pass A: bottom-up centering of parents over their children ---
-      for (final gen in sortedGens.reversed) {
-        for (final id in (byGen[gen] ?? [])) {
-          if (nodes[id]!.isCoupleKnot) continue; // handled in pass C
-          final kids = (childrenOf[id] ?? [])
-              .where((k) => nodes.containsKey(k))
-              .toList();
-          if (kids.isEmpty) continue;
-          final childCx = kids
-                  .map((k) => nodes[k]!.x + _kNodeW / 2)
-                  .reduce((a, b) => a + b) /
-              kids.length;
-          nodes[id]!.x = childCx - _kNodeW / 2;
-        }
-
-        // --- Pass B: push apart overlapping nodes in this row ---
-        final rowNodes = (byGen[gen] ?? [])
-            .map((id) => nodes[id]!)
-            .toList()
-          ..sort((a, b) => a.x.compareTo(b.x));
-        for (int i = 1; i < rowNodes.length; i++) {
-          final minX = rowNodes[i - 1].x + step;
-          if (rowNodes[i].x < minX) rowNodes[i].x = minX;
-        }
-      }
-
-      // --- Pass C: centre couple knots between their two partners ---
-      for (final node in nodes.values) {
-        if (!node.isCoupleKnot) continue;
-        final p1 = nodes[node.knotPartner1];
-        final p2 = nodes[node.knotPartner2];
-        if (p1 != null && p2 != null) {
-          node.x = (p1.x + p2.x + _kNodeW) / 2.0 - _kNodeW / 2.0;
-        }
-      }
-    }
-
-    // Normalise: shift everything so the leftmost node is at x = 0.
-    if (nodes.isNotEmpty) {
-      final minX = nodes.values.map((n) => n.x).reduce(math.min);
-      if (minX < 0) {
-        for (final n in nodes.values) {
-          n.x -= minX;
-        }
-      }
-    }
-  }
-}
+/// Maximum tension as a fraction of [kTreeRowGap], capping how much the
+/// curve can bow when rows are very far apart.
+const double _kMaxTensionRatio = 0.6;
 
 // Edge painter — uses smooth cubic-Bézier curves for parent→child edges
 // and straight lines for partnership (couple) connections.
 class _EdgePainter extends CustomPainter {
-  final Map<String, _NodeInfo> nodes;
-  final List<_EdgeInfo> edges;
+  final Map<String, TreeNodeInfo> nodes;
+  final List<TreeEdgeInfo> edges;
   final Color edgeColor;
   final Color coupleColor;
 
@@ -304,21 +63,21 @@ class _EdgePainter extends CustomPainter {
       if (edge.isCouple) {
         // Straight line between couple nodes / knot
         canvas.drawLine(
-          Offset(fromNode.x + _kNodeW / 2, fromNode.y + _kNodeH / 2),
-          Offset(toNode.x + _kNodeW / 2, toNode.y + _kNodeH / 2),
+          Offset(fromNode.x + kTreeNodeW / 2, fromNode.y + kTreeNodeH / 2),
+          Offset(toNode.x + kTreeNodeW / 2, toNode.y + kTreeNodeH / 2),
           couplePaint,
         );
       } else {
         // Smooth S-curve from the bottom-centre of the parent/knot to the
         // top-centre of the child node.
-        final fromCx = fromNode.x + _kNodeW / 2;
+        final fromCx = fromNode.x + kTreeNodeW / 2;
         final fromBot = fromNode.isCoupleKnot
-            ? fromNode.y + _kNodeH / 2  // knot centre
-            : fromNode.y + _kNodeH;     // person bottom
-        final toCx = toNode.x + _kNodeW / 2;
+            ? fromNode.y + kTreeNodeH / 2  // knot centre
+            : fromNode.y + kTreeNodeH;     // person bottom
+        final toCx = toNode.x + kTreeNodeW / 2;
         final toTop = toNode.y;
         final dy = (toTop - fromBot).abs();
-        final tension = math.min(dy * 0.5, _kRowGap * 0.6);
+        final tension = (dy * _kEdgeTensionFactor).clamp(0, kTreeRowGap * _kMaxTensionRatio);
 
         final path = Path()
           ..moveTo(fromCx, fromBot)
@@ -361,10 +120,18 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String? _lastHomePersonId;
 
   /// Most recently computed layout — used by fit-to-view.
-  _TreeLayout? _lastLayout;
+  TreeLayout? _lastLayout;
 
   /// Last measured body viewport size — used by fit-to-view.
   Size _viewportSize = Size.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-fit the view once the first frame is drawn so the tree is
+    // properly centered and scaled on all platforms (especially desktop).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+  }
 
   @override
   void didChangeDependencies() {
@@ -808,7 +575,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         _visiblePersonIds.contains(part.person1Id) &&
         _visiblePersonIds.contains(part.person2Id)).toList();
 
-    final layout = _TreeLayout(visiblePersons, visiblePartnerships);
+    final layout = TreeLayout(visiblePersons, visiblePartnerships);
     layout.compute();
     _lastLayout = layout;
     final searchLower = _searchQuery.toLowerCase();
@@ -930,7 +697,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                   for (final row in layout.generationRows)
                     Positioned(
                       left: 0,
-                      top: row.y + (_kNodeH - 18) / 2,
+                      top: row.y - _kGenLabelTopOffset,
                       child: _GenLabel(
                         generation: row.generation,
                         colorScheme: colorScheme,
@@ -940,7 +707,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                   // Person / couple-knot nodes
                   for (final node in layout.nodes.values)
                     Positioned(
-                      left: node.x, top: node.y, width: _kNodeW, height: _kNodeH,
+                      left: node.x, top: node.y, width: kTreeNodeW, height: kTreeNodeH,
                       child: node.isCoupleKnot
                           ? _CoupleKnot(
                               node: node,
@@ -1158,7 +925,7 @@ class _ExpandDot extends StatelessWidget {
 
 // Couple knot widget
 class _CoupleKnot extends StatelessWidget {
-  final _NodeInfo node;
+  final TreeNodeInfo node;
   final List<Partnership> partnerships;
   final ColorScheme colorScheme;
   const _CoupleKnot({required this.node, required this.partnerships, required this.colorScheme});
