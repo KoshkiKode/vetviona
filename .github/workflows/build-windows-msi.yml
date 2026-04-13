@@ -38,7 +38,7 @@ jobs:
 
       - name: Generate app icons
         working-directory: app
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons-windows.yaml
 
       - name: Build Windows (Desktop Pro — paid)
         working-directory: app
