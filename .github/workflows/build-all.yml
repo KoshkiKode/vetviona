@@ -44,18 +44,32 @@ jobs:
         with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@v2.23.0
         with: { channel: stable, cache: true }
-      - name: Scaffold & build
+      - name: Scaffold & build (free)
         working-directory: app
         run: |
           flutter create --platforms=android --org com.koshkikode .
           flutter pub get
           dart run flutter_launcher_icons -f icons_android.yaml
           flutter build apk --release
-          flutter build apk --release --dart-define=MOBILE_PAID=true
+          flutter build appbundle --release
       - uses: actions/upload-artifact@v7
         with:
-          name: build-android-apk
-          path: app/build/app/outputs/flutter-apk/app-release.apk
+          name: build-android-free
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 7
+      - name: Build paid tier
+        working-directory: app
+        run: |
+          flutter build apk --release --dart-define=MOBILE_PAID=true
+          flutter build appbundle --release --dart-define=MOBILE_PAID=true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-android-paid
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
 
   # ── iOS ───────────────────────────────────────────────────────────────────
@@ -125,6 +139,8 @@ jobs:
           sed -i '' "s/.*platform :osx, .*/platform :osx, '10.15'/" macos/Podfile
           flutter pub get
           dart run flutter_launcher_icons -f icons_macos.yaml
+          cp ../packaging/macos/entitlements.plist macos/Runner/Release.entitlements
+          cp ../packaging/macos/entitlements.plist macos/Runner/DebugProfile.entitlements
           flutter build macos --release --dart-define=PAID=true
       - uses: actions/upload-artifact@v7
         with:
