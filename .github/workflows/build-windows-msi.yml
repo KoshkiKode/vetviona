@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
           cache: true
@@ -69,7 +69,7 @@ jobs:
           wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
 
       - name: Upload MSI installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetviona-windows-msi
           path: app/build/windows/x64/runner/Release/vetviona-setup.msi

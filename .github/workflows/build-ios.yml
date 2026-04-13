@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
           cache: true
@@ -38,7 +38,7 @@ jobs:
 
       - name: Generate app icons
         working-directory: app
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons-ios.yaml
 
       # ── Free tier ──────────────────────────────────────────────────────────
       - name: Build iOS free (no code sign)
@@ -46,7 +46,7 @@ jobs:
         run: flutter build ios --release --no-codesign
 
       - name: Upload free build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetviona-ios-free-build
           path: app/build/ios/iphoneos/Runner.app
@@ -57,7 +57,7 @@ jobs:
         run: flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
 
       - name: Upload paid build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetviona-ios-paid-build
           path: app/build/ios/iphoneos/Runner.app

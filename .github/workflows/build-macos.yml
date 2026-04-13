@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
           cache: true
@@ -71,7 +71,7 @@ jobs:
             "$DMG_PATH"
 
       - name: Upload DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetviona-macos-dmg
           path: vetviona-macos.dmg
