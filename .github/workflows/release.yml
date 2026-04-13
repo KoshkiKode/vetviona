@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter create --platforms=android --org com.koshkikode .
@@ -56,10 +56,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
+      - name: Scaffold iOS platform
+        working-directory: app
+        run: flutter create --platforms=ios --org com.koshkikode .
+      - name: Set iOS minimum deployment target
+        run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '15.5'/" app/ios/Podfile
       - working-directory: app
         run: |
-          flutter create --platforms=ios --org com.koshkikode .
           flutter pub get
           dart run flutter_launcher_icons
           flutter build ios --release --no-codesign
@@ -94,7 +98,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter config --enable-windows-desktop
@@ -119,7 +123,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter config --enable-windows-desktop
@@ -130,12 +134,14 @@ jobs:
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
       - run: |
           dotnet tool install --global wix --version 5.0.2
-          wix extension add -g WixToolset.UI.wixext
+          wix extension add -g WixToolset.UI.wixext/5.0.2
       - run: |
           cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
           cp packaging/windows/LICENSE.rtf app/build/windows/x64/runner/Release/LICENSE.rtf
       - working-directory: app/build/windows/x64/runner/Release
-        run: wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
+        run: |
+          wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
+          wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows-msi
@@ -150,11 +156,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
+      - name: Scaffold macOS platform
+        working-directory: app
+        run: flutter create --platforms=macos --org com.koshkikode .
+      - name: Set macOS minimum deployment target
+        run: sed -i '' "s/# platform :macos, '[0-9.]*'/platform :macos, '10.15'/" app/macos/Podfile
+      - name: Copy entitlements
+        run: |
+          cp packaging/macos/entitlements.plist app/macos/Runner/Release.entitlements
+          cp packaging/macos/entitlements.plist app/macos/Runner/DebugProfile.entitlements
       - working-directory: app
         run: |
           flutter config --enable-macos-desktop
-          flutter create --platforms=macos --org com.koshkikode .
           flutter pub get
           dart run flutter_launcher_icons
           flutter build macos --release --dart-define=PAID=true
@@ -179,10 +193,11 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             dpkg-dev
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - working-directory: app
         run: |
           flutter config --enable-linux-desktop
@@ -250,6 +265,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             flatpak flatpak-builder
           sudo flatpak remote-add --if-not-exists flathub \
@@ -257,7 +273,7 @@ jobs:
           sudo flatpak install -y flathub org.freedesktop.Platform//23.08 \
             org.freedesktop.Sdk//23.08
       - uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.22.x', channel: stable, cache: true }
+        with: { channel: stable, cache: true }
       - name: Build Linux bundle
         working-directory: app
         run: |

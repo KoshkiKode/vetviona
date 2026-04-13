@@ -30,7 +30,7 @@ jobs:
 
       - name: Scaffold Windows platform
         working-directory: app
-        run: flutter create --platforms=android,ios,windows --org com.koshkikode .
+        run: flutter create --platforms=windows --org com.koshkikode .
 
       - name: Install dependencies
         working-directory: app
