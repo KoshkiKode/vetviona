@@ -569,6 +569,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updatePerson(Person person) async {
+    person.treeId ??= currentTreeId;
     person.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('persons', person.toMap(),
@@ -633,6 +634,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updateSource(Source source) async {
+    source.treeId ??= currentTreeId;
     source.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('sources', source.toMap(),
