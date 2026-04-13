@@ -614,6 +614,7 @@ class TreeProvider extends ChangeNotifier {
   // ── Sources ────────────────────────────────────────────────────────────────
   Future<void> addSource(Source source) async {
     source.id = source.id.isEmpty ? _uuid.v4() : source.id;
+    source.treeId ??= currentTreeId;
     source.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.insert('sources', source.toMap(),
@@ -673,6 +674,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updatePartnership(Partnership partnership) async {
+    partnership.treeId ??= currentTreeId;
     partnership.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('partnerships', partnership.toMap(),
@@ -724,6 +726,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updateLifeEvent(LifeEvent event) async {
+    event.treeId ??= currentTreeId;
     event.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('life_events', event.toMap(),
@@ -763,6 +766,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updateMedicalCondition(MedicalCondition condition) async {
+    condition.treeId ??= currentTreeId;
     condition.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
     await db.update('medical_conditions', condition.toMap(),
@@ -799,6 +803,7 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updateResearchTask(ResearchTask task) async {
+    task.treeId ??= currentTreeId;
     final db = await _database;
     await db.update('research_tasks', task.toMap(),
         where: 'id = ?', whereArgs: [task.id]);
