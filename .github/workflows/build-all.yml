@@ -1,0 +1,165 @@
+name: Build — All Platforms
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Each job targets one OS/platform so every build is visible at a glance in
+# the GitHub Actions summary without opening individual workflow runs.
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+
+  # ── Tests ─────────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2.23.0
+        with: { channel: stable, cache: true }
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+      - name: Run unit tests
+        working-directory: app
+        run: flutter test --reporter=expanded
+
+  # ── Android ───────────────────────────────────────────────────────────────
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2.23.0
+        with: { channel: stable, cache: true }
+      - name: Scaffold & build
+        working-directory: app
+        run: |
+          flutter create --platforms=android --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f flutter_launcher_icons-android.yaml
+          flutter build apk --release
+          flutter build apk --release --dart-define=MOBILE_PAID=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-android-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+  # ── iOS ───────────────────────────────────────────────────────────────────
+  ios:
+    name: iOS
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2.23.0
+        with: { channel: stable, cache: true }
+      - name: Scaffold & build
+        working-directory: app
+        run: |
+          flutter create --platforms=ios --org com.koshkikode .
+          sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '15.5'/" ios/Podfile
+          flutter pub get
+          dart run flutter_launcher_icons -f flutter_launcher_icons-ios.yaml
+          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-ios
+          path: app/build/ios/iphoneos/Runner.app
+          retention-days: 7
+
+  # ── Windows ───────────────────────────────────────────────────────────────
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2.23.0
+        with: { channel: stable, cache: true }
+      - name: Scaffold & build
+        working-directory: app
+        run: |
+          flutter config --enable-windows-desktop
+          flutter create --platforms=windows --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f flutter_launcher_icons-windows.yaml
+          flutter build windows --release --dart-define=PAID=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-windows
+          path: app/build/windows/x64/runner/Release/
+          retention-days: 7
+
+  # ── macOS ─────────────────────────────────────────────────────────────────
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2.23.0
+        with: { channel: stable, cache: true }
+      - name: Scaffold & build
+        working-directory: app
+        run: |
+          flutter config --enable-macos-desktop
+          flutter create --platforms=macos --org com.koshkikode .
+          sed -i '' "s/.*platform :osx, .*/platform :osx, '10.15'/" macos/Podfile
+          flutter pub get
+          dart run flutter_launcher_icons -f flutter_launcher_icons-macos.yaml
+          flutter build macos --release --dart-define=PAID=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-macos
+          path: app/build/macos/Build/Products/Release/vetviona_app.app
+          retention-days: 7
+
+  # ── Linux ─────────────────────────────────────────────────────────────────
+  linux:
+    name: Linux
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+      - uses: subosito/flutter-action@v2.23.0
+        with: { channel: stable, cache: true }
+      - name: Scaffold & build
+        working-directory: app
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f flutter_launcher_icons-linux.yaml
+          flutter build linux --release --dart-define=PAID=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: app/build/linux/x64/release/bundle/
+          retention-days: 7
