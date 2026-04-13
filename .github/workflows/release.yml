@@ -27,7 +27,7 @@ jobs:
         run: |
           flutter create --platforms=android --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f flutter_launcher_icons-android.yaml
+          dart run flutter_launcher_icons -f icons_android.yaml
           flutter build apk --release
           flutter build appbundle --release
       - uses: actions/upload-artifact@v7
@@ -65,7 +65,7 @@ jobs:
       - working-directory: app
         run: |
           flutter pub get
-          dart run flutter_launcher_icons -f flutter_launcher_icons-ios.yaml
+          dart run flutter_launcher_icons -f icons_ios.yaml
           flutter build ios --release --no-codesign
       - name: Package free IPA
         run: |
@@ -104,7 +104,7 @@ jobs:
           flutter config --enable-windows-desktop
           flutter create --platforms=windows --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f flutter_launcher_icons-windows.yaml
+          dart run flutter_launcher_icons -f icons_windows.yaml
           flutter build windows --release --dart-define=PAID=true
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
       - uses: actions/upload-artifact@v7
@@ -127,7 +127,7 @@ jobs:
           flutter config --enable-windows-desktop
           flutter create --platforms=windows --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f flutter_launcher_icons-windows.yaml
+          dart run flutter_launcher_icons -f icons_windows.yaml
           flutter build windows --release --dart-define=PAID=true
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
       - run: |
@@ -169,7 +169,7 @@ jobs:
       - working-directory: app
         run: |
           flutter pub get
-          dart run flutter_launcher_icons -f flutter_launcher_icons-macos.yaml
+          dart run flutter_launcher_icons -f icons_macos.yaml
           flutter build macos --release --dart-define=PAID=true
       - run: |
           hdiutil create -volname "Vetviona" \
@@ -202,7 +202,7 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f flutter_launcher_icons-linux.yaml
+          dart run flutter_launcher_icons -f icons_linux.yaml
           flutter build linux --release --dart-define=PAID=true
       - run: |
           VERSION=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
@@ -239,6 +239,27 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+      - uses: subosito/flutter-action@v2.23.0
+        with: { channel: stable, cache: true }
+      - name: Build Linux app for snap
+        working-directory: app
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f icons_linux.yaml
+          flutter build linux --release --dart-define=PAID=true
+      - name: Stage bundle for snap
+        run: |
+          mkdir -p app/snap-bundle
+          cp -r app/build/linux/x64/release/bundle/* app/snap-bundle/
       - name: Prepare snap directory
         run: |
           mkdir -p app/snap
@@ -279,7 +300,7 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f flutter_launcher_icons-linux.yaml
+          dart run flutter_launcher_icons -f icons_linux.yaml
           flutter build linux --release --dart-define=PAID=true
       - name: Prepare Flatpak bundle source
         run: |

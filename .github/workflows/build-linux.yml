@@ -48,7 +48,7 @@ jobs:
 
       - name: Generate app icons
         working-directory: app
-        run: dart run flutter_launcher_icons -f flutter_launcher_icons-linux.yaml
+        run: dart run flutter_launcher_icons -f icons_linux.yaml
 
       - name: Build Linux (Desktop Pro — paid)
         working-directory: app
@@ -104,18 +104,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
-      - name: Set up Flutter (for snapcraft)
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
           cache: true
 
-      - name: Scaffold Linux platform
+      - name: Build Linux app for snap
         working-directory: app
-        run: flutter create --platforms=linux --org com.koshkikode .
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f icons_linux.yaml
+          flutter build linux --release --dart-define=PAID=true
+
+      - name: Stage bundle for snap
+        run: |
+          mkdir -p app/snap-bundle
+          cp -r app/build/linux/x64/release/bundle/* app/snap-bundle/
 
       - name: Copy snapcraft.yaml
         run: |
@@ -123,14 +139,16 @@ jobs:
           cp packaging/linux/snap/snapcraft.yaml app/snap/snapcraft.yaml
 
       - name: Build Snap
-        working-directory: app
-        run: sudo snapcraft --destructive-mode
+        uses: canonical/action-build@v1.3.0
+        id: build-snap
+        with:
+          path: app
 
       - name: Upload Snap
         uses: actions/upload-artifact@v7
         with:
           name: vetviona-linux-snap
-          path: app/*.snap
+          path: ${{ steps.build-snap.outputs.snap }}
 
   build-flatpak:
     name: Build Flatpak
@@ -173,7 +191,7 @@ jobs:
 
       - name: Generate app icons
         working-directory: app
-        run: dart run flutter_launcher_icons -f flutter_launcher_icons-linux.yaml
+        run: dart run flutter_launcher_icons -f icons_linux.yaml
 
       - name: Build Linux app for Flatpak
         working-directory: app

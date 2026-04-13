@@ -41,7 +41,7 @@ jobs:
 
       - name: Generate app icons
         working-directory: app
-        run: dart run flutter_launcher_icons -f flutter_launcher_icons-android.yaml
+        run: dart run flutter_launcher_icons -f icons_android.yaml
 
       # ── Free tier ──────────────────────────────────────────────────────────
       - name: Build APK (free — mobile)
