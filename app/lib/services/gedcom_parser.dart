@@ -177,9 +177,9 @@ class GEDCOMParser {
             currentPerson!.aliases.add(alias);
           }
         } else if (tag == 'NOTE') {
-          // Individual-level note (inline text; @N1@ pointer form is ignored).
-          final noteText = value.replaceAll('@', '').trim();
-          if (noteText.isNotEmpty) currentPerson!.notes = noteText;
+          // Individual-level note. Skip pointer form (@N1@); accept inline text.
+          final isPointer = value.startsWith('@') && value.endsWith('@');
+          if (!isPointer && value.isNotEmpty) currentPerson!.notes = value;
         }
       } else if (level == 1 && currentSourceDef != null) {
         currentTag = tag;
