@@ -2,6 +2,11 @@ import '../models/place.dart';
 
 /// Americas: all level-1 administrative subdivisions (states, provinces, regions, etc.).
 const List<Place> placesSubdivisionsAmericas = [
+  // ── Bonaire, Sint Eustatius and Saba ────────────────────────────
+  Place(continent:'Americas', name:'Bonaire', modernCountry:'Bonaire, Sint Eustatius and Saba', iso3:'BES', state:'Bonaire', historicalContext:'Special municipality of Bonaire, Sint Eustatius and Saba (Netherlands).'),
+  Place(continent:'Americas', name:'Saba', modernCountry:'Bonaire, Sint Eustatius and Saba', iso3:'BES', state:'Saba', historicalContext:'Special municipality of Bonaire, Sint Eustatius and Saba (Netherlands).'),
+  Place(continent:'Americas', name:'Sint Eustatius', modernCountry:'Bonaire, Sint Eustatius and Saba', iso3:'BES', state:'Sint Eustatius', historicalContext:'Special municipality of Bonaire, Sint Eustatius and Saba (Netherlands).'),
+
   // ── Antigua and Barbuda ─────────────────────────────────────────
   Place(continent:'Americas', name:'Barbuda', modernCountry:'Antigua and Barbuda', iso3:'ATG', state:'Barbuda', historicalContext:'Dependency of Antigua and Barbuda.'),
   Place(continent:'Americas', name:'Redonda', modernCountry:'Antigua and Barbuda', iso3:'ATG', state:'Redonda', historicalContext:'Dependency of Antigua and Barbuda.'),
