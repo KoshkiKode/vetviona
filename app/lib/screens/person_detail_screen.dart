@@ -21,6 +21,7 @@ import 'relationship_screen.dart';
 import 'research_tasks_screen.dart';
 import 'descendants_screen.dart';
 import 'wikitree_screen.dart';
+import '../models/geo_coord.dart';
 import '../services/find_a_grave_service.dart';
 import '../services/wikitree_service.dart';
 import 'map_picker_screen.dart';
