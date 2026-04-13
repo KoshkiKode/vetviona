@@ -20,6 +20,18 @@ const double _kMaxScale = 5.0;
 /// direction.  Large enough to comfortably explore huge trees.
 const double _kBoundaryMargin = 6000.0;
 
+/// Vertical offset of generation row labels above the top of their row.
+/// Sits inside the [kTreeRowGap] space between consecutive rows.
+const double _kGenLabelTopOffset = 20.0;
+
+/// Controls the Bézier S-curve tension: proportional fraction of [dy] used
+/// as the control-point offset from each end of the edge.
+const double _kEdgeTensionFactor = 0.5;
+
+/// Maximum tension as a fraction of [kTreeRowGap], capping how much the
+/// curve can bow when rows are very far apart.
+const double _kMaxTensionRatio = 0.6;
+
 // Edge painter — uses smooth cubic-Bézier curves for parent→child edges
 // and straight lines for partnership (couple) connections.
 class _EdgePainter extends CustomPainter {
@@ -65,7 +77,7 @@ class _EdgePainter extends CustomPainter {
         final toCx = toNode.x + kTreeNodeW / 2;
         final toTop = toNode.y;
         final dy = (toTop - fromBot).abs();
-        final tension = (dy * 0.5).clamp(0, kTreeRowGap * 0.6);
+        final tension = (dy * _kEdgeTensionFactor).clamp(0, kTreeRowGap * _kMaxTensionRatio);
 
         final path = Path()
           ..moveTo(fromCx, fromBot)
@@ -685,7 +697,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                   for (final row in layout.generationRows)
                     Positioned(
                       left: 0,
-                      top: row.y - 20,
+                      top: row.y - _kGenLabelTopOffset,
                       child: _GenLabel(
                         generation: row.generation,
                         colorScheme: colorScheme,
