@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Linux build dependencies
         run: |
@@ -30,7 +30,7 @@ jobs:
             dpkg-dev
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
           cache: true
@@ -89,7 +89,7 @@ jobs:
           dpkg-deb --build "$PKGDIR"
 
       - name: Upload DEB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetviona-linux-deb
           path: vetviona_*.deb
@@ -102,13 +102,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install snapcraft
         run: sudo snap install snapcraft --classic
 
       - name: Set up Flutter (for snapcraft)
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
           cache: true
@@ -127,7 +127,7 @@ jobs:
         run: sudo snapcraft --destructive-mode
 
       - name: Upload Snap
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetviona-linux-snap
           path: app/*.snap
@@ -140,7 +140,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install build dependencies
         run: |
@@ -155,7 +155,7 @@ jobs:
           sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
           cache: true
@@ -189,7 +189,7 @@ jobs:
           flatpak build-bundle flatpak-repo vetviona.flatpak com.koshkikode.Vetviona
 
       - name: Upload Flatpak
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetviona-linux-flatpak
           path: vetviona.flatpak
