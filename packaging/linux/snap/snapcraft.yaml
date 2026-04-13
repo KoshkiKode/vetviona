@@ -53,6 +53,10 @@ parts:
       - libgtk-3-dev
       - liblzma-dev
       - git
+      - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
     stage-packages:
       - libgtk-3-0
       - libblkid1

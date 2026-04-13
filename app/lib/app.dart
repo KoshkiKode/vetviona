@@ -124,25 +124,6 @@ class VetvionaApp extends StatelessWidget {
                 ],
               ),
               PlatformMenu(
-                label: 'Edit',
-                menus: [
-                  PlatformProvidedMenuItem(
-                      type: PlatformProvidedMenuItemType.undo),
-                  PlatformProvidedMenuItem(
-                      type: PlatformProvidedMenuItemType.redo),
-                  const PlatformMenuItemGroup(members: [
-                    PlatformProvidedMenuItem(
-                        type: PlatformProvidedMenuItemType.cut),
-                    PlatformProvidedMenuItem(
-                        type: PlatformProvidedMenuItemType.copy),
-                    PlatformProvidedMenuItem(
-                        type: PlatformProvidedMenuItemType.paste),
-                    PlatformProvidedMenuItem(
-                        type: PlatformProvidedMenuItemType.selectAll),
-                  ]),
-                ],
-              ),
-              PlatformMenu(
                 label: 'View',
                 menus: [
                   PlatformMenuItem(
