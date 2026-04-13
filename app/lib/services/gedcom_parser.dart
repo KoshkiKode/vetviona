@@ -169,6 +169,8 @@ class GEDCOMParser {
           if (value.isNotEmpty) currentPerson!.nationality = value;
         } else if (tag == 'EDUC') {
           if (value.isNotEmpty) currentPerson!.education = value;
+        } else if (tag == '_MARN') {
+          if (value.isNotEmpty) currentPerson!.maidenName = value;
         } else if (tag == '_ALIAS') {
           final alias = value.trim();
           if (alias.isNotEmpty && !currentPerson!.aliases.contains(alias)) {
@@ -454,6 +456,9 @@ class GEDCOMParser {
           for (final alias in person.aliases) {
             if (alias.isNotEmpty) buf.writeln('1 _ALIAS $alias');
           }
+        }
+        if (person.maidenName != null && person.maidenName!.isNotEmpty) {
+          buf.writeln('1 _MARN ${person.maidenName}');
         }
         if (person.notes != null && person.notes!.isNotEmpty) {
           buf.writeln('1 NOTE ${person.notes}');

@@ -762,10 +762,15 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
     final ep = _endPlaceCtrl.text.trim();
     final witnesses = _witnessesCtrl.text.trim();
     final notes = _notesCtrl.text.trim();
+    // When editing, preserve the original person1Id/person2Id order so that
+    // repeated edits by the partner (person2) don't silently swap the roles.
+    // The partner dropdown is disabled during editing, so person1/2 never change.
+    final person1Id = widget.existing?.person1Id ?? widget.currentPersonId;
+    final person2Id = widget.existing?.person2Id ?? _partnerId!;
     final result = Partnership(
       id: widget.existing?.id ?? '',
-      person1Id: widget.currentPersonId,
-      person2Id: _partnerId!,
+      person1Id: person1Id,
+      person2Id: person2Id,
       status: _status,
       startDate: _startDate,
       startPlace: sp.isEmpty ? null : sp,
