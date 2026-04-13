@@ -1,0 +1,63 @@
+name: vetviona_app
+description: Vetviona — a private, local-first genealogy app by KoshkiKode.
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.0
+  sqflite: ^2.0.0
+  sqflite_common_ffi: ^2.3.0
+  sqlite3_flutter_libs: ^0.5.0
+  path: ^1.8.0
+  path_provider: ^2.0.0
+  http: ^1.0.0
+  provider: ^6.0.0
+  intl: ^0.20.0
+  file_picker: ^11.0.0
+  shared_preferences: ^2.0.0
+  flutter_colorpicker: ^1.1.0
+  flutter_blue_plus: ^2.0.0
+  encrypt: ^5.0.0
+  uuid: ^4.0.0
+  image_picker: ^1.0.0
+  bonsoir: ^6.0.0
+  shelf: ^1.4.0
+  shelf_router: ^1.1.0
+  crypto: ^3.0.0
+  audioplayers: ^6.1.0
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  pdf: ^3.11.1
+  printing: ^5.13.2
+  in_app_purchase: ^3.2.0
+  share_plus: ^10.0.0
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^6.0.5
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: false
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/sounds/
+    - assets/icon/
