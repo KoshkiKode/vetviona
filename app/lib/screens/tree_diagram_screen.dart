@@ -367,6 +367,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   Size _viewportSize = Size.zero;
 
   @override
+  void initState() {
+    super.initState();
+    // Auto-fit the view once the first frame is drawn so the tree is
+    // properly centered and scaled on all platforms (especially desktop).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final provider = context.read<TreeProvider>();
@@ -930,7 +938,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                   for (final row in layout.generationRows)
                     Positioned(
                       left: 0,
-                      top: row.y + (_kNodeH - 18) / 2,
+                      top: row.y - 20,
                       child: _GenLabel(
                         generation: row.generation,
                         colorScheme: colorScheme,

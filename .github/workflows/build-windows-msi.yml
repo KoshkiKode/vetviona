@@ -61,7 +61,7 @@ jobs:
       - name: Harvest release directory
         working-directory: app/build/windows/x64/runner/Release
         run: |
-          wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
+          wix dir harvest . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
 
       - name: Build MSI
         working-directory: app/build/windows/x64/runner/Release
