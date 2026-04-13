@@ -16,7 +16,7 @@ architectures:
 
 apps:
   vetviona:
-    command: vetviona
+    command: vetviona_app
     extensions: [gnome]
     plugs:
       - network

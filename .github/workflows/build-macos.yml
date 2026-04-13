@@ -41,7 +41,7 @@ jobs:
 
       - name: Generate app icons
         working-directory: app
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons-macos.yaml
 
       - name: Copy entitlements
         run: |
