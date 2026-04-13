@@ -1029,6 +1029,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               ? null
               : _burialPostalCodeController.text.trim()),
       isPrivate: _isPrivate,
+      syncMedical: widget.person?.syncMedical ?? false,
       preferredSourceIds: widget.person?.preferredSourceIds ?? {},
       causeOfDeath: _isLiving
           ? null
