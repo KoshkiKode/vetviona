@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 import '../services/sound_service.dart';
 import '../models/life_event.dart';
 import '../models/person.dart';
+import '../models/place.dart';
 import '../providers/tree_provider.dart';
 import '../utils/platform_utils.dart';
 import 'medical_history_screen.dart';
@@ -23,6 +24,7 @@ import 'descendants_screen.dart';
 import 'wikitree_screen.dart';
 import '../models/geo_coord.dart';
 import '../services/find_a_grave_service.dart';
+import '../services/place_service.dart';
 import '../services/wikitree_service.dart';
 import 'map_picker_screen.dart';
 
@@ -373,10 +375,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _SuggestField(
                     controller: _causeOfDeathController,
                     decoration:
                         const InputDecoration(labelText: 'Cause of Death'),
+                    suggestions: _kCausesOfDeath,
                     textCapitalization: TextCapitalization.sentences,
                   ),
                 ],
@@ -451,21 +454,23 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     onChanged: (v) => setState(() => _bloodType = v),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _SuggestField(
                     controller: _eyeColourController,
                     decoration: const InputDecoration(
                       labelText: 'Eye Colour',
                       hintText: 'e.g. Brown, Blue, Green',
                     ),
+                    suggestions: _kEyeColours,
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _SuggestField(
                     controller: _hairColourController,
                     decoration: const InputDecoration(
                       labelText: 'Hair Colour',
                       hintText: 'e.g. Black, Blonde, Auburn',
                     ),
+                    suggestions: _kHairColours,
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 12),
@@ -549,21 +554,23 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       ],
                     ),
                   ),
-                  TextFormField(
+                  _SuggestField(
                     controller: _occupationController,
                     decoration: const InputDecoration(
                       labelText: 'Occupation',
                       hintText: 'e.g. Farmer, Teacher, Engineer',
                     ),
+                    suggestions: _kOccupations,
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _SuggestField(
                     controller: _nationalityController,
                     decoration: const InputDecoration(
                       labelText: 'Nationality',
                       hintText: 'e.g. Czech, Polish, Ukrainian',
                     ),
+                    suggestions: _kNationalities,
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 12),
@@ -576,21 +583,23 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _SuggestField(
                     controller: _religionController,
                     decoration: const InputDecoration(
                       labelText: 'Religion / Faith',
                       hintText: 'e.g. Catholic, Orthodox, None',
                     ),
+                    suggestions: _kReligions,
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  _SuggestField(
                     controller: _educationController,
                     decoration: const InputDecoration(
                       labelText: 'Education Level',
                       hintText: 'e.g. Primary, Secondary, University',
                     ),
+                    suggestions: _kEducationLevels,
                     textCapitalization: TextCapitalization.words,
                   ),
                 ],
@@ -1110,7 +1119,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 // _PlaceField — place name + postal code + map picker button + coord chip
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _PlaceField extends StatelessWidget {
+class _PlaceField extends StatefulWidget {
   final TextEditingController controller;
   final TextEditingController postalCodeController;
   final String label;
@@ -1128,44 +1137,108 @@ class _PlaceField extends StatelessWidget {
   });
 
   @override
+  State<_PlaceField> createState() => _PlaceFieldState();
+}
+
+class _PlaceFieldState extends State<_PlaceField> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    PlaceService.instance.loadPlaces();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Place name text field ──────────────────────────────────────────
-        TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: label,
-            suffixIcon: IconButton(
-              icon: Icon(Icons.map_outlined, color: colorScheme.primary),
-              tooltip: 'Pick on map',
-              onPressed: () async {
-                final result = await Navigator.push<GeoCoord?>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        MapPickerScreen(initialCoord: coord),
+        // ── Place name field with autocomplete ────────────────────────────
+        RawAutocomplete<Place>(
+          textEditingController: widget.controller,
+          focusNode: _focusNode,
+          displayStringForOption: (p) => p.getFullName(widget.eventDate),
+          optionsBuilder: (textEditingValue) {
+            final query = textEditingValue.text.trim();
+            if (query.isEmpty) return const [];
+            return PlaceService.instance
+                .search(query, eventDate: widget.eventDate)
+                .take(6);
+          },
+          fieldViewBuilder:
+              (context, controller, focusNode, onSubmitted) {
+            return TextFormField(
+              controller: controller,
+              focusNode: focusNode,
+              decoration: InputDecoration(
+                labelText: widget.label,
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.map_outlined,
+                      color: colorScheme.primary),
+                  tooltip: 'Pick on map',
+                  onPressed: () async {
+                    final result = await Navigator.push<GeoCoord?>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MapPickerScreen(
+                            initialCoord: widget.coord),
+                      ),
+                    );
+                    if (result != null) {
+                      widget.onCoordChanged(result);
+                    }
+                  },
+                ),
+              ),
+              textCapitalization: TextCapitalization.words,
+              onFieldSubmitted: (_) => onSubmitted(),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (context, index) {
+                      final place = options.elementAt(index);
+                      final name = place.getFullName(widget.eventDate);
+                      return InkWell(
+                        onTap: () => onSelected(place),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          child: Text(name,
+                              style: const TextStyle(fontSize: 14)),
+                        ),
+                      );
+                    },
                   ),
-                );
-                // result == null means the user pressed back without confirming;
-                // we only update if the screen returned something (even an
-                // explicit clear returns null via the Clear button path handled
-                // inside the screen — here result is simply absent so no-op).
-                if (result != null) {
-                  onCoordChanged(result);
-                }
-              },
-            ),
-          ),
-          textCapitalization: TextCapitalization.words,
+                ),
+              ),
+            );
+          },
         ),
 
         // ── Postal / ZIP code field ────────────────────────────────────────
         const SizedBox(height: 8),
         TextFormField(
-          controller: postalCodeController,
+          controller: widget.postalCodeController,
           decoration: InputDecoration(
             labelText: 'Postal / ZIP code',
             prefixIcon:
@@ -1176,7 +1249,7 @@ class _PlaceField extends StatelessWidget {
         ),
 
         // ── Coord info chip ────────────────────────────────────────────────
-        if (coord != null) ...[
+        if (widget.coord != null) ...[
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
@@ -1185,14 +1258,14 @@ class _PlaceField extends StatelessWidget {
               // Coordinate badge
               _InfoChip(
                 icon: Icons.my_location,
-                label: coord!.coordinateLabel,
+                label: widget.coord!.coordinateLabel,
                 colorScheme: colorScheme,
               ),
               // Political boundaries badge
-              if (coord!.politicalBoundaries.isNotEmpty)
+              if (widget.coord!.politicalBoundaries.isNotEmpty)
                 _InfoChip(
                   icon: Icons.account_balance_outlined,
-                  label: coord!.politicalBoundaries,
+                  label: widget.coord!.politicalBoundaries,
                   colorScheme: colorScheme,
                 ),
               // Clear coord button
@@ -1202,7 +1275,7 @@ class _PlaceField extends StatelessWidget {
                 label: Text('Clear pin',
                     style: TextStyle(
                         fontSize: 11, color: colorScheme.error)),
-                onPressed: () => onCoordChanged(null),
+                onPressed: () => widget.onCoordChanged(null),
                 side: BorderSide(color: colorScheme.error.withOpacity(0.3)),
                 backgroundColor:
                     colorScheme.error.withOpacity(0.08),
@@ -2087,3 +2160,191 @@ class _WikiTreeResultChip extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _SuggestField — free-text field with non-blocking dropdown suggestions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A [TextFormField]-like widget that shows an autocomplete dropdown of
+/// [suggestions] as the user types.  Typing is never blocked — the user can
+/// always enter any value and ignore the dropdown entirely.  Scrolling the
+/// parent form is unaffected because the dropdown renders as an overlay.
+class _SuggestField extends StatefulWidget {
+  final TextEditingController controller;
+  final InputDecoration decoration;
+  final List<String> suggestions;
+  final TextCapitalization textCapitalization;
+  final TextInputAction? textInputAction;
+  final String? Function(String?)? validator;
+
+  const _SuggestField({
+    required this.controller,
+    required this.decoration,
+    required this.suggestions,
+    this.textCapitalization = TextCapitalization.none,
+    this.textInputAction,
+    this.validator,
+  });
+
+  @override
+  State<_SuggestField> createState() => _SuggestFieldState();
+}
+
+class _SuggestFieldState extends State<_SuggestField> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawAutocomplete<String>(
+      textEditingController: widget.controller,
+      focusNode: _focusNode,
+      displayStringForOption: (o) => o,
+      optionsBuilder: (textEditingValue) {
+        final query = textEditingValue.text.trim().toLowerCase();
+        if (query.isEmpty) return const [];
+        return widget.suggestions
+            .where((s) => s.toLowerCase().contains(query))
+            .take(6);
+      },
+      fieldViewBuilder:
+          (context, controller, focusNode, onSubmitted) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: widget.decoration,
+          textCapitalization: widget.textCapitalization,
+          textInputAction: widget.textInputAction,
+          validator: widget.validator,
+          onFieldSubmitted: (_) => onSubmitted(),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return InkWell(
+                    onTap: () => onSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Text(option,
+                          style: const TextStyle(fontSize: 14)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suggestion data — used by _SuggestField and _PlaceField
+// ─────────────────────────────────────────────────────────────────────────────
+
+const List<String> _kOccupations = [
+  'Accountant', 'Actor', 'Agriculture Labourer', 'Architect', 'Baker',
+  'Blacksmith', 'Boatman', 'Bookkeeper', 'Bricklayer', 'Butcher',
+  'Cabinet Maker', 'Carpenter', 'Carter', 'Charwoman', 'Civil Servant',
+  'Clerk', 'Coachman', 'Coal Miner', 'Cook', 'Coppersmith',
+  'Cooper', 'Cutler', 'Dentist', 'Domestic Servant', 'Dressmaker',
+  'Driver', 'Engineer', 'Factory Worker', 'Farmer', 'Farrier',
+  'Fisherman', 'Glazier', 'Grocer', 'Groom', 'Hatter',
+  'Housemaid', 'Innkeeper', 'Jeweller', 'Joiner', 'Labourer',
+  'Lace Maker', 'Lawyer', 'Mason', 'Merchant', 'Midwife',
+  'Miller', 'Miner', 'Nurse', 'Painter', 'Pharmacist',
+  'Physician', 'Plasterer', 'Plumber', 'Potter', 'Priest',
+  'Printer', 'Rabbi', 'Railway Worker', 'Sailor', 'Seamstress',
+  'Servant', 'Shoemaker', 'Soldier', 'Spinner', 'Stonecutter',
+  'Surgeon', 'Tailor', 'Teacher', 'Tinsmith', 'Trader',
+  'Upholsterer', 'Watchmaker', 'Weaver', 'Wheelwright', 'Woodcutter',
+];
+
+const List<String> _kNationalities = [
+  'Afghan', 'Albanian', 'Algerian', 'American', 'Angolan',
+  'Argentine', 'Armenian', 'Australian', 'Austrian', 'Azerbaijani',
+  'Belarusian', 'Belgian', 'Bolivian', 'Bosnian', 'Brazilian',
+  'British', 'Bulgarian', 'Burmese', 'Cambodian', 'Canadian',
+  'Chilean', 'Chinese', 'Colombian', 'Congolese', 'Croatian',
+  'Cuban', 'Czech', 'Danish', 'Dutch', 'Egyptian',
+  'English', 'Estonian', 'Ethiopian', 'Finnish', 'French',
+  'Galician', 'Georgian', 'German', 'Ghanaian', 'Greek',
+  'Guatemalan', 'Hungarian', 'Indian', 'Indonesian', 'Iranian',
+  'Iraqi', 'Irish', 'Israeli', 'Italian', 'Japanese',
+  'Kenyan', 'Korean', 'Latvian', 'Lebanese', 'Lithuanian',
+  'Macedonian', 'Malaysian', 'Mexican', 'Moldovan', 'Montenegrin',
+  'Moroccan', 'Nigerian', 'Norwegian', 'Pakistani', 'Palestinian',
+  'Peruvian', 'Philippine', 'Polish', 'Portuguese', 'Romanian',
+  'Russian', 'Saudi', 'Scottish', 'Serbian', 'Slovak',
+  'Slovenian', 'South African', 'Spanish', 'Swedish', 'Swiss',
+  'Syrian', 'Taiwanese', 'Thai', 'Turkish', 'Ukrainian',
+  'Uzbek', 'Venezuelan', 'Vietnamese', 'Welsh', 'Zimbabwean',
+];
+
+const List<String> _kReligions = [
+  'Anglican', 'Atheist', 'Agnostic', 'Baptist', 'Buddhist',
+  'Calvinist', 'Catholic', 'Christian', 'Confucian', 'Eastern Orthodox',
+  'Episcopal', 'Greek Orthodox', 'Hindu', 'Humanist', 'Islamic',
+  'Jehovah\'s Witness', 'Jewish', 'Lutheran', 'Mennonite', 'Methodist',
+  'Mormon', 'Muslim', 'None', 'Orthodox Jewish', 'Pentecostal',
+  'Presbyterian', 'Protestant', 'Quaker', 'Reformed', 'Russian Orthodox',
+  'Serbian Orthodox', 'Seventh-day Adventist', 'Shia Muslim', 'Shinto', 'Sikh',
+  'Sunni Muslim', 'Taoism', 'Ukrainian Greek Catholic', 'Unitarian', 'Unknown',
+];
+
+const List<String> _kEducationLevels = [
+  'None', 'Some Primary', 'Primary School', 'Some Secondary', 'Secondary School',
+  'High School Diploma', 'GED / Equivalent', 'Vocational / Trade School',
+  'Some College', 'Associate Degree', 'Bachelor\'s Degree', 'Some Postgraduate',
+  'Master\'s Degree', 'Professional Degree', 'Doctorate (PhD)',
+];
+
+const List<String> _kEyeColours = [
+  'Amber', 'Black', 'Blue', 'Blue-Grey', 'Brown',
+  'Dark Brown', 'Green', 'Grey', 'Hazel', 'Light Blue',
+  'Light Brown', 'Pale Blue', 'Unknown',
+];
+
+const List<String> _kHairColours = [
+  'Auburn', 'Bald', 'Black', 'Blonde', 'Brown',
+  'Chestnut', 'Dark Brown', 'Dark Red', 'Ginger', 'Grey',
+  'Light Blonde', 'Light Brown', 'Red', 'Salt and Pepper', 'Sandy Blonde',
+  'Silver', 'Strawberry Blonde', 'White', 'Unknown',
+];
+
+const List<String> _kCausesOfDeath = [
+  'Accident', 'Alzheimer\'s Disease', 'Asthma', 'Cancer', 'Cardiac Arrest',
+  'Childbirth', 'Cholera', 'Cirrhosis', 'Complications of Surgery', 'Coronary Artery Disease',
+  'COVID-19', 'Diabetes', 'Drowning', 'Emphysema', 'Epilepsy',
+  'Fall', 'Fire', 'Heart Disease', 'Heart Failure', 'Homicide',
+  'Influenza', 'Kidney Disease', 'Liver Disease', 'Malaria', 'Malnutrition',
+  'Natural Causes', 'Old Age', 'Pandemic Influenza', 'Peritonitis', 'Plague',
+  'Pneumonia', 'Scarlet Fever', 'Sepsis', 'Smallpox', 'Stroke',
+  'Suicide', 'Tuberculosis', 'Typhoid Fever', 'Typhus', 'Unknown',
+  'War', 'Whooping Cough', 'Yellow Fever',
+];
