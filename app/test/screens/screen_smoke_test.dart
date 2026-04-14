@@ -203,6 +203,43 @@ void main() {
       expect(find.text('Alice'), findsAtLeastNWidgets(1));
     });
 
+    testWidgets('shows empty add slots around focused person by default',
+        (tester) async {
+      final provider = TreeProvider()
+        ..isLoaded = true
+        ..loadingMessage = 'Ready'
+        ..loadingProgress = 1.0
+        ..persons = [Person(id: 'p1', name: 'Alice')];
+
+      await tester.pumpWidget(
+          _buildTestApp(const TreeDiagramScreen(), provider: provider));
+      await tester.pump();
+
+      expect(find.text('Add mom?'), findsOneWidget);
+      expect(find.text('Add dad?'), findsOneWidget);
+      expect(find.text('Add sibling?'), findsOneWidget);
+      expect(find.text('Add spouse?'), findsOneWidget);
+      expect(find.text('Add son?'), findsOneWidget);
+      expect(find.text('Add daughter?'), findsOneWidget);
+    });
+
+    testWidgets('can toggle empty add slots off', (tester) async {
+      final provider = TreeProvider()
+        ..isLoaded = true
+        ..loadingMessage = 'Ready'
+        ..loadingProgress = 1.0
+        ..persons = [Person(id: 'p1', name: 'Alice')];
+
+      await tester.pumpWidget(
+          _buildTestApp(const TreeDiagramScreen(), provider: provider));
+      await tester.pump();
+
+      expect(find.text('Add mom?'), findsOneWidget);
+      await tester.tap(find.byTooltip('Hide empty add slots'));
+      await tester.pump();
+      expect(find.text('Add mom?'), findsNothing);
+    });
+
     testWidgets('renders parent and child when tree has two generations',
         (tester) async {
       final provider = TreeProvider()

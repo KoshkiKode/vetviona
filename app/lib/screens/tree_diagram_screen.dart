@@ -8,6 +8,7 @@ import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../services/sync_service.dart';
 import '../utils/page_routes.dart';
+import '../widgets/quick_add_person_dialog.dart';
 import 'pedigree_screen.dart';
 import 'person_detail_screen.dart';
 import 'tree_layout.dart';
@@ -109,6 +110,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String _searchQuery = '';
   String? _selectedPersonId;
   bool _showLegend = false;
+  bool _showEmptyAddSlots = true;
+  int _emptyAddSlotTiers = 1;
 
   /// When true, every person in the tree is visible (not just the focal family).
   bool _showingAll = false;
@@ -526,6 +529,163 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     );
   }
 
+  Future<void> _quickAddFromTree({
+    required Person anchor,
+    required _TreeQuickRelation relation,
+    required int tier,
+  }) async {
+    final provider = context.read<TreeProvider>();
+    final current = provider.persons.where((p) => p.id == anchor.id).firstOrNull;
+    if (current == null) return;
+    if (relation == _TreeQuickRelation.sibling && current.parentIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a parent first, then add siblings.')),
+      );
+      return;
+    }
+
+    final input = await showQuickAddPersonDialog(
+      context,
+      title: relation.dialogTitle,
+      subtitle: relation.subtitleFor(current.name, tier),
+      confirmLabel: relation.confirmLabel,
+      initialGender: relation.defaultGender,
+    );
+    if (input == null) return;
+
+    try {
+      final created = Person(
+        id: '',
+        name: input.name,
+        gender: input.gender ?? relation.defaultGender,
+        parentIds: relation == _TreeQuickRelation.son ||
+                relation == _TreeQuickRelation.daughter
+            ? [current.id]
+            : [],
+        parentRelTypes: relation == _TreeQuickRelation.son ||
+                relation == _TreeQuickRelation.daughter
+            ? {current.id: 'biological'}
+            : {},
+        childIds: relation == _TreeQuickRelation.mom ||
+                relation == _TreeQuickRelation.dad
+            ? [current.id]
+            : [],
+      );
+      await provider.addPerson(created);
+
+      switch (relation) {
+        case _TreeQuickRelation.mom:
+        case _TreeQuickRelation.dad:
+          if (!current.parentIds.contains(created.id)) {
+            current.parentIds.add(created.id);
+            current.parentRelTypes[created.id] = 'biological';
+            await provider.updatePerson(current);
+          }
+          break;
+        case _TreeQuickRelation.spouse:
+          await provider.addPartnership(
+            Partnership(
+              id: '',
+              person1Id: current.id,
+              person2Id: created.id,
+            ),
+          );
+          break;
+        case _TreeQuickRelation.sibling:
+          created.parentIds = List<String>.from(current.parentIds);
+          created.parentRelTypes = {
+            for (final parentId in current.parentIds)
+              parentId: current.parentRelType(parentId),
+          };
+          await provider.updatePerson(created);
+          for (final parentId in current.parentIds) {
+            final parent =
+                provider.persons.where((p) => p.id == parentId).firstOrNull;
+            if (parent == null || parent.childIds.contains(created.id)) continue;
+            parent.childIds.add(created.id);
+            await provider.updatePerson(parent);
+          }
+          break;
+        case _TreeQuickRelation.son:
+        case _TreeQuickRelation.daughter:
+          if (!current.childIds.contains(created.id)) {
+            current.childIds.add(created.id);
+            await provider.updatePerson(current);
+          }
+          break;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _selectedPersonId = current.id;
+        _visiblePersonIds = {..._visiblePersonIds, created.id};
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  List<Widget> _buildEmptyAddSlots({
+    required TreeLayout layout,
+    required String anchorId,
+    required Map<String, Person> personMap,
+    required ColorScheme colorScheme,
+  }) {
+    if (!_showEmptyAddSlots) return const [];
+    final anchorNode = layout.nodes[anchorId];
+    final anchorPerson = personMap[anchorId];
+    if (anchorNode == null || anchorPerson == null) return const [];
+
+    final slots = <Widget>[];
+    final relations = <(_TreeQuickRelation, double, double)>[
+      (_TreeQuickRelation.mom, -1, -1),
+      (_TreeQuickRelation.dad, 1, -1),
+      (_TreeQuickRelation.sibling, -1, 0),
+      (_TreeQuickRelation.spouse, 1, 0),
+      (_TreeQuickRelation.son, -1, 1),
+      (_TreeQuickRelation.daughter, 1, 1),
+    ];
+
+    final baseDx = kTreeNodeW + kTreeColGap;
+    final baseDy = kTreeNodeH + (kTreeRowGap * 0.55);
+    final maxLeft = (layout.canvasSize.width - kTreeNodeW).clamp(0.0, double.infinity);
+    final maxTop = (layout.canvasSize.height - kTreeNodeH).clamp(0.0, double.infinity);
+
+    for (int tier = 1; tier <= _emptyAddSlotTiers; tier++) {
+      for (final slot in relations) {
+        final relation = slot.$1;
+        final targetLeft = (anchorNode.x + slot.$2 * baseDx * tier)
+            .clamp(0.0, maxLeft);
+        final targetTop = (anchorNode.y + slot.$3 * baseDy * tier)
+            .clamp(0.0, maxTop);
+        final opacity = tier == 1 ? 0.28 : (0.18 / tier).clamp(0.08, 0.18);
+
+        slots.add(
+          Positioned(
+            left: targetLeft,
+            top: targetTop,
+            width: kTreeNodeW,
+            height: kTreeNodeH,
+            child: _EmptyAddNode(
+              text: relation.label,
+              tier: tier,
+              colorScheme: colorScheme,
+              opacity: opacity,
+              onTap: () => _quickAddFromTree(
+                anchor: anchorPerson,
+                relation: relation,
+                tier: tier,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return slots;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TreeProvider>();
@@ -588,6 +748,13 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
     final shownCount = visiblePersons.length;
     final totalCount = persons.length;
+    final anchorId = (_selectedPersonId != null &&
+            personMap.containsKey(_selectedPersonId))
+        ? _selectedPersonId
+        : (provider.homePersonId != null &&
+                personMap.containsKey(provider.homePersonId))
+            ? provider.homePersonId
+            : (visiblePersons.isNotEmpty ? visiblePersons.first.id : null);
 
     return Scaffold(
       appBar: AppBar(
@@ -637,6 +804,39 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             icon: const Icon(Icons.legend_toggle),
             tooltip: 'Legend',
             onPressed: () => setState(() => _showLegend = !_showLegend)),
+          IconButton(
+            icon: Icon(
+              _showEmptyAddSlots
+                  ? Icons.person_add_alt_1
+                  : Icons.person_add_disabled,
+            ),
+            tooltip: _showEmptyAddSlots
+                ? 'Hide empty add slots'
+                : 'Show empty add slots',
+            onPressed: () =>
+                setState(() => _showEmptyAddSlots = !_showEmptyAddSlots),
+          ),
+          PopupMenuButton<int>(
+            tooltip: 'Set add-slot tiers',
+            icon: const Icon(Icons.layers_outlined),
+            onSelected: (tier) => setState(() => _emptyAddSlotTiers = tier),
+            itemBuilder: (_) => List.generate(
+              3,
+              (i) => i + 1,
+            ).map((tier) {
+              return PopupMenuItem<int>(
+                value: tier,
+                child: Row(
+                  children: [
+                    if (_emptyAddSlotTiers == tier)
+                      const Icon(Icons.check, size: 16),
+                    if (_emptyAddSlotTiers == tier) const SizedBox(width: 8),
+                    Text('Add tiers: $tier'),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
           IconButton(
             icon: const Icon(Icons.account_tree_outlined),
             tooltip: 'Pedigree Chart',
@@ -738,7 +938,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                                 if (p == null) return;
                                 setState(() => _selectedPersonId = node.id);
                                 _showPersonSheet(context, p, personMap, partnerships);
-                              }),
+                               }),
+                     ),
+                  if (anchorId != null)
+                    ..._buildEmptyAddSlots(
+                      layout: layout,
+                      anchorId: anchorId,
+                      personMap: personMap,
+                      colorScheme: colorScheme,
                     ),
                 ]),
               ),
@@ -796,6 +1003,145 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 ))),
           ]);
         },
+      ),
+    );
+  }
+}
+
+enum _TreeQuickRelation {
+  mom,
+  dad,
+  sibling,
+  spouse,
+  son,
+  daughter;
+
+  String get label {
+    switch (this) {
+      case _TreeQuickRelation.mom:
+        return 'Add mom?';
+      case _TreeQuickRelation.dad:
+        return 'Add dad?';
+      case _TreeQuickRelation.sibling:
+        return 'Add sibling?';
+      case _TreeQuickRelation.spouse:
+        return 'Add spouse?';
+      case _TreeQuickRelation.son:
+        return 'Add son?';
+      case _TreeQuickRelation.daughter:
+        return 'Add daughter?';
+    }
+  }
+
+  String get dialogTitle {
+    switch (this) {
+      case _TreeQuickRelation.mom:
+        return 'Add Mom';
+      case _TreeQuickRelation.dad:
+        return 'Add Dad';
+      case _TreeQuickRelation.sibling:
+        return 'Add Sibling';
+      case _TreeQuickRelation.spouse:
+        return 'Add Spouse';
+      case _TreeQuickRelation.son:
+        return 'Add Son';
+      case _TreeQuickRelation.daughter:
+        return 'Add Daughter';
+    }
+  }
+
+  String get confirmLabel => dialogTitle;
+
+  String? get defaultGender {
+    switch (this) {
+      case _TreeQuickRelation.mom:
+      case _TreeQuickRelation.daughter:
+        return 'Female';
+      case _TreeQuickRelation.dad:
+      case _TreeQuickRelation.son:
+        return 'Male';
+      case _TreeQuickRelation.sibling:
+      case _TreeQuickRelation.spouse:
+        return null;
+    }
+  }
+
+  String subtitleFor(String anchorName, int tier) {
+    final tierText = tier > 1 ? ' (tier $tier)' : '';
+    switch (this) {
+      case _TreeQuickRelation.mom:
+      case _TreeQuickRelation.dad:
+        return 'Create and link $dialogTitle for $anchorName$tierText.';
+      case _TreeQuickRelation.sibling:
+        return 'Create and link a sibling for $anchorName$tierText.';
+      case _TreeQuickRelation.spouse:
+        return 'Create and link a spouse for $anchorName$tierText.';
+      case _TreeQuickRelation.son:
+      case _TreeQuickRelation.daughter:
+        return 'Create and link $dialogTitle for $anchorName$tierText.';
+    }
+  }
+}
+
+class _EmptyAddNode extends StatelessWidget {
+  final String text;
+  final int tier;
+  final ColorScheme colorScheme;
+  final double opacity;
+  final VoidCallback onTap;
+
+  const _EmptyAddNode({
+    required this.text,
+    required this.tier,
+    required this.colorScheme,
+    required this.opacity,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withOpacity(opacity),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.primary.withOpacity(0.32),
+              width: 1.1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.person_add_alt_1, size: 15),
+              const SizedBox(height: 4),
+              Text(
+                text,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+              if (tier > 1)
+                Text(
+                  'Tier $tier',
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: colorScheme.onPrimaryContainer.withOpacity(0.85),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
