@@ -92,13 +92,17 @@ class _DescLayout {
     }
 
     // Partners-in-law share the same generation as the descendant they partner.
+    // Guard with containsKey to avoid overwriting an already-assigned generation
+    // for persons who appear in multiple partnerships.
     for (final part in partnerships) {
       if (descendantIds.contains(part.person1Id) &&
-          !descendantIds.contains(part.person2Id)) {
+          !descendantIds.contains(part.person2Id) &&
+          !generation.containsKey(part.person2Id)) {
         generation[part.person2Id] = generation[part.person1Id] ?? 0;
       }
       if (descendantIds.contains(part.person2Id) &&
-          !descendantIds.contains(part.person1Id)) {
+          !descendantIds.contains(part.person1Id) &&
+          !generation.containsKey(part.person1Id)) {
         generation[part.person1Id] = generation[part.person2Id] ?? 0;
       }
     }
@@ -206,6 +210,9 @@ class _DescLayout {
       }
     }
 
+    // ── Refine layout ────────────────────────────────────────────────────────
+    _refineLayout(byGen);
+
     // ── Canvas bounds ────────────────────────────────────────────────────────
     double maxX = 0, maxY = 0;
     for (final n in nodes.values) {
@@ -213,6 +220,69 @@ class _DescLayout {
       maxY = math.max(maxY, n.y + _kCardH);
     }
     canvasSize = Size(maxX + 40, maxY + 40);
+  }
+
+  /// Three-pass iterative layout refinement (mirrors TreeLayout._refineLayout):
+  ///   A. Bottom-up: centre each non-knot parent over its children.
+  ///   B. Push apart overlapping nodes within each generation row.
+  ///   C. Re-centre couple knots between their two partners.
+  /// Finishes with a left-normalisation pass.
+  void _refineLayout(Map<int, List<String>> byGen) {
+    final childrenOf = <String, List<String>>{};
+    for (final e in edges) {
+      if (!e.isCouple) childrenOf.putIfAbsent(e.from, () => []).add(e.to);
+    }
+
+    final sortedGens = byGen.keys.toList()..sort();
+    const step = _kCardW + _kColGap;
+
+    for (int iter = 0; iter < 3; iter++) {
+      // Pass A: bottom-up parent centering.
+      for (final gen in sortedGens.reversed) {
+        for (final id in (byGen[gen] ?? [])) {
+          if (nodes[id]!.isCoupleKnot) continue;
+          final kids = (childrenOf[id] ?? [])
+              .where((k) => nodes.containsKey(k))
+              .toList();
+          if (kids.isEmpty) continue;
+          final childCx = kids
+                  .map((k) => nodes[k]!.x + _kCardW / 2)
+                  .reduce((a, b) => a + b) /
+              kids.length;
+          nodes[id]!.x = childCx - _kCardW / 2;
+        }
+
+        // Pass B: push apart overlapping nodes in this row.
+        final rowNodes = (byGen[gen] ?? [])
+            .map((id) => nodes[id]!)
+            .toList()
+          ..sort((a, b) => a.x.compareTo(b.x));
+        for (int i = 1; i < rowNodes.length; i++) {
+          final minX = rowNodes[i - 1].x + step;
+          if (rowNodes[i].x < minX) rowNodes[i].x = minX;
+        }
+      }
+
+      // Pass C: re-centre couple knots between their partners.
+      for (final node in nodes.values) {
+        if (!node.isCoupleKnot) continue;
+        final p1 = nodes[node.knotPartner1];
+        final p2 = nodes[node.knotPartner2];
+        if (p1 != null && p2 != null) {
+          node.x = (p1.x + p2.x + _kCardW) / 2.0 - _kCardW / 2.0;
+        }
+      }
+    }
+
+    // Normalise: shift everything so the leftmost node starts at x = 0.
+    if (nodes.isNotEmpty) {
+      final minX = nodes.values.map((n) => n.x).reduce(math.min);
+      if (minX < 0) {
+        for (final n in nodes.values) {
+          n.x -= minX;
+        }
+      }
+    }
   }
 }
 
@@ -257,7 +327,11 @@ class _DescEdgePainter extends CustomPainter {
       } else {
         // Orthogonal right-angle connector: down → across → down.
         final fromCx = fromNode.x + _kCardW / 2;
-        final fromBot = fromNode.y + _kCardH;
+        // For couple-knots the line starts from the circle centre; for person
+        // cards it starts from the bottom edge of the card.
+        final fromBot = fromNode.isCoupleKnot
+            ? fromNode.y + _kCardH / 2
+            : fromNode.y + _kCardH;
         final toCx = toNode.x + _kCardW / 2;
         final toTop = toNode.y;
         final midY = fromBot + (toTop - fromBot) * 0.4;
@@ -273,7 +347,9 @@ class _DescEdgePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DescEdgePainter old) =>
-      old.nodes != nodes || old.edges != edges;
+      old.nodes.length != nodes.length ||
+      old.edges.length != edges.length ||
+      old.edgeColor != edgeColor || old.coupleColor != coupleColor;
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -292,11 +368,42 @@ class DescendantsScreen extends StatefulWidget {
 class _DescendantsScreenState extends State<DescendantsScreen> {
   final TransformationController _transformCtrl = TransformationController();
   Person? _rootPerson;
+  Size _lastCanvasSize = Size.zero;
+  Size _viewportSize = Size.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fit to view once the first frame is rendered.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+  }
 
   @override
   void dispose() {
     _transformCtrl.dispose();
     super.dispose();
+  }
+
+  /// Scales and centres the view so the full descendant canvas fits in the
+  /// viewport, clamped to a maximum of 1:1.
+  void _fitView() {
+    final canvas = _lastCanvasSize;
+    final vp = _viewportSize;
+    if (canvas == Size.zero || vp == Size.zero) {
+      _transformCtrl.value = Matrix4.identity();
+      return;
+    }
+    const padding = 32.0;
+    final sx = (vp.width - padding * 2) / canvas.width;
+    final sy = (vp.height - padding * 2) / canvas.height;
+    final scale = (sx < sy ? sx : sy).clamp(0.1, 1.0);
+    final scaledW = canvas.width * scale;
+    final scaledH = canvas.height * scale;
+    final tx = (vp.width - scaledW) / 2;
+    final ty = (vp.height - scaledH) / 2;
+    _transformCtrl.value = Matrix4.identity()
+      ..translate(tx, ty)
+      ..scale(scale);
   }
 
   void _changeScale(double factor) {
@@ -305,7 +412,10 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
     _transformCtrl.value = _transformCtrl.value.clone()..scale(ns / s);
   }
 
-  void _resetView() => _transformCtrl.value = Matrix4.identity();
+  void _resetView() {
+    _transformCtrl.value = Matrix4.identity();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+  }
 
   /// BFS to collect this person and all their descendants.
   Set<String> _collectDescendants(Person root, Map<String, Person> pm) {
@@ -390,6 +500,7 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
 
     final layout = _DescLayout(visiblePersons, visiblePartnerships, descIds);
     layout.compute();
+    _lastCanvasSize = layout.canvasSize;
 
     return Scaffold(
       appBar: AppBar(
@@ -404,7 +515,10 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
           }),
         ),
       ),
-      body: Stack(
+      body: LayoutBuilder(
+        builder: (ctx, constraints) {
+          _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+          return Stack(
         children: [
           InteractiveViewer(
             constrained: false,
@@ -479,14 +593,16 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
                 const SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'desc_reset',
-                  onPressed: _resetView,
-                  tooltip: 'Reset view',
+                  onPressed: _fitView,
+                  tooltip: 'Fit to view',
                   child: const Icon(Icons.fit_screen),
                 ),
               ],
             ),
           ),
         ],
+          );
+        },
       ),
     );
   }
