@@ -33,6 +33,7 @@ const double _kEdgeTensionFactor = 0.5;
 /// curve can bow when rows are very far apart.
 const double _kMaxTensionRatio = 0.6;
 const double _kEmptySlotRowFactor = 0.55;
+const double _kEmptySlotBaseDy = kTreeNodeH + (kTreeRowGap * _kEmptySlotRowFactor);
 const double _kEmptySlotTier1Opacity = 0.28;
 const double _kEmptySlotOpacityBase = 0.18;
 const double _kEmptySlotOpacityMin = 0.08;
@@ -654,9 +655,13 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     ];
 
     final baseDx = kTreeNodeW + kTreeColGap;
-    final baseDy = kTreeNodeH + (kTreeRowGap * _kEmptySlotRowFactor);
-    final maxLeft = (layout.canvasSize.width - kTreeNodeW).clamp(0.0, double.infinity);
-    final maxTop = (layout.canvasSize.height - kTreeNodeH).clamp(0.0, double.infinity);
+    const baseDy = _kEmptySlotBaseDy;
+    final maxLeft = (layout.canvasSize.width - kTreeNodeW) < 0
+        ? 0.0
+        : (layout.canvasSize.width - kTreeNodeW);
+    final maxTop = (layout.canvasSize.height - kTreeNodeH) < 0
+        ? 0.0
+        : (layout.canvasSize.height - kTreeNodeH);
 
     for (int tier = 1; tier <= _emptyAddSlotTiers; tier++) {
       for (final slot in relations) {
