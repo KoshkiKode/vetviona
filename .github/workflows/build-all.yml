@@ -172,7 +172,8 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f icons_linux.yaml
+          mkdir -p linux/runner/resources
+          cp assets/icon/app_icon.png linux/runner/resources/app_icon.png
           flutter build linux --release --dart-define=PAID=true
       - uses: actions/upload-artifact@v7
         with:

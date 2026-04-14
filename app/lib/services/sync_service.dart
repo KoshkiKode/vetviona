@@ -114,6 +114,8 @@ class SyncService extends ChangeNotifier {
 
   // ── State ───────────────────────────────────────────────────────────────────
 
+  bool _disposed = false;
+
   SyncStatus _status = SyncStatus.idle;
   SyncStatus get status => _status;
 
@@ -229,7 +231,7 @@ class SyncService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _wifiSyncEnabled = prefs.getBool('wifiSync') ?? true;
     _bluetoothSyncEnabled = prefs.getBool('bluetoothSync') ?? false;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> setWifiSyncEnabled(bool enabled) async {
@@ -243,7 +245,7 @@ class SyncService extends ChangeNotifier {
     } else if (_status == SyncStatus.idle && _lastMessage == 'WiFi sync is off') {
       _setStatus(SyncStatus.idle, null);
     } else {
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -251,7 +253,7 @@ class SyncService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('bluetoothSync', enabled);
     _bluetoothSyncEnabled = enabled;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   // ── Server lifecycle ────────────────────────────────────────────────────────
@@ -410,7 +412,7 @@ class SyncService extends ChangeNotifier {
         tier: attrs['tier'],
       );
       _discoveredPeers.add(peer);
-      notifyListeners();
+      if (!_disposed) notifyListeners();
 
       // Auto-connect: if this peer is a paired device, kick off a full
       // bidirectional sync now and add it to the active peer set so
@@ -424,7 +426,7 @@ class SyncService extends ChangeNotifier {
         _activePeers.remove('${p.host}:${p.port}');
       }
       _discoveredPeers.removeWhere((p) => p.name == name);
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -457,7 +459,7 @@ class SyncService extends ChangeNotifier {
     if (_status == SyncStatus.discovering) {
       _setStatus(SyncStatus.idle, null);
     } else {
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -613,7 +615,7 @@ class SyncService extends ChangeNotifier {
           port: port,
           sharedSecret: sharedSecret,
         );
-        notifyListeners();
+        if (!_disposed) notifyListeners();
         return true;
       } else if (response.statusCode == 401) {
         _setStatus(SyncStatus.error, 'Wrong pairing code');
@@ -765,7 +767,7 @@ class SyncService extends ChangeNotifier {
       if (ready) {
         // Register the peer by device ID so the consent survives IP changes.
         _medicalConsentedPeers.add(senderId);
-        notifyListeners();
+        if (!_disposed) notifyListeners();
       }
 
       final resp = _encrypt({'ready': ready}, matchedDevice.sharedSecret);
@@ -881,7 +883,7 @@ class SyncService extends ChangeNotifier {
         .firstOrNull
         ?.id;
     if (deviceId != null) _medicalConsentedPeers.add(deviceId);
-    notifyListeners();
+    if (!_disposed) notifyListeners();
 
     // Immediately trigger a full sync so medical data flows right away.
     await syncWithPeer(host: host, port: port, sharedSecret: sharedSecret);
@@ -1046,7 +1048,7 @@ class SyncService extends ChangeNotifier {
       for (final key in peersToRemove) {
         _activePeers.remove(key);
       }
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -1163,7 +1165,7 @@ class SyncService extends ChangeNotifier {
   void _setStatus(SyncStatus status, String? message) {
     _status = status;
     _lastMessage = message;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
     _playSound(status);
   }
 
@@ -1185,6 +1187,7 @@ class SyncService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     // Schedule async resource teardown; stopAll() stops the HTTP server and
     // mDNS broadcast.  unawaited signals the intent to fire-and-forget.
     unawaited(stopAll());
