@@ -952,8 +952,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                                 if (p == null) return;
                                 setState(() => _selectedPersonId = node.id);
                                 _showPersonSheet(context, p, personMap, partnerships);
-                               }),
-                     ),
+                              },
+                            ),
+                    ),
                   if (anchorId != null)
                     ..._buildEmptyAddSlots(
                       layout: layout,
