@@ -49,13 +49,15 @@ class _QuickAddPersonDialogState extends State<_QuickAddPersonDialog> {
   late final TextEditingController _nameCtrl;
   String? _gender;
 
-  static const _genders = ['Male', 'Female', 'Non-binary', 'Other'];
+  static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController();
-    _gender = _genders.contains(widget.initialGender) ? widget.initialGender : null;
+    _gender = _genderOptions.contains(widget.initialGender)
+        ? widget.initialGender
+        : null;
   }
 
   @override
@@ -94,7 +96,7 @@ class _QuickAddPersonDialogState extends State<_QuickAddPersonDialog> {
                 value: null,
                 child: Text('Not specified'),
               ),
-              ..._genders.map(
+              ..._genderOptions.map(
                 (gender) => DropdownMenuItem<String?>(
                   value: gender,
                   child: Text(gender),

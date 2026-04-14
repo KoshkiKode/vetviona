@@ -643,13 +643,13 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     if (anchorNode == null || anchorPerson == null) return const [];
 
     final slots = <Widget>[];
-    final relations = <(_TreeQuickRelation, double, double)>[
-      (_TreeQuickRelation.mom, -1, -1),
-      (_TreeQuickRelation.dad, 1, -1),
-      (_TreeQuickRelation.sibling, -1, 0),
-      (_TreeQuickRelation.spouse, 1, 0),
-      (_TreeQuickRelation.son, -1, 1),
-      (_TreeQuickRelation.daughter, 1, 1),
+    final relations = <_AddSlotSpec>[
+      const _AddSlotSpec(_TreeQuickRelation.mom, -1, -1),
+      const _AddSlotSpec(_TreeQuickRelation.dad, 1, -1),
+      const _AddSlotSpec(_TreeQuickRelation.sibling, -1, 0),
+      const _AddSlotSpec(_TreeQuickRelation.spouse, 1, 0),
+      const _AddSlotSpec(_TreeQuickRelation.son, -1, 1),
+      const _AddSlotSpec(_TreeQuickRelation.daughter, 1, 1),
     ];
 
     final baseDx = kTreeNodeW + kTreeColGap;
@@ -663,15 +663,12 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
     for (int tier = 1; tier <= _emptyAddSlotTiers; tier++) {
       for (final slot in relations) {
-        final relation = slot.$1;
-        final targetLeft = (anchorNode.x + slot.$2 * baseDx * tier)
+        final relation = slot.relation;
+        final targetLeft = (anchorNode.x + slot.horizontalMultiplier * baseDx * tier)
             .clamp(0.0, maxLeft);
-        final targetTop = (anchorNode.y + slot.$3 * baseDy * tier)
+        final targetTop = (anchorNode.y + slot.verticalMultiplier * baseDy * tier)
             .clamp(0.0, maxTop);
-        final opacity = tier == 1
-            ? _kEmptySlotTier1Opacity
-            : (_kEmptySlotOpacityBase / tier)
-                .clamp(_kEmptySlotOpacityMin, _kEmptySlotOpacityBase);
+        final opacity = _slotOpacityForTier(tier);
 
         slots.add(
           Positioned(
@@ -695,6 +692,12 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       }
     }
     return slots;
+  }
+
+  double _slotOpacityForTier(int tier) {
+    if (tier <= 1) return _kEmptySlotTier1Opacity;
+    return (_kEmptySlotOpacityBase / tier)
+        .clamp(_kEmptySlotOpacityMin, _kEmptySlotOpacityBase);
   }
 
   @override
@@ -1092,6 +1095,18 @@ enum _TreeQuickRelation {
         return 'Create and link $dialogTitle for $anchorName$tierText.';
     }
   }
+}
+
+class _AddSlotSpec {
+  final _TreeQuickRelation relation;
+  final double horizontalMultiplier;
+  final double verticalMultiplier;
+
+  const _AddSlotSpec(
+    this.relation,
+    this.horizontalMultiplier,
+    this.verticalMultiplier,
+  );
 }
 
 class _EmptyAddNode extends StatelessWidget {
