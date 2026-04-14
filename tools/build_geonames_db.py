@@ -1,41 +1,43 @@
 #!/usr/bin/env python3
 """
-build_geonames_db.py – rebuild app/assets/geonames_cities.db from full GeoNames data.
+build_geonames_db.py – rebuild app/assets/geonames_cities.db.
 
-Usage:
+Usage (recommended – no internet required):
+    python tools/build_geonames_db.py --from-csv tools/vetviona_places_import.csv
+
+Usage (original – downloads ~350 MB from GeoNames):
     python tools/build_geonames_db.py
 
-This script downloads the full GeoNames allCountries.txt dataset (~350 MB
-uncompressed, ~1.5 B place entries) and filters it to administrative divisions
-(ADM1–ADM4) and populated places (PPL, PPLA, PPLC, etc.) to create a
-comprehensive SQLite database suitable for genealogy research.
+The CSV mode reads the pre-generated pycountry subdivision CSV produced by
+tools/generate_vetviona_places_csv_v2.py and converts it directly into the
+SQLite database.  This is the preferred approach because it works offline,
+completes in seconds, and requires no disk space beyond the CSV itself.
+
+The GeoNames download mode fetches the full allCountries.txt dataset and
+filters it to administrative divisions and populated places.  This produces a
+much larger database (~25 MB, ~1 M rows) but requires internet access and
+~500 MB of temporary disk space.
 
 The resulting database replaces app/assets/geonames_cities.db and is
 automatically included in the app bundle via the existing `assets/` wildcard
 in pubspec.yaml.
 
 Requirements:
-    pip install requests pycountry
+    pip install pycountry            # for --from-csv mode
+    pip install requests pycountry  # for GeoNames download mode
 
-Disk space:
-    ~500 MB during build (download + unzip), ~25 MB final DB.
-
-Data license:
+Data license (GeoNames mode):
     GeoNames data is licensed under Creative Commons Attribution 4.0.
     See https://www.geonames.org/about.html
 """
 
+import argparse
 import csv
 import io
 import os
 import sqlite3
 import sys
 import zipfile
-
-try:
-    import requests
-except ImportError:
-    sys.exit("requests is required: pip install requests")
 
 try:
     import pycountry
@@ -228,7 +230,136 @@ def build_db(all_countries_zip_bytes, admin1_map, admin2_map, country_info):
     print(f"  Written {OUTPUT_DB} ({size_mb:.1f} MB, {inserted:,} places)")
 
 
+def build_db_from_csv(csv_path):
+    """Build the SQLite DB from a pre-generated pycountry CSV file.
+
+    The CSV must have the columns produced by generate_vetviona_places_csv_v2.py:
+        continent, country_code, country_name, level1_name, name, ...
+
+    iso3 codes are resolved from pycountry using country_code.
+    population, latitude, and longitude are set to 0 as the CSV does not
+    contain that information.
+    """
+    iso3_map = {c.alpha_2: getattr(c, "alpha_3", "") for c in pycountry.countries}
+
+    os.makedirs(os.path.dirname(OUTPUT_DB), exist_ok=True)
+    if os.path.exists(OUTPUT_DB):
+        os.remove(OUTPUT_DB)
+
+    conn = sqlite3.connect(OUTPUT_DB)
+    cur = conn.cursor()
+
+    cur.execute("""CREATE TABLE places (
+        id INTEGER PRIMARY KEY,
+        geonameid INTEGER,
+        name TEXT NOT NULL,
+        country TEXT NOT NULL,
+        iso3 TEXT,
+        continent TEXT,
+        state TEXT,
+        population INTEGER,
+        latitude REAL,
+        longitude REAL
+    )""")
+    cur.execute("CREATE INDEX idx_name ON places(name COLLATE NOCASE)")
+    cur.execute("CREATE INDEX idx_country ON places(country)")
+    cur.execute("CREATE INDEX idx_continent ON places(continent)")
+
+    batch = []
+    inserted = 0
+
+    with open(csv_path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            cc = row["country_code"]
+            iso3 = iso3_map.get(cc, "")
+            continent = row["continent"] or "Unknown"
+            country = row["country_name"]
+            name = row["name"]
+            state = row["level1_name"]
+
+            if not name or not country:
+                continue
+
+            batch.append((0, name, country, iso3, continent, state, 0, 0.0, 0.0))
+            inserted += 1
+
+            if len(batch) >= 10_000:
+                cur.executemany(
+                    """INSERT INTO places
+                       (geonameid, name, country, iso3, continent, state,
+                        population, latitude, longitude)
+                       VALUES (?,?,?,?,?,?,?,?,?)""",
+                    batch,
+                )
+                batch.clear()
+
+    if batch:
+        cur.executemany(
+            """INSERT INTO places
+               (geonameid, name, country, iso3, continent, state,
+                population, latitude, longitude)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            batch,
+        )
+
+    print(f"  {inserted:,} rows inserted")
+
+    print("  Building FTS5 index…", end=" ", flush=True)
+    cur.execute("""CREATE VIRTUAL TABLE places_fts USING fts5(
+        name, country, state,
+        content='places', content_rowid='id'
+    )""")
+    cur.execute("""INSERT INTO places_fts(rowid, name, country, state)
+                   SELECT id, name, country, COALESCE(state, '')
+                   FROM places""")
+    print("done")
+
+    conn.commit()
+    conn.close()
+
+    size_mb = os.path.getsize(OUTPUT_DB) / 1024 / 1024
+    print(f"  Written {OUTPUT_DB} ({size_mb:.1f} MB, {inserted:,} places)")
+
+
 def main():
+    parser = argparse.ArgumentParser(
+        description="Rebuild app/assets/geonames_cities.db"
+    )
+    parser.add_argument(
+        "--from-csv",
+        metavar="CSV",
+        default=None,
+        help=(
+            "Path to the pycountry CSV (produced by generate_vetviona_places_csv_v2.py). "
+            "Using this flag avoids any internet download and completes in seconds. "
+            "Default CSV path: tools/vetviona_places_import.csv"
+        ),
+    )
+    args = parser.parse_args()
+
+    # If --from-csv is given without a value it stays None; treat a bare flag
+    # invocation that passed the default as using the bundled CSV.
+    csv_path = args.from_csv
+
+    if csv_path is not None:
+        # ── CSV mode ──────────────────────────────────────────────────────────
+        print("=== Vetviona – CSV-based places database builder ===")
+        print(f"Input:  {csv_path}")
+        print(f"Output: {OUTPUT_DB}\n")
+        if not os.path.exists(csv_path):
+            sys.exit(f"CSV file not found: {csv_path}")
+        print("Building SQLite database from CSV…")
+        build_db_from_csv(csv_path)
+        print("\nDone! Rebuild the app to pick up the new database.")
+        return
+
+    # ── GeoNames download mode ────────────────────────────────────────────────
+    try:
+        import requests  # noqa: F401 – only needed in this path
+    except ImportError:
+        sys.exit("requests is required for GeoNames download mode: pip install requests")
+
     print("=== Vetviona – Full GeoNames database builder ===")
     print(f"Output: {OUTPUT_DB}\n")
 
