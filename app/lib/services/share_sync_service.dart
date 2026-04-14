@@ -40,12 +40,10 @@ class ShareSyncService {
       final file = File('${dir.path}/$treeName.vetviona');
       await file.writeAsString(json, flush: true);
 
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: 'application/json')],
-          subject: '${tree.currentTreeName} — Vetviona Family Tree',
-          text: 'Open this file in Vetviona to import the family tree.',
-        ),
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: '${tree.currentTreeName} — Vetviona Family Tree',
+        text: 'Open this file in Vetviona to import the family tree.',
       );
       return true;
     } catch (e) {
