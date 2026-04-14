@@ -6,6 +6,7 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../utils/platform_utils.dart';
+import '../widgets/quick_add_person_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main screen
@@ -125,6 +126,53 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _SectionCard(
+            icon: Icons.person_add_alt_1,
+            title: 'Quick Add & Link',
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        _quickAddParent(initialGender: 'Female', label: 'Mom'),
+                    icon: const Icon(Icons.woman),
+                    label: const Text('Add Mom'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        _quickAddParent(initialGender: 'Male', label: 'Dad'),
+                    icon: const Icon(Icons.man),
+                    label: const Text('Add Dad'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _quickAddSibling,
+                    icon: const Icon(Icons.people_alt_outlined),
+                    label: const Text('Add Sibling'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _quickAddPartner,
+                    icon: const Icon(Icons.favorite_outline),
+                    label: const Text('Add Partner'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        _quickAddChild(initialGender: 'Male', label: 'Son'),
+                    icon: const Icon(Icons.male),
+                    label: const Text('Add Son'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        _quickAddChild(initialGender: 'Female', label: 'Daughter'),
+                    icon: const Icon(Icons.female),
+                    label: const Text('Add Daughter'),
+                  ),
+                ],
+              ),
+            ],
+          ),
           const SizedBox(height: 24),
           FilledButton.icon(
             icon: const Icon(Icons.save),
@@ -149,6 +197,167 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
 
   void _addParent() {
     setState(() => _parents.add(_ParentEntry(relType: 'biological')));
+  }
+
+  Future<void> _quickAddParent({
+    String? initialGender,
+    String label = 'Parent',
+  }) async {
+    final provider = context.read<TreeProvider>();
+    final current =
+        provider.persons.where((p) => p.id == widget.person.id).firstOrNull;
+    if (current == null) return;
+
+    final input = await showQuickAddPersonDialog(
+      context,
+      title: 'Add $label',
+      subtitle: 'Create a new $label and link to ${current.name}.',
+      confirmLabel: 'Add $label',
+      initialGender: initialGender,
+    );
+    if (input == null) return;
+
+    try {
+      final parent = Person(
+        id: '',
+        name: input.name,
+        gender: input.gender ?? initialGender,
+        childIds: [current.id],
+      );
+      await provider.addPerson(parent);
+      if (!current.parentIds.contains(parent.id)) {
+        current.parentIds.add(parent.id);
+        current.parentRelTypes[parent.id] = 'biological';
+        await provider.updatePerson(current);
+      }
+      setState(() {
+        _parents.add(_ParentEntry(parentId: parent.id, relType: 'biological'));
+      });
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _quickAddPartner() async {
+    final provider = context.read<TreeProvider>();
+    final current =
+        provider.persons.where((p) => p.id == widget.person.id).firstOrNull;
+    if (current == null) return;
+
+    final input = await showQuickAddPersonDialog(
+      context,
+      title: 'Add Partner',
+      subtitle: 'Create and link a new partner for ${current.name}.',
+      confirmLabel: 'Add Partner',
+    );
+    if (input == null) return;
+
+    try {
+      final partner = Person(
+        id: '',
+        name: input.name,
+        gender: input.gender,
+      );
+      await provider.addPerson(partner);
+      await provider.addPartnership(
+        Partnership(
+          id: '',
+          person1Id: current.id,
+          person2Id: partner.id,
+        ),
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _quickAddChild({
+    String? initialGender,
+    String label = 'Child',
+  }) async {
+    final provider = context.read<TreeProvider>();
+    final current =
+        provider.persons.where((p) => p.id == widget.person.id).firstOrNull;
+    if (current == null) return;
+
+    final input = await showQuickAddPersonDialog(
+      context,
+      title: 'Add $label',
+      subtitle: 'Create and link a new $label for ${current.name}.',
+      confirmLabel: 'Add $label',
+      initialGender: initialGender,
+    );
+    if (input == null) return;
+
+    try {
+      final child = Person(
+        id: '',
+        name: input.name,
+        gender: input.gender ?? initialGender,
+        parentIds: [current.id],
+        parentRelTypes: {current.id: 'biological'},
+      );
+      await provider.addPerson(child);
+      if (!current.childIds.contains(child.id)) {
+        current.childIds.add(child.id);
+        await provider.updatePerson(current);
+      }
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _quickAddSibling() async {
+    final provider = context.read<TreeProvider>();
+    final current =
+        provider.persons.where((p) => p.id == widget.person.id).firstOrNull;
+    if (current == null) return;
+    if (current.parentIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a parent first, then add siblings')),
+      );
+      return;
+    }
+
+    final input = await showQuickAddPersonDialog(
+      context,
+      title: 'Add Sibling',
+      subtitle: 'Create a sibling that shares ${current.name}\'s parents.',
+      confirmLabel: 'Add Sibling',
+    );
+    if (input == null) return;
+
+    try {
+      final sibling = Person(
+        id: '',
+        name: input.name,
+        gender: input.gender,
+        parentIds: List<String>.from(current.parentIds),
+        parentRelTypes: {
+          for (final parentId in current.parentIds)
+            parentId: current.parentRelType(parentId),
+        },
+      );
+      await provider.addPerson(sibling);
+
+      for (final parentId in current.parentIds) {
+        final parent =
+            provider.persons.where((p) => p.id == parentId).firstOrNull;
+        if (parent == null || parent.childIds.contains(sibling.id)) continue;
+        parent.childIds.add(sibling.id);
+        await provider.updatePerson(parent);
+      }
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   Future<void> _saveParents() async {
@@ -940,4 +1149,3 @@ class _DatePickerTile extends StatelessWidget {
     );
   }
 }
-

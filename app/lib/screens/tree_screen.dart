@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../widgets/quick_add_person_dialog.dart';
 import 'person_detail_screen.dart';
 import 'relationship_screen.dart';
 import 'sources_page.dart';
@@ -21,6 +22,35 @@ class TreeScreen extends StatefulWidget {
 
 class _TreeScreenState extends State<TreeScreen> {
   bool _tableView = false;
+
+  Future<void> _quickAddPerson() async {
+    final provider = context.read<TreeProvider>();
+    final input = await showQuickAddPersonDialog(
+      context,
+      title: 'Quick Add Person',
+      subtitle: 'Create a person now and fill full details later.',
+      confirmLabel: 'Add',
+    );
+    if (input == null) return;
+    try {
+      await provider.addPerson(
+        Person(
+          id: '',
+          name: input.name,
+          gender: input.gender,
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${input.name} added')),
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +141,22 @@ class _TreeScreenState extends State<TreeScreen> {
             )
           : Column(
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: const Icon(Icons.person_add_alt_1),
+                      title: const Text('Quick add person'),
+                      subtitle: const Text('Create someone with just a name'),
+                      trailing: FilledButton.tonalIcon(
+                        onPressed: _quickAddPerson,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Quick Add'),
+                      ),
+                    ),
+                  ),
+                ),
                 // Diagram shortcut banner
                 InkWell(
                   onTap: () => Navigator.push(
@@ -154,13 +200,9 @@ class _TreeScreenState extends State<TreeScreen> {
               ],
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          fadeSlideRoute(
-              builder: (_) => const PersonDetailScreen()),
-        ),
-        tooltip: 'Add Person',
-        child: const Icon(Icons.person_add),
+        onPressed: _quickAddPerson,
+        tooltip: 'Quick Add Person',
+        child: const Icon(Icons.person_add_alt_1),
       ),
     );
   }
@@ -474,4 +516,3 @@ class _ActionChip extends StatelessWidget {
     );
   }
 }
-
