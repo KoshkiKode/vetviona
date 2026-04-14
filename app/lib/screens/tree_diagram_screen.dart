@@ -32,12 +32,10 @@ const double _kEdgeTensionFactor = 0.5;
 /// Maximum tension as a fraction of [kTreeRowGap], capping how much the
 /// curve can bow when rows are very far apart.
 const double _kMaxTensionRatio = 0.6;
-const double _kEmptySlotRowFactor = 0.55;
-const double _kEmptySlotBaseDy = kTreeNodeH + (kTreeRowGap * _kEmptySlotRowFactor);
+const double _kEmptySlotBaseDy = kTreeNodeH + (kTreeRowGap * 0.55);
 const double _kEmptySlotTier1Opacity = 0.28;
 const double _kEmptySlotOpacityBase = 0.18;
 const double _kEmptySlotOpacityMin = 0.08;
-const double _kEmptySlotOpacityMax = 0.18;
 
 // Edge painter — uses smooth cubic-Bézier curves for parent→child edges
 // and straight lines for partnership (couple) connections.
@@ -673,7 +671,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         final opacity = tier == 1
             ? _kEmptySlotTier1Opacity
             : (_kEmptySlotOpacityBase / tier)
-                .clamp(_kEmptySlotOpacityMin, _kEmptySlotOpacityMax);
+                .clamp(_kEmptySlotOpacityMin, _kEmptySlotOpacityBase);
 
         slots.add(
           Positioned(
