@@ -165,6 +165,21 @@ class GEDCOMParser {
             pendingSourRef = {'personId': currentId!, 'sourceId': refId};
             sourRefs.add(pendingSourRef!);
           }
+        } else if (tag == 'NATI') {
+          if (value.isNotEmpty) currentPerson!.nationality = value;
+        } else if (tag == 'EDUC') {
+          if (value.isNotEmpty) currentPerson!.education = value;
+        } else if (tag == '_MARN') {
+          if (value.isNotEmpty) currentPerson!.maidenName = value;
+        } else if (tag == '_ALIAS') {
+          final alias = value.trim();
+          if (alias.isNotEmpty && !currentPerson!.aliases.contains(alias)) {
+            currentPerson!.aliases.add(alias);
+          }
+        } else if (tag == 'NOTE') {
+          // Individual-level note. Skip pointer form (@N1@); accept inline text.
+          final isPointer = value.startsWith('@') && value.endsWith('@');
+          if (!isPointer && value.isNotEmpty) currentPerson!.notes = value;
         }
       } else if (level == 1 && currentSourceDef != null) {
         currentTag = tag;
@@ -430,6 +445,20 @@ class GEDCOMParser {
         }
         if (person.religion != null && person.religion!.isNotEmpty) {
           buf.writeln('1 RELI ${person.religion}');
+        }
+        if (person.nationality != null && person.nationality!.isNotEmpty) {
+          buf.writeln('1 NATI ${person.nationality}');
+        }
+        if (person.education != null && person.education!.isNotEmpty) {
+          buf.writeln('1 EDUC ${person.education}');
+        }
+        if (person.aliases.isNotEmpty) {
+          for (final alias in person.aliases) {
+            if (alias.isNotEmpty) buf.writeln('1 _ALIAS $alias');
+          }
+        }
+        if (person.maidenName != null && person.maidenName!.isNotEmpty) {
+          buf.writeln('1 _MARN ${person.maidenName}');
         }
         if (person.notes != null && person.notes!.isNotEmpty) {
           buf.writeln('1 NOTE ${person.notes}');

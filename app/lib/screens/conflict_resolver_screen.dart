@@ -253,74 +253,18 @@ class _FactConflictTile extends StatelessWidget {
   }
 
   Future<void> _setPreferred(BuildContext context, String sourceId) async {
-    final updated = Person(
-      id: person.id,
-      name: person.name,
-      birthDate: person.birthDate,
-      birthPlace: person.birthPlace,
-      deathDate: person.deathDate,
-      deathPlace: person.deathPlace,
-      gender: person.gender,
-      parentIds: person.parentIds,
-      childIds: person.childIds,
-      parentRelTypes: person.parentRelTypes,
-      photoPaths: person.photoPaths,
-      sourceIds: person.sourceIds,
-      notes: person.notes,
-      treeId: person.treeId,
-      occupation: person.occupation,
-      nationality: person.nationality,
-      maidenName: person.maidenName,
-      burialDate: person.burialDate,
-      burialPlace: person.burialPlace,
-      birthCoord: person.birthCoord,
-      deathCoord: person.deathCoord,
-      burialCoord: person.burialCoord,
-      birthPostalCode: person.birthPostalCode,
-      deathPostalCode: person.deathPostalCode,
-      burialPostalCode: person.burialPostalCode,
-      isPrivate: person.isPrivate,
-      preferredSourceIds: {
-        ...person.preferredSourceIds,
-        factConflict.fact: sourceId,
-      },
-    );
-    await provider.updatePerson(updated);
+    person.preferredSourceIds = {
+      ...person.preferredSourceIds,
+      factConflict.fact: sourceId,
+    };
+    await provider.updatePerson(person);
   }
 
   Future<void> _clearPreferred(BuildContext context) async {
-    final newPrefs = Map<String, String>.from(person.preferredSourceIds)
-      ..remove(factConflict.fact);
-    final updated = Person(
-      id: person.id,
-      name: person.name,
-      birthDate: person.birthDate,
-      birthPlace: person.birthPlace,
-      deathDate: person.deathDate,
-      deathPlace: person.deathPlace,
-      gender: person.gender,
-      parentIds: person.parentIds,
-      childIds: person.childIds,
-      parentRelTypes: person.parentRelTypes,
-      photoPaths: person.photoPaths,
-      sourceIds: person.sourceIds,
-      notes: person.notes,
-      treeId: person.treeId,
-      occupation: person.occupation,
-      nationality: person.nationality,
-      maidenName: person.maidenName,
-      burialDate: person.burialDate,
-      burialPlace: person.burialPlace,
-      birthCoord: person.birthCoord,
-      deathCoord: person.deathCoord,
-      burialCoord: person.burialCoord,
-      birthPostalCode: person.birthPostalCode,
-      deathPostalCode: person.deathPostalCode,
-      burialPostalCode: person.burialPostalCode,
-      isPrivate: person.isPrivate,
-      preferredSourceIds: newPrefs,
-    );
-    await provider.updatePerson(updated);
+    person.preferredSourceIds =
+        Map<String, String>.from(person.preferredSourceIds)
+          ..remove(factConflict.fact);
+    await provider.updatePerson(person);
   }
 
   IconData _factIcon(String fact) => switch (fact) {

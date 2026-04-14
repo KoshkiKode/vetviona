@@ -9,6 +9,7 @@ import '../providers/tree_provider.dart';
 import '../services/find_a_grave_service.dart';
 import '../services/wikitree_service.dart';
 import '../utils/page_routes.dart';
+import 'gedcom_import_screen.dart';
 import 'person_detail_screen.dart';
 
 /// Full-screen WikiTree + Find A Grave integration hub.
@@ -180,18 +181,15 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
     final file = File('${dir.path}/wikitree_export.ged');
     await file.writeAsString(gedcom);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text('GEDCOM downloaded. Opening importer…'),
-      behavior: SnackBarBehavior.floating,
-      action: SnackBarAction(
-        label: 'Import',
-        onPressed: () {
-          // Navigate to GEDCOM import screen with the downloaded file
-          // (The GedcomImportScreen reads path from SharedPrefs, so we just
-          //  inform the user to import via the drawer's Import GEDCOM option.)
-        },
+    Navigator.push(
+      context,
+      fadeSlideRoute(
+        builder: (_) => GedcomImportScreen(
+          filePath: file.path,
+          mergeMode: true,
+        ),
       ),
-    ));
+    );
   }
 
   @override
@@ -310,6 +308,12 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
                               maidenName: p.maidenName,
                               burialDate: p.burialDate,
                               burialPlace: p.burialPlace,
+                              birthCoord: p.birthCoord,
+                              deathCoord: p.deathCoord,
+                              burialCoord: p.burialCoord,
+                              birthPostalCode: p.birthPostalCode,
+                              deathPostalCode: p.deathPostalCode,
+                              burialPostalCode: p.burialPostalCode,
                               isPrivate: p.isPrivate,
                               syncMedical: p.syncMedical,
                               preferredSourceIds: p.preferredSourceIds,
@@ -612,6 +616,12 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                     maidenName: person.maidenName,
                     burialDate: person.burialDate,
                     burialPlace: person.burialPlace,
+                    birthCoord: person.birthCoord,
+                    deathCoord: person.deathCoord,
+                    burialCoord: person.burialCoord,
+                    birthPostalCode: person.birthPostalCode,
+                    deathPostalCode: person.deathPostalCode,
+                    burialPostalCode: person.burialPostalCode,
                     isPrivate: person.isPrivate,
                     syncMedical: person.syncMedical,
                     preferredSourceIds: person.preferredSourceIds,
