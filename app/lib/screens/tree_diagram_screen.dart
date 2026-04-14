@@ -98,7 +98,8 @@ class _EdgePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_EdgePainter old) =>
-      old.nodes != nodes || old.edges != edges ||
+      old.nodes.length != nodes.length ||
+      old.edges.length != edges.length ||
       old.edgeColor != edgeColor || old.coupleColor != coupleColor;
 }
 
@@ -197,9 +198,18 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       }
     }
 
-    // Children of the home person
+    // Children of the home person (and their partners)
     for (final childId in home.childIds) {
-      if (personMap.containsKey(childId)) visible.add(childId);
+      if (!personMap.containsKey(childId)) continue;
+      visible.add(childId);
+      for (final part in partnerships) {
+        if (part.person1Id == childId && personMap.containsKey(part.person2Id)) {
+          visible.add(part.person2Id);
+        } else if (part.person2Id == childId &&
+            personMap.containsKey(part.person1Id)) {
+          visible.add(part.person1Id);
+        }
+      }
     }
 
     return visible;
@@ -252,19 +262,38 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     }
   }
 
-  /// Adds [person]'s children to the visible set.
-  void _expandChildren(Person person, Map<String, Person> personMap) {
-    final newIds = person.childIds
-        .where((id) => personMap.containsKey(id))
-        .toSet();
+  /// Adds [person]'s children (and their partners) to the visible set.
+  void _expandChildren(
+    Person person,
+    Map<String, Person> personMap,
+    List<Partnership> partnerships,
+  ) {
+    final newIds = <String>{};
+    for (final childId in person.childIds) {
+      if (!personMap.containsKey(childId)) continue;
+      newIds.add(childId);
+      for (final part in partnerships) {
+        if (part.person1Id == childId && personMap.containsKey(part.person2Id)) {
+          newIds.add(part.person2Id);
+        } else if (part.person2Id == childId &&
+            personMap.containsKey(part.person1Id)) {
+          newIds.add(part.person1Id);
+        }
+      }
+    }
     if (newIds.isNotEmpty) {
       setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     }
   }
 
-  /// Adds [person]'s siblings (children of the same parents) to the visible set.
-  void _expandSiblings(Person person, Map<String, Person> personMap) {
+  /// Adds [person]'s siblings (children of the same parents, plus their partners)
+  /// to the visible set.
+  void _expandSiblings(
+    Person person,
+    Map<String, Person> personMap,
+    List<Partnership> partnerships,
+  ) {
     final newIds = <String>{};
     for (final parentId in person.parentIds) {
       final parent = personMap[parentId];
@@ -272,6 +301,15 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       for (final sibId in parent.childIds) {
         if (sibId != person.id && personMap.containsKey(sibId)) {
           newIds.add(sibId);
+          // Also include each sibling's partners so their couple knots render.
+          for (final part in partnerships) {
+            if (part.person1Id == sibId && personMap.containsKey(part.person2Id)) {
+              newIds.add(part.person2Id);
+            } else if (part.person2Id == sibId &&
+                personMap.containsKey(part.person1Id)) {
+              newIds.add(part.person1Id);
+            }
+          }
         }
       }
     }
@@ -487,7 +525,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                         label: const Text('Show Children'),
                         onPressed: () {
                           Navigator.pop(ctx);
-                          _expandChildren(person, personMap);
+                          _expandChildren(person, personMap, partnerships);
                         }),
                     if (hasHiddenSiblings)
                       OutlinedButton.icon(
@@ -495,7 +533,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                         label: const Text('Show Siblings'),
                         onPressed: () {
                           Navigator.pop(ctx);
-                          _expandSiblings(person, personMap);
+                          _expandSiblings(person, personMap, partnerships);
                         }),
                   ],
                 ),
@@ -548,6 +586,22 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       return;
     }
 
+    // For son/daughter, find any visible partner of the anchor so we can
+    // record both as parents and route the knot→child edge correctly.
+    String? visiblePartnerId;
+    if (relation == _TreeQuickRelation.son ||
+        relation == _TreeQuickRelation.daughter) {
+      for (final part in provider.partnerships) {
+        String? partnerId;
+        if (part.person1Id == current.id) partnerId = part.person2Id;
+        if (part.person2Id == current.id) partnerId = part.person1Id;
+        if (partnerId != null && _visiblePersonIds.contains(partnerId)) {
+          visiblePartnerId = partnerId;
+          break;
+        }
+      }
+    }
+
     final input = await showQuickAddPersonDialog(
       context,
       title: relation.dialogTitle,
@@ -558,18 +612,23 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     if (input == null) return;
 
     try {
+      final parentIds = (relation == _TreeQuickRelation.son ||
+              relation == _TreeQuickRelation.daughter)
+          ? [
+              current.id,
+              if (visiblePartnerId != null) visiblePartnerId,
+            ]
+          : <String>[];
+      final parentRelTypes = {
+        for (final pid in parentIds) pid: 'biological',
+      };
+
       final created = Person(
         id: '',
         name: input.name,
         gender: input.gender ?? relation.defaultGender,
-        parentIds: relation == _TreeQuickRelation.son ||
-                relation == _TreeQuickRelation.daughter
-            ? [current.id]
-            : [],
-        parentRelTypes: relation == _TreeQuickRelation.son ||
-                relation == _TreeQuickRelation.daughter
-            ? {current.id: 'biological'}
-            : {},
+        parentIds: parentIds,
+        parentRelTypes: parentRelTypes,
         childIds: relation == _TreeQuickRelation.mom ||
                 relation == _TreeQuickRelation.dad
             ? [current.id]
@@ -615,6 +674,16 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
           if (!current.childIds.contains(created.id)) {
             current.childIds.add(created.id);
             await provider.updatePerson(current);
+          }
+          // Also update the partner's childIds if a visible partner was found.
+          if (visiblePartnerId != null) {
+            final partner = provider.persons
+                .where((p) => p.id == visiblePartnerId)
+                .firstOrNull;
+            if (partner != null && !partner.childIds.contains(created.id)) {
+              partner.childIds.add(created.id);
+              await provider.updatePerson(partner);
+            }
           }
           break;
       }
@@ -911,7 +980,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                   for (final row in layout.generationRows)
                     Positioned(
                       left: 0,
-                      top: row.y - _kGenLabelTopOffset,
+                      top: (row.y - _kGenLabelTopOffset).clamp(0.0, double.infinity),
                       child: _GenLabel(
                         generation: row.generation,
                         colorScheme: colorScheme,

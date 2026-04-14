@@ -117,11 +117,9 @@ class TreeLayout {
       final g = generation[current]!;
       for (final childId in person.childIds) {
         if (!personMap.containsKey(childId)) continue;
-        if (!generation.containsKey(childId)) {
+        if (!generation.containsKey(childId) || generation[childId]! < g + 1) {
           generation[childId] = g + 1;
           queue.add(childId);
-        } else if (generation[childId]! < g + 1) {
-          generation[childId] = g + 1;
         }
       }
     }
@@ -173,7 +171,9 @@ class TreeLayout {
             edges.add(TreeEdgeInfo(knotId, childId));
           }
         } else {
-          edges.add(TreeEdgeInfo(p.id, childId));
+          if (!edges.any((e) => e.from == p.id && e.to == childId)) {
+            edges.add(TreeEdgeInfo(p.id, childId));
+          }
         }
       }
     }
