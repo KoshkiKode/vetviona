@@ -32,6 +32,11 @@ const double _kEdgeTensionFactor = 0.5;
 /// Maximum tension as a fraction of [kTreeRowGap], capping how much the
 /// curve can bow when rows are very far apart.
 const double _kMaxTensionRatio = 0.6;
+const double _kEmptySlotRowFactor = 0.55;
+const double _kEmptySlotTier1Opacity = 0.28;
+const double _kEmptySlotOpacityBase = 0.18;
+const double _kEmptySlotOpacityMin = 0.08;
+const double _kEmptySlotOpacityMax = 0.18;
 
 // Edge painter — uses smooth cubic-Bézier curves for parent→child edges
 // and straight lines for partnership (couple) connections.
@@ -539,7 +544,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     if (current == null) return;
     if (relation == _TreeQuickRelation.sibling && current.parentIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a parent first, then add siblings.')),
+        const SnackBar(content: Text('Add a parent first, then add siblings')),
       );
       return;
     }
@@ -649,7 +654,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     ];
 
     final baseDx = kTreeNodeW + kTreeColGap;
-    final baseDy = kTreeNodeH + (kTreeRowGap * 0.55);
+    final baseDy = kTreeNodeH + (kTreeRowGap * _kEmptySlotRowFactor);
     final maxLeft = (layout.canvasSize.width - kTreeNodeW).clamp(0.0, double.infinity);
     final maxTop = (layout.canvasSize.height - kTreeNodeH).clamp(0.0, double.infinity);
 
@@ -660,7 +665,10 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             .clamp(0.0, maxLeft);
         final targetTop = (anchorNode.y + slot.$3 * baseDy * tier)
             .clamp(0.0, maxTop);
-        final opacity = tier == 1 ? 0.28 : (0.18 / tier).clamp(0.08, 0.18);
+        final opacity = tier == 1
+            ? _kEmptySlotTier1Opacity
+            : (_kEmptySlotOpacityBase / tier)
+                .clamp(_kEmptySlotOpacityMin, _kEmptySlotOpacityMax);
 
         slots.add(
           Positioned(

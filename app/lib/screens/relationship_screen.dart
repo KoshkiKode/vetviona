@@ -320,7 +320,7 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
     if (current == null) return;
     if (current.parentIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a parent first, then add siblings.')),
+        const SnackBar(content: Text('Add a parent first, then add siblings')),
       );
       return;
     }
