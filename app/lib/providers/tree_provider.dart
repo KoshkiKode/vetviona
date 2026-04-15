@@ -21,6 +21,7 @@ import '../models/person.dart';
 import '../models/research_task.dart';
 import '../models/source.dart';
 import '../services/gedcom_parser.dart';
+import '../utils/input_sanitizer.dart';
 
 // ── PBKDF2-HMAC-SHA256 helpers ─────────────────────────────────────────────
 //
@@ -939,6 +940,43 @@ class TreeProvider extends ChangeNotifier {
   static const _uuidLength = 36; // UUID v4 string length
   static const _sha256HexLength = 64; // SHA-256 hex digest length (legacy)
 
+  // ── Login rate-limiting ────────────────────────────────────────────────────
+  //
+  // After [_maxLoginFailures] consecutive failed attempts for a given username
+  // the account is locked out for [_lockoutDuration].  The counter resets on
+  // successful authentication.  The map is in-memory only — a restart clears
+  // it — which is acceptable for a local-device lock screen.
+
+  static const _maxLoginFailures = 5;
+  static const _lockoutDuration = Duration(minutes: 1);
+
+  final Map<String, ({int count, DateTime since})> _loginFailures = {};
+
+  /// Returns `true` if [username] is currently locked out.
+  bool _isLockedOut(String username) {
+    final entry = _loginFailures[username];
+    if (entry == null || entry.count < _maxLoginFailures) return false;
+    return DateTime.now().difference(entry.since) < _lockoutDuration;
+  }
+
+  /// Records a failed login attempt for [username].
+  void _recordFailure(String username) {
+    final existing = _loginFailures[username];
+    if (existing == null ||
+        DateTime.now().difference(existing.since) >= _lockoutDuration) {
+      // Start a new failure window.
+      _loginFailures[username] = (count: 1, since: DateTime.now());
+    } else {
+      _loginFailures[username] =
+          (count: existing.count + 1, since: existing.since);
+    }
+  }
+
+  /// Clears the failure counter for [username] after a successful login.
+  void _clearFailures(String username) {
+    _loginFailures.remove(username);
+  }
+
   /// Legacy SHA-256 password hash — kept only for migration of old accounts.
   ///
   /// New registrations use PBKDF2-HMAC-SHA256 via [_runPbkdf2].
@@ -966,12 +1004,17 @@ class TreeProvider extends ChangeNotifier {
 
   /// Logs in [username] with [password].
   ///
+  /// Returns `false` immediately if the account is temporarily locked due to
+  /// too many consecutive failed attempts.
+  ///
   /// Handles three stored-credential formats (in priority order):
   /// 1. `pbkdf2:<salt>:<iterations>:<hex>` — current PBKDF2 format.
   /// 2. `<uuid>:<sha256hex>` — previous single-pass SHA-256 format; migrated
   ///    to PBKDF2 on successful login.
   /// 3. Anything else — legacy plaintext; migrated to PBKDF2 on success.
   Future<bool> login(String username, String password) async {
+    if (_isLockedOut(username)) return false;
+
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString('user_$username');
     if (stored == null) return false;
@@ -1012,10 +1055,12 @@ class TreeProvider extends ChangeNotifier {
     }
 
     if (valid) {
+      _clearFailures(username);
       _currentUser = username;
       notifyListeners();
       return true;
     }
+    _recordFailure(username);
     return false;
   }
 
@@ -1309,7 +1354,32 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = person.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
-      person.treeId = currentTreeId;
+      // Sanitise all string fields before writing to the local database so
+      // that a crafted peer payload cannot persist control characters or
+      // excessively long strings.
+      person
+        ..name = InputSanitizer.name(person.name)
+        ..birthPlace = InputSanitizer.shortField(person.birthPlace)
+        ..deathPlace = InputSanitizer.shortField(person.deathPlace)
+        ..notes = InputSanitizer.mediumField(person.notes)
+        ..occupation = InputSanitizer.shortField(person.occupation)
+        ..nationality = InputSanitizer.shortField(person.nationality)
+        ..maidenName = InputSanitizer.shortField(person.maidenName)
+        ..burialPlace = InputSanitizer.shortField(person.burialPlace)
+        ..birthPostalCode = InputSanitizer.shortField(person.birthPostalCode)
+        ..deathPostalCode = InputSanitizer.shortField(person.deathPostalCode)
+        ..burialPostalCode = InputSanitizer.shortField(person.burialPostalCode)
+        ..causeOfDeath = InputSanitizer.shortField(person.causeOfDeath)
+        ..eyeColour = InputSanitizer.shortField(person.eyeColour)
+        ..hairColour = InputSanitizer.shortField(person.hairColour)
+        ..height = InputSanitizer.shortField(person.height)
+        ..religion = InputSanitizer.shortField(person.religion)
+        ..education = InputSanitizer.shortField(person.education)
+        ..bloodType = InputSanitizer.shortField(person.bloodType)
+        ..aliases = person.aliases
+            .map((a) => InputSanitizer.sanitizeRequired(a))
+            .toList()
+        ..treeId = currentTreeId;
       await db.insert('persons', person.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
       if (isNew) added++;
@@ -1324,7 +1394,9 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = partnership.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
-      partnership.treeId = currentTreeId;
+      partnership
+        ..notes = InputSanitizer.mediumField(partnership.notes)
+        ..treeId = currentTreeId;
       await db.insert('partnerships', partnership.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -1337,7 +1409,15 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = source.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
-      source.treeId ??= currentTreeId;
+      source
+        ..title = InputSanitizer.sanitizeRequired(
+            source.title, maxLength: InputSanitizer.maxShortField)
+        ..extractedInfo = InputSanitizer.mediumField(source.extractedInfo)
+        ..author = InputSanitizer.shortField(source.author)
+        ..publisher = InputSanitizer.shortField(source.publisher)
+        ..repository = InputSanitizer.shortField(source.repository)
+        ..volumePage = InputSanitizer.shortField(source.volumePage)
+        ..treeId ??= currentTreeId;
       await db.insert('sources', source.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -1351,6 +1431,11 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = event.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
+      event
+        ..title = InputSanitizer.sanitizeRequired(
+            event.title, maxLength: InputSanitizer.maxShortField)
+        ..place = InputSanitizer.shortField(event.place)
+        ..notes = InputSanitizer.mediumField(event.notes);
       await db.insert('life_events', event.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }

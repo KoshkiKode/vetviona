@@ -666,6 +666,47 @@ void main() {
       expect(await p.login('sha256user', testPwd), true);
       expect(await p.login('sha256user', 'wrongpassword'), false);
     });
+
+    // ── Rate limiting ──────────────────────────────────────────────────────
+
+    test('login is rejected after 5 consecutive failures', () async {
+      SharedPreferences.setMockInitialValues({});
+      final p = TreeProvider();
+      await p.register('alice', 'correctpassword');
+      p.logout();
+
+      // 5 failed attempts should trigger a lockout.
+      for (int i = 0; i < 5; i++) {
+        final ok = await p.login('alice', 'wrong$i');
+        expect(ok, false);
+      }
+
+      // 6th attempt — account locked, even with the correct password.
+      final locked = await p.login('alice', 'correctpassword');
+      expect(locked, false, reason: 'Account should be locked after 5 failures');
+    });
+
+    test('successful login resets the failure counter', () async {
+      SharedPreferences.setMockInitialValues({});
+      final p = TreeProvider();
+      await p.register('bob', 'pass');
+      p.logout();
+
+      // 4 failures — not yet locked out.
+      for (int i = 0; i < 4; i++) {
+        await p.login('bob', 'wrong');
+      }
+      // Correct password succeeds and resets counter.
+      expect(await p.login('bob', 'pass'), true);
+      p.logout();
+
+      // After reset, another 4 failures should still be accepted (not locked).
+      for (int i = 0; i < 4; i++) {
+        await p.login('bob', 'wrong');
+      }
+      // Still not locked; correct password still works.
+      expect(await p.login('bob', 'pass'), true);
+    });
   });
 
   // ── importFromSync session cap ─────────────────────────────────────────────

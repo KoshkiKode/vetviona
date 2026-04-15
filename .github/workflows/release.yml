@@ -18,10 +18,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with: { distribution: temurin, java-version: '17' }
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - working-directory: app
         run: |
@@ -30,7 +30,7 @@ jobs:
           dart run flutter_launcher_icons -f icons_android.yaml
           flutter build apk --release
           flutter build appbundle --release
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-android-free
           path: |
@@ -40,7 +40,7 @@ jobs:
         run: |
           flutter build apk --release --dart-define=MOBILE_PAID=true
           flutter build appbundle --release --dart-define=MOBILE_PAID=true
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-android-paid
           path: |
@@ -54,8 +54,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - name: Scaffold iOS platform
         working-directory: app
@@ -72,7 +72,7 @@ jobs:
           mkdir -p /tmp/Payload
           cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
           cd /tmp && zip -r vetviona-free.ipa Payload
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-ios-free
           path: /tmp/vetviona-free.ipa
@@ -84,7 +84,7 @@ jobs:
           mkdir -p /tmp/Payload
           cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
           cd /tmp && zip -r vetviona-paid.ipa Payload
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-ios-paid
           path: /tmp/vetviona-paid.ipa
@@ -96,8 +96,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - working-directory: app
         run: |
@@ -107,7 +107,7 @@ jobs:
           dart run flutter_launcher_icons -f icons_windows.yaml
           flutter build windows --release --dart-define=PAID=true
       - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-windows-exe
           path: app/build/windows/x64/runner/Release/
@@ -119,8 +119,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - working-directory: app
         run: |
@@ -141,7 +141,7 @@ jobs:
         run: |
           wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
           wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-windows-msi
           path: app/build/windows/x64/runner/Release/vetviona-setup.msi
@@ -153,8 +153,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - name: Enable macOS desktop
         run: flutter config --enable-macos-desktop
@@ -176,7 +176,7 @@ jobs:
           hdiutil create -volname "Vetviona" \
             -srcfolder "app/build/macos/Build/Products/Release/vetviona_app.app" \
             -ov -format UDZO vetviona-macos.dmg
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-macos
           path: vetviona-macos.dmg
@@ -188,7 +188,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - run: |
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config \
@@ -196,7 +196,7 @@ jobs:
             libunwind-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             dpkg-dev
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - working-directory: app
         run: |
@@ -227,7 +227,7 @@ jobs:
           Categories=Education;
           EOF
           dpkg-deb --build "$PKGDIR"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-linux-deb
           path: vetviona_*.deb
@@ -239,7 +239,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update -y
@@ -247,7 +247,7 @@ jobs:
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
             libunwind-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - name: Build Linux app for snap
         working-directory: app
@@ -265,11 +265,11 @@ jobs:
         run: |
           mkdir -p app/snap
           cp packaging/linux/snap/snapcraft.yaml app/snap/snapcraft.yaml
-      - uses: canonical/action-build@v1.3.0
+      - uses: canonical/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
         id: build-snap
         with:
           path: app
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-linux-snap
           path: ${{ steps.build-snap.outputs.snap }}
@@ -281,7 +281,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - run: |
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config \
@@ -293,7 +293,7 @@ jobs:
             https://dl.flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y flathub org.freedesktop.Platform//23.08 \
             org.freedesktop.Sdk//23.08
-      - uses: subosito/flutter-action@v2.23.0
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with: { channel: stable, cache: true }
       - name: Build Linux bundle
         working-directory: app
@@ -313,7 +313,7 @@ jobs:
             packaging/linux/flatpak/com.koshkikode.Vetviona.yml
           flatpak build-bundle flatpak-repo vetviona.flatpak \
             com.koshkikode.Vetviona
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-linux-flatpak
           path: vetviona.flatpak
@@ -327,15 +327,15 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: release-artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           name: "Vetviona ${{ inputs.tag || github.ref_name }}"

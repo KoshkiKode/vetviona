@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install Linux build dependencies
         run: |
@@ -30,7 +30,7 @@ jobs:
             dpkg-dev
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2.23.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -91,7 +91,7 @@ jobs:
           dpkg-deb --build "$PKGDIR"
 
       - name: Upload DEB
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: vetviona-linux-deb
           path: vetviona_*.deb
@@ -104,7 +104,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install Linux build dependencies
         run: |
@@ -116,7 +116,7 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2.23.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -142,13 +142,13 @@ jobs:
           cp packaging/linux/snap/snapcraft.yaml app/snap/snapcraft.yaml
 
       - name: Build Snap
-        uses: canonical/action-build@v1.3.0
+        uses: canonical/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
         id: build-snap
         with:
           path: app
 
       - name: Upload Snap
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: vetviona-linux-snap
           path: ${{ steps.build-snap.outputs.snap }}
@@ -161,7 +161,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install build dependencies
         run: |
@@ -176,7 +176,7 @@ jobs:
           sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2.23.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -212,7 +212,7 @@ jobs:
           flatpak build-bundle flatpak-repo vetviona.flatpak com.koshkikode.Vetviona
 
       - name: Upload Flatpak
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: vetviona-linux-flatpak
           path: vetviona.flatpak

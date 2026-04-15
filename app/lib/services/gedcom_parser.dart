@@ -5,6 +5,7 @@ import '../models/life_event.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
+import '../utils/input_sanitizer.dart';
 
 /// Return value from [GEDCOMParser.parse].
 class GedcomResult {
@@ -318,10 +319,42 @@ class GEDCOMParser {
     }
 
     return GedcomResult(
-      persons: persons.values.toList(),
+      persons: persons.values.map((p) {
+        // Sanitise all text fields coming from the GEDCOM file so that a
+        // crafted import cannot persist control characters or over-long values.
+        p
+          ..name = InputSanitizer.name(p.name)
+          ..birthPlace = InputSanitizer.shortField(p.birthPlace)
+          ..deathPlace = InputSanitizer.shortField(p.deathPlace)
+          ..notes = InputSanitizer.mediumField(p.notes)
+          ..occupation = InputSanitizer.shortField(p.occupation)
+          ..nationality = InputSanitizer.shortField(p.nationality)
+          ..maidenName = InputSanitizer.shortField(p.maidenName)
+          ..burialPlace = InputSanitizer.shortField(p.burialPlace)
+          ..religion = InputSanitizer.shortField(p.religion)
+          ..education = InputSanitizer.shortField(p.education)
+          ..aliases =
+              p.aliases.map((a) => InputSanitizer.sanitizeRequired(a)).toList();
+        return p;
+      }).toList(),
       partnerships: builtPartnerships,
-      lifeEvents: builtLifeEvents,
-      sources: builtSources,
+      lifeEvents: builtLifeEvents.map((e) {
+        e
+          ..title = InputSanitizer.sanitizeRequired(
+              e.title, maxLength: InputSanitizer.maxShortField)
+          ..place = InputSanitizer.shortField(e.place)
+          ..notes = InputSanitizer.mediumField(e.notes);
+        return e;
+      }).toList(),
+      sources: builtSources.map((s) {
+        s
+          ..title = InputSanitizer.sanitizeRequired(
+              s.title, maxLength: InputSanitizer.maxShortField)
+          ..author = InputSanitizer.shortField(s.author)
+          ..publisher = InputSanitizer.shortField(s.publisher)
+          ..volumePage = InputSanitizer.shortField(s.volumePage);
+        return s;
+      }).toList(),
     );
   }
 
