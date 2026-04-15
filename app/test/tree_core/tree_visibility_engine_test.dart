@@ -114,7 +114,7 @@ void main() {
   });
 
   group('resetToHome — partners included', () {
-    test('home person's partner is visible after reset', () {
+    test("home person's partner is visible after reset", () {
       final home = _p('Home');
       final partner = _p('Spouse');
       final engine = TreeVisibilityEngine(
@@ -129,7 +129,7 @@ void main() {
 
   // ── expandParents ────────────────────────────────────────────────────────────
   group('expandParents', () {
-    test('adds parent and parent's partner to visible set', () {
+    test("adds parent and parent's partner to visible set", () {
       final home = _p('Home', parentIds: ['Dad']);
       final dad = _p('Dad', childIds: ['Home']);
       final mom = _p('Mom');
@@ -148,7 +148,7 @@ void main() {
 
   // ── expandChildren ───────────────────────────────────────────────────────────
   group('expandChildren', () {
-    test('adds child and child's partner', () {
+    test("adds child and child's partner", () {
       final home = _p('Home', childIds: ['Child']);
       final child = _p('Child', parentIds: ['Home']);
       final childSpouse = _p('ChildSpouse');
