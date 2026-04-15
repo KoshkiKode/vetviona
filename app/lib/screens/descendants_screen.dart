@@ -7,10 +7,11 @@ import 'package:provider/provider.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../tree_core/tree_preset.dart';
 import '../utils/page_routes.dart';
 import 'person_detail_screen.dart';
 
-// ── Layout constants (match tree_diagram_screen for visual consistency) ──────
+// ── Layout constants (fallback when no preset is provided) ────────────────────
 const double _kCardW = 160.0;
 const double _kCardH = 82.0;
 const double _kColGap = 24.0;
@@ -47,7 +48,7 @@ class _EdgeInfo {
 
 /// Computes positions for all visible persons and their couple-knots so that
 /// each generation occupies its own horizontal row and couples are shown
-/// side-by-side — matching the layout style of tree_diagram_screen.dart.
+/// side-by-side — layout is parameterized via [cardW], [cardH], [colGap], [rowGap].
 class _DescLayout {
   final List<Person> persons;
   final List<Partnership> partnerships;
@@ -55,7 +56,20 @@ class _DescLayout {
   /// IDs of the actual descendants (partners-in-law are not descendants).
   final Set<String> descendantIds;
 
-  _DescLayout(this.persons, this.partnerships, this.descendantIds);
+  final double cardW;
+  final double cardH;
+  final double colGap;
+  final double rowGap;
+
+  _DescLayout(
+    this.persons,
+    this.partnerships,
+    this.descendantIds, {
+    this.cardW = _kCardW,
+    this.cardH = _kCardH,
+    this.colGap = _kColGap,
+    this.rowGap = _kRowGap,
+  });
 
   final Map<String, _NodeInfo> nodes = {};
   final List<_EdgeInfo> edges = [];
@@ -202,11 +216,11 @@ class _DescLayout {
         }
       }
 
-      final step = _kCardW + _kColGap;
+      final step = cardW + colGap;
       for (int i = 0; i < ordered.length; i++) {
         final node = nodes[ordered[i]]!;
         node.x = i * step;
-        node.y = entry.key * (_kCardH + _kRowGap);
+        node.y = entry.key * (cardH + rowGap);
       }
     }
 
@@ -216,13 +230,13 @@ class _DescLayout {
     // ── Canvas bounds ────────────────────────────────────────────────────────
     double maxX = 0, maxY = 0;
     for (final n in nodes.values) {
-      maxX = math.max(maxX, n.x + _kCardW);
-      maxY = math.max(maxY, n.y + _kCardH);
+      maxX = math.max(maxX, n.x + cardW);
+      maxY = math.max(maxY, n.y + cardH);
     }
     canvasSize = Size(maxX + 40, maxY + 40);
   }
 
-  /// Three-pass iterative layout refinement (mirrors TreeLayout._refineLayout):
+  /// Three-pass iterative layout refinement:
   ///   A. Bottom-up: centre each non-knot parent over its children.
   ///   B. Push apart overlapping nodes within each generation row.
   ///   C. Re-centre couple knots between their two partners.
@@ -234,7 +248,7 @@ class _DescLayout {
     }
 
     final sortedGens = byGen.keys.toList()..sort();
-    const step = _kCardW + _kColGap;
+    final step = cardW + colGap;
 
     for (int iter = 0; iter < 3; iter++) {
       // Pass A: bottom-up parent centering.
@@ -246,10 +260,10 @@ class _DescLayout {
               .toList();
           if (kids.isEmpty) continue;
           final childCx = kids
-                  .map((k) => nodes[k]!.x + _kCardW / 2)
+                  .map((k) => nodes[k]!.x + cardW / 2)
                   .reduce((a, b) => a + b) /
               kids.length;
-          nodes[id]!.x = childCx - _kCardW / 2;
+          nodes[id]!.x = childCx - cardW / 2;
         }
 
         // Pass B: push apart overlapping nodes in this row.
@@ -269,7 +283,7 @@ class _DescLayout {
         final p1 = nodes[node.knotPartner1];
         final p2 = nodes[node.knotPartner2];
         if (p1 != null && p2 != null) {
-          node.x = (p1.x + p2.x + _kCardW) / 2.0 - _kCardW / 2.0;
+          node.x = (p1.x + p2.x + cardW) / 2.0 - cardW / 2.0;
         }
       }
     }
@@ -293,12 +307,18 @@ class _DescEdgePainter extends CustomPainter {
   final List<_EdgeInfo> edges;
   final Color edgeColor;
   final Color coupleColor;
+  final TreeEdgeStyle edgeStyle;
+  final double cardW;
+  final double cardH;
 
   const _DescEdgePainter({
     required this.nodes,
     required this.edges,
     required this.edgeColor,
     required this.coupleColor,
+    this.edgeStyle = TreeEdgeStyle.orthogonal,
+    this.cardW = _kCardW,
+    this.cardH = _kCardH,
   });
 
   @override
@@ -318,29 +338,50 @@ class _DescEdgePainter extends CustomPainter {
       if (fromNode == null || toNode == null) continue;
 
       if (edge.isCouple) {
-        // Horizontal line connecting person ↔ couple-knot.
+        // Straight line connecting person ↔ couple-knot (all styles).
         canvas.drawLine(
-          Offset(fromNode.x + _kCardW / 2, fromNode.y + _kCardH / 2),
-          Offset(toNode.x + _kCardW / 2, toNode.y + _kCardH / 2),
+          Offset(fromNode.x + cardW / 2, fromNode.y + cardH / 2),
+          Offset(toNode.x + cardW / 2, toNode.y + cardH / 2),
           couplePaint,
         );
       } else {
-        // Orthogonal right-angle connector: down → across → down.
-        final fromCx = fromNode.x + _kCardW / 2;
-        // For couple-knots the line starts from the circle centre; for person
-        // cards it starts from the bottom edge of the card.
+        final fromCx = fromNode.x + cardW / 2;
         final fromBot = fromNode.isCoupleKnot
-            ? fromNode.y + _kCardH / 2
-            : fromNode.y + _kCardH;
-        final toCx = toNode.x + _kCardW / 2;
+            ? fromNode.y + cardH / 2
+            : fromNode.y + cardH;
+        final toCx = toNode.x + cardW / 2;
         final toTop = toNode.y;
-        final midY = fromBot + (toTop - fromBot) * 0.4;
-        final path = Path()
-          ..moveTo(fromCx, fromBot)
-          ..lineTo(fromCx, midY)
-          ..lineTo(toCx, midY)
-          ..lineTo(toCx, toTop);
-        canvas.drawPath(path, parentPaint);
+
+        switch (edgeStyle) {
+          case TreeEdgeStyle.bezier:
+            final dy = (toTop - fromBot).abs();
+            final tension = (dy * 0.45).clamp(0.0, 80.0);
+            final path = Path()
+              ..moveTo(fromCx, fromBot)
+              ..cubicTo(
+                fromCx, fromBot + tension,
+                toCx, toTop - tension,
+                toCx, toTop,
+              );
+            canvas.drawPath(path, parentPaint);
+
+          case TreeEdgeStyle.orthogonal:
+            // Right-angle elbow: down → horizontal → down.
+            final midY = fromBot + (toTop - fromBot) * 0.4;
+            final path = Path()
+              ..moveTo(fromCx, fromBot)
+              ..lineTo(fromCx, midY)
+              ..lineTo(toCx, midY)
+              ..lineTo(toCx, toTop);
+            canvas.drawPath(path, parentPaint);
+
+          case TreeEdgeStyle.straight:
+            canvas.drawLine(
+              Offset(fromCx, fromBot),
+              Offset(toCx, toTop),
+              parentPaint,
+            );
+        }
       }
     }
   }
@@ -349,17 +390,24 @@ class _DescEdgePainter extends CustomPainter {
   bool shouldRepaint(_DescEdgePainter old) =>
       old.nodes.length != nodes.length ||
       old.edges.length != edges.length ||
-      old.edgeColor != edgeColor || old.coupleColor != coupleColor;
+      old.edgeColor != edgeColor ||
+      old.coupleColor != coupleColor ||
+      old.edgeStyle != edgeStyle;
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-/// Shows all descendants of a chosen ancestor using an Ancestry-style layout:
-/// couples side-by-side with a union knot, children in rows below, and
-/// right-angle connectors between generations.
+/// Shows all descendants of a chosen ancestor using a layout driven by the
+/// active [TreePreset].  Couples appear side-by-side with a union knot,
+/// children in rows below, and connectors between generations styled per preset.
 class DescendantsScreen extends StatefulWidget {
   final Person? initialPerson;
-  const DescendantsScreen({super.key, this.initialPerson});
+
+  /// Visual preset supplied by [FamilyTreeScreen].  Falls back to the
+  /// default dimensions when null (standalone usage).
+  final TreePreset? preset;
+
+  const DescendantsScreen({super.key, this.initialPerson, this.preset});
 
   @override
   State<DescendantsScreen> createState() => _DescendantsScreenState();
@@ -498,7 +546,23 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
             visibleIds.contains(p.person2Id))
         .toList();
 
-    final layout = _DescLayout(visiblePersons, visiblePartnerships, descIds);
+    // Resolve effective preset dimensions.
+    final p = widget.preset;
+    final effectiveCardW = p?.nodeWidth ?? _kCardW;
+    final effectiveCardH = p?.nodeHeight ?? _kCardH;
+    final effectiveColGap = p?.colGap ?? _kColGap;
+    final effectiveRowGap = p?.rowGap ?? _kRowGap;
+    final effectiveEdgeStyle = p?.edgeStyle ?? TreeEdgeStyle.orthogonal;
+
+    final layout = _DescLayout(
+      visiblePersons,
+      visiblePartnerships,
+      descIds,
+      cardW: effectiveCardW,
+      cardH: effectiveCardH,
+      colGap: effectiveColGap,
+      rowGap: effectiveRowGap,
+    );
     layout.compute();
     _lastCanvasSize = layout.canvasSize;
 
@@ -538,6 +602,9 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
                         edges: layout.edges,
                         edgeColor: colorScheme.outline.withOpacity(0.5),
                         coupleColor: colorScheme.tertiary.withOpacity(0.7),
+                        edgeStyle: effectiveEdgeStyle,
+                        cardW: effectiveCardW,
+                        cardH: effectiveCardH,
                       ),
                     ),
                   ),
@@ -545,8 +612,8 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
                     Positioned(
                       left: node.x,
                       top: node.y,
-                      width: _kCardW,
-                      height: _kCardH,
+                      width: effectiveCardW,
+                      height: effectiveCardH,
                       child: node.isCoupleKnot
                           ? _CoupleKnot(
                               node: node,
@@ -708,7 +775,7 @@ class _CoupleKnot extends StatelessWidget {
 
 // ── Person card ───────────────────────────────────────────────────────────────
 
-/// Ancestry-style card: white surface, coloured left-strip + avatar, name and
+/// Standard person card: white surface, coloured left-strip + avatar, name and
 /// birth/death years on the right.  Matches the visual language of
 /// tree_diagram_screen.dart's _PersonNodeWidget.
 class _DescCard extends StatelessWidget {

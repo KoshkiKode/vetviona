@@ -14,17 +14,37 @@ import '../models/person.dart';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
-/// Width of a person card node in the tree diagram.
+/// Width of a person card node in the tree diagram (default / fallback).
 const double kTreeNodeW = 128.0;
 
-/// Height of a person card node in the tree diagram.
+/// Height of a person card node in the tree diagram (default / fallback).
 const double kTreeNodeH = 88.0;
 
-/// Horizontal gap between adjacent nodes in the same generation row.
+/// Horizontal gap between adjacent nodes in the same generation row (default).
 const double kTreeColGap = 44.0;
 
-/// Vertical gap between successive generation rows.
+/// Vertical gap between successive generation rows (default).
 const double kTreeRowGap = 100.0;
+
+// ── Layout configuration ──────────────────────────────────────────────────────
+
+/// Geometry parameters that drive the [TreeLayout] engine.
+///
+/// The default values match the original hard-coded constants, so all existing
+/// usages of `TreeLayout(persons, partnerships)` continue to work unchanged.
+class TreeLayoutConfig {
+  final double nodeWidth;
+  final double nodeHeight;
+  final double colGap;
+  final double rowGap;
+
+  const TreeLayoutConfig({
+    this.nodeWidth = kTreeNodeW,
+    this.nodeHeight = kTreeNodeH,
+    this.colGap = kTreeColGap,
+    this.rowGap = kTreeRowGap,
+  });
+}
 
 // ── Data structures ───────────────────────────────────────────────────────────
 
@@ -75,11 +95,19 @@ class TreeGenRow {
 ///  * parent → child edges are routed through the knot when possible, and
 ///  * an iterative refinement pass centres parents over their children and
 ///    resolves any horizontal overlaps.
+///
+/// Pass an optional [TreeLayoutConfig] to override the default node dimensions
+/// and gap sizes (used by the preset system to change the visual density).
 class TreeLayout {
   final List<Person> persons;
   final List<Partnership> partnerships;
 
-  TreeLayout(this.persons, this.partnerships);
+  /// Geometry configuration.  Defaults to the original hard-coded constants
+  /// so that callers that don't supply a config are unaffected.
+  final TreeLayoutConfig config;
+
+  TreeLayout(this.persons, this.partnerships,
+      [this.config = const TreeLayoutConfig()]);
 
   final Map<String, TreeNodeInfo> nodes = {};
   final List<TreeEdgeInfo> edges = [];
@@ -223,11 +251,11 @@ class TreeLayout {
           added.add(nid);
         }
       }
-      const step = kTreeNodeW + kTreeColGap;
+      final step = config.nodeWidth + config.colGap;
       for (int i = 0; i < ordered.length; i++) {
         final node = nodes[ordered[i]]!;
         node.x = i * step;
-        node.y = gen * (kTreeNodeH + kTreeRowGap);
+        node.y = gen * (config.nodeHeight + config.rowGap);
       }
     }
 
@@ -237,8 +265,8 @@ class TreeLayout {
     // ── Canvas bounds ────────────────────────────────────────────────────────
     double maxX = 0, maxY = 0;
     for (final n in nodes.values) {
-      maxX = math.max(maxX, n.x + kTreeNodeW);
-      maxY = math.max(maxY, n.y + kTreeNodeH);
+      maxX = math.max(maxX, n.x + config.nodeWidth);
+      maxY = math.max(maxY, n.y + config.nodeHeight);
     }
     canvasSize = Size(maxX + 40, maxY + 40);
 
@@ -246,7 +274,8 @@ class TreeLayout {
     generationRows.clear();
     final genNums = byGen.keys.toList()..sort();
     for (final g in genNums) {
-      generationRows.add(TreeGenRow(g, g * (kTreeNodeH + kTreeRowGap)));
+      generationRows
+          .add(TreeGenRow(g, g * (config.nodeHeight + config.rowGap)));
     }
   }
 
@@ -263,7 +292,7 @@ class TreeLayout {
     }
 
     final sortedGens = byGen.keys.toList()..sort();
-    const step = kTreeNodeW + kTreeColGap;
+    final step = config.nodeWidth + config.colGap;
 
     for (int iter = 0; iter < 3; iter++) {
       // Pass A: bottom-up centering of parents over their children.
@@ -275,10 +304,10 @@ class TreeLayout {
               .toList();
           if (kids.isEmpty) continue;
           final childCx = kids
-                  .map((k) => nodes[k]!.x + kTreeNodeW / 2)
+                  .map((k) => nodes[k]!.x + config.nodeWidth / 2)
                   .reduce((a, b) => a + b) /
               kids.length;
-          nodes[id]!.x = childCx - kTreeNodeW / 2;
+          nodes[id]!.x = childCx - config.nodeWidth / 2;
         }
 
         // Pass B: push apart overlapping nodes in this row.
@@ -298,7 +327,8 @@ class TreeLayout {
         final p1 = nodes[node.knotPartner1];
         final p2 = nodes[node.knotPartner2];
         if (p1 != null && p2 != null) {
-          node.x = (p1.x + p2.x + kTreeNodeW) / 2.0 - kTreeNodeW / 2.0;
+          node.x =
+              (p1.x + p2.x + config.nodeWidth) / 2.0 - config.nodeWidth / 2.0;
         }
       }
     }

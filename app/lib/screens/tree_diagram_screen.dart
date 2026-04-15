@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +5,8 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../services/sync_service.dart';
+import '../tree_core/tree_preset.dart';
+import '../tree_core/tree_visibility_engine.dart';
 import '../utils/page_routes.dart';
 import '../widgets/quick_add_person_dialog.dart';
 import 'pedigree_screen.dart';
@@ -22,7 +22,6 @@ const double _kMaxScale = 5.0;
 const double _kBoundaryMargin = 6000.0;
 
 /// Vertical offset of generation row labels above the top of their row.
-/// Sits inside the [kTreeRowGap] space between consecutive rows.
 const double _kGenLabelTopOffset = 20.0;
 
 /// Controls the Bézier S-curve tension: proportional fraction of [dy] used
@@ -32,20 +31,29 @@ const double _kEdgeTensionFactor = 0.5;
 /// Maximum tension as a fraction of [kTreeRowGap], capping how much the
 /// curve can bow when rows are very far apart.
 const double _kMaxTensionRatio = 0.6;
-const double _kEmptySlotBaseDy = kTreeNodeH + (kTreeRowGap * 0.55);
 const double _kEmptySlotTier1Opacity = 0.28;
 const double _kEmptySlotOpacityBase = 0.18;
 const double _kEmptySlotOpacityMin = 0.08;
 
-// Edge painter — uses smooth cubic-Bézier curves for parent→child edges
-// and straight lines for partnership (couple) connections.
+// Edge painter — supports bezier, orthogonal, and straight connector styles.
 class _EdgePainter extends CustomPainter {
   final Map<String, TreeNodeInfo> nodes;
   final List<TreeEdgeInfo> edges;
   final Color edgeColor;
   final Color coupleColor;
+  final TreeEdgeStyle edgeStyle;
+  final double nodeWidth;
+  final double nodeHeight;
 
-  _EdgePainter({required this.nodes, required this.edges, required this.edgeColor, required this.coupleColor});
+  _EdgePainter({
+    required this.nodes,
+    required this.edges,
+    required this.edgeColor,
+    required this.coupleColor,
+    this.edgeStyle = TreeEdgeStyle.bezier,
+    this.nodeWidth = kTreeNodeW,
+    this.nodeHeight = kTreeNodeH,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -66,32 +74,53 @@ class _EdgePainter extends CustomPainter {
       if (fromNode == null || toNode == null) continue;
 
       if (edge.isCouple) {
-        // Straight line between couple nodes / knot
+        // Straight line between couple nodes / knot (all styles).
         canvas.drawLine(
-          Offset(fromNode.x + kTreeNodeW / 2, fromNode.y + kTreeNodeH / 2),
-          Offset(toNode.x + kTreeNodeW / 2, toNode.y + kTreeNodeH / 2),
+          Offset(fromNode.x + nodeWidth / 2, fromNode.y + nodeHeight / 2),
+          Offset(toNode.x + nodeWidth / 2, toNode.y + nodeHeight / 2),
           couplePaint,
         );
       } else {
-        // Smooth S-curve from the bottom-centre of the parent/knot to the
-        // top-centre of the child node.
-        final fromCx = fromNode.x + kTreeNodeW / 2;
+        final fromCx = fromNode.x + nodeWidth / 2;
         final fromBot = fromNode.isCoupleKnot
-            ? fromNode.y + kTreeNodeH / 2  // knot centre
-            : fromNode.y + kTreeNodeH;     // person bottom
-        final toCx = toNode.x + kTreeNodeW / 2;
+            ? fromNode.y + nodeHeight / 2
+            : fromNode.y + nodeHeight;
+        final toCx = toNode.x + nodeWidth / 2;
         final toTop = toNode.y;
-        final dy = (toTop - fromBot).abs();
-        final tension = (dy * _kEdgeTensionFactor).clamp(0, kTreeRowGap * _kMaxTensionRatio);
 
-        final path = Path()
-          ..moveTo(fromCx, fromBot)
-          ..cubicTo(
-            fromCx, fromBot + tension,
-            toCx, toTop - tension,
-            toCx, toTop,
-          );
-        canvas.drawPath(path, parentPaint);
+        switch (edgeStyle) {
+          case TreeEdgeStyle.bezier:
+            // Smooth S-curve (default).
+            final dy = (toTop - fromBot).abs();
+            final tension =
+                (dy * _kEdgeTensionFactor).clamp(0, kTreeRowGap * _kMaxTensionRatio);
+            final path = Path()
+              ..moveTo(fromCx, fromBot)
+              ..cubicTo(
+                fromCx, fromBot + tension,
+                toCx, toTop - tension,
+                toCx, toTop,
+              );
+            canvas.drawPath(path, parentPaint);
+
+          case TreeEdgeStyle.orthogonal:
+            // Right-angle elbow: down → horizontal → down (structured style).
+            final midY = fromBot + (toTop - fromBot) * 0.45;
+            final path = Path()
+              ..moveTo(fromCx, fromBot)
+              ..lineTo(fromCx, midY)
+              ..lineTo(toCx, midY)
+              ..lineTo(toCx, toTop);
+            canvas.drawPath(path, parentPaint);
+
+          case TreeEdgeStyle.straight:
+            // Diagonal straight line (minimal style).
+            canvas.drawLine(
+              Offset(fromCx, fromBot),
+              Offset(toCx, toTop),
+              parentPaint,
+            );
+        }
       }
     }
   }
@@ -100,12 +129,40 @@ class _EdgePainter extends CustomPainter {
   bool shouldRepaint(_EdgePainter old) =>
       old.nodes.length != nodes.length ||
       old.edges.length != edges.length ||
-      old.edgeColor != edgeColor || old.coupleColor != coupleColor;
+      old.edgeColor != edgeColor ||
+      old.coupleColor != coupleColor ||
+      old.edgeStyle != edgeStyle;
 }
 
 // Main Screen
 class TreeDiagramScreen extends StatefulWidget {
-  const TreeDiagramScreen({super.key});
+  /// Optional visual preset override.  When null the screen loads its own
+  /// persisted settings (standalone usage).  When provided by [FamilyTreeScreen]
+  /// the preset comes from the shared settings strip.
+  final TreePreset? preset;
+
+  /// Ancestor generations to show when resetting.  Overrides the preset
+  /// default when provided by [FamilyTreeScreen].
+  final int? ancestorGens;
+
+  /// Descendant generations to show when resetting.  Overrides the preset
+  /// default when provided by [FamilyTreeScreen].
+  final int? descendantGens;
+
+  /// Whether to render empty "Add…" add-slots.  Defaults to true when null.
+  final bool? showEmptyAddSlots;
+
+  /// How many tiers of empty add-slots to render.  Defaults to 1 when null.
+  final int? emptyAddSlotTiers;
+
+  const TreeDiagramScreen({
+    super.key,
+    this.preset,
+    this.ancestorGens,
+    this.descendantGens,
+    this.showEmptyAddSlots,
+    this.emptyAddSlotTiers,
+  });
   @override
   State<TreeDiagramScreen> createState() => _TreeDiagramScreenState();
 }
@@ -115,14 +172,34 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String _searchQuery = '';
   String? _selectedPersonId;
   bool _showLegend = false;
-  bool _showEmptyAddSlots = true;
-  int _emptyAddSlotTiers = 1;
 
-  /// When true, every person in the tree is visible (not just the focal family).
+  // ── Preset / settings ───────────────────────────────────────────────────────
+  /// Returns the effective preset: the one passed in by FamilyTreeScreen (if
+  /// any), otherwise the Hybrid default (standalone usage).
+  TreePreset get _preset => widget.preset ?? TreePreset.classic;
+
+  int get _effectiveAncestorGens =>
+      widget.ancestorGens ?? _preset.defaultAncestorGens;
+  int get _effectiveDescendantGens =>
+      widget.descendantGens ?? _preset.defaultDescendantGens;
+
+  // Local toggles that start from the widget params (or defaults) and can be
+  // changed in the standalone AppBar.  When hosted in FamilyTreeScreen these
+  // are initialised from the shared settings.
+  late bool _localShowSlots;
+  late int _localEmptyTiers;
+
+  bool get _effectiveShowEmptySlots => _localShowSlots;
+  int get _effectiveEmptyTiers => _localEmptyTiers;
+
+  // ── Visibility engine ───────────────────────────────────────────────────────
+  /// Central visibility-state manager.  Initialised in didChangeDependencies
+  /// from the provider data.
+  TreeVisibilityEngine? _engine;
+
+  /// Whether the engine is currently showing all persons (bypassing the home
+  /// focus).
   bool _showingAll = false;
-
-  /// IDs of persons currently rendered in the tree.
-  Set<String> _visiblePersonIds = {};
 
   /// Tracks the last known home person ID so we can reset when it changes.
   String? _lastHomePersonId;
@@ -136,6 +213,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   @override
   void initState() {
     super.initState();
+    _localShowSlots = widget.showEmptyAddSlots ?? true;
+    _localEmptyTiers = widget.emptyAddSlotTiers ?? 1;
     // Auto-fit the view once the first frame is drawn so the tree is
     // properly centered and scaled on all platforms (especially desktop).
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
@@ -148,71 +227,38 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     final effectiveHomeId = provider.homePersonId ??
         (provider.persons.isNotEmpty ? provider.persons.first.id : null);
 
-    if (effectiveHomeId != _lastHomePersonId || _visiblePersonIds.isEmpty) {
+    if (_engine == null) {
+      // First init.
+      _engine = TreeVisibilityEngine(
+        persons: provider.persons,
+        partnerships: provider.partnerships,
+        homePersonId: effectiveHomeId,
+      );
+      _engine!.resetToHome(
+        ancestorGens: _effectiveAncestorGens,
+        descendantGens: _effectiveDescendantGens,
+      );
       _lastHomePersonId = effectiveHomeId;
-      if (effectiveHomeId != null) {
-        _visiblePersonIds = _buildInitialFamily(
-          effectiveHomeId,
-          provider.persons,
-          provider.partnerships,
-        );
-      }
+    } else if (effectiveHomeId != _lastHomePersonId) {
+      // Home person changed — rebuild visibility from new home.
+      _showingAll = false;
+      _engine = TreeVisibilityEngine(
+        persons: provider.persons,
+        partnerships: provider.partnerships,
+        homePersonId: effectiveHomeId,
+      );
+      _engine!.resetToHome(
+        ancestorGens: _effectiveAncestorGens,
+        descendantGens: _effectiveDescendantGens,
+      );
+      _lastHomePersonId = effectiveHomeId;
+    } else {
+      // Data updated but same home — preserve expansion state.
+      _engine = _engine!.withUpdatedData(
+        persons: provider.persons,
+        partnerships: provider.partnerships,
+      );
     }
-  }
-
-  /// Returns the IDs of the immediate family unit centred on [homeId]:
-  /// the home person, their parents (+ each parent's partner), their own
-  /// partners, and their children.
-  static Set<String> _buildInitialFamily(
-    String homeId,
-    List<Person> persons,
-    List<Partnership> partnerships,
-  ) {
-    final personMap = {for (final p in persons) p.id: p};
-    final visible = <String>{homeId};
-    final home = personMap[homeId];
-    if (home == null) return visible;
-
-    // Partners of the home person
-    for (final part in partnerships) {
-      if (part.person1Id == homeId && personMap.containsKey(part.person2Id)) {
-        visible.add(part.person2Id);
-      } else if (part.person2Id == homeId &&
-          personMap.containsKey(part.person1Id)) {
-        visible.add(part.person1Id);
-      }
-    }
-
-    // Parents of the home person (and their partners)
-    for (final parentId in home.parentIds) {
-      if (!personMap.containsKey(parentId)) continue;
-      visible.add(parentId);
-      for (final part in partnerships) {
-        if (part.person1Id == parentId &&
-            personMap.containsKey(part.person2Id)) {
-          visible.add(part.person2Id);
-        } else if (part.person2Id == parentId &&
-            personMap.containsKey(part.person1Id)) {
-          visible.add(part.person1Id);
-        }
-      }
-    }
-
-    // Children of the home person (and their partners)
-    for (final childId in home.childIds) {
-      if (!personMap.containsKey(childId)) continue;
-      visible.add(childId);
-      for (final part in partnerships) {
-        if (part.person1Id == childId && personMap.containsKey(part.person2Id)) {
-          visible.add(part.person2Id);
-        } else if (part.person2Id == childId &&
-            personMap.containsKey(part.person1Id)) {
-          visible.add(part.person1Id);
-        }
-      }
-    }
-
-    return visible;
   }
 
   void _resetToHome(List<Person> persons, List<Partnership> partnerships) {
@@ -221,8 +267,15 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     if (effectiveHomeId == null) return;
     setState(() {
       _showingAll = false;
-      _visiblePersonIds =
-          _buildInitialFamily(effectiveHomeId, persons, partnerships);
+      _engine = TreeVisibilityEngine(
+        persons: persons,
+        partnerships: partnerships,
+        homePersonId: effectiveHomeId,
+      );
+      _engine!.resetToHome(
+        ancestorGens: _effectiveAncestorGens,
+        descendantGens: _effectiveDescendantGens,
+      );
     });
     _resetView();
   }
@@ -231,7 +284,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   void _showAll(List<Person> persons) {
     setState(() {
       _showingAll = true;
-      _visiblePersonIds = persons.map((p) => p.id).toSet();
+      _engine!.showAll();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
@@ -242,24 +295,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     Map<String, Person> personMap,
     List<Partnership> partnerships,
   ) {
-    final newIds = <String>{};
-    for (final parentId in person.parentIds) {
-      if (!personMap.containsKey(parentId)) continue;
-      newIds.add(parentId);
-      for (final part in partnerships) {
-        if (part.person1Id == parentId &&
-            personMap.containsKey(part.person2Id)) {
-          newIds.add(part.person2Id);
-        } else if (part.person2Id == parentId &&
-            personMap.containsKey(part.person1Id)) {
-          newIds.add(part.person1Id);
-        }
-      }
-    }
-    if (newIds.isNotEmpty) {
-      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
-    }
+    setState(() => _engine!.expandParents(person.id));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Adds [person]'s children (and their partners) to the visible set.
@@ -268,55 +305,18 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     Map<String, Person> personMap,
     List<Partnership> partnerships,
   ) {
-    final newIds = <String>{};
-    for (final childId in person.childIds) {
-      if (!personMap.containsKey(childId)) continue;
-      newIds.add(childId);
-      for (final part in partnerships) {
-        if (part.person1Id == childId && personMap.containsKey(part.person2Id)) {
-          newIds.add(part.person2Id);
-        } else if (part.person2Id == childId &&
-            personMap.containsKey(part.person1Id)) {
-          newIds.add(part.person1Id);
-        }
-      }
-    }
-    if (newIds.isNotEmpty) {
-      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
-    }
+    setState(() => _engine!.expandChildren(person.id));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
-  /// Adds [person]'s siblings (children of the same parents, plus their partners)
-  /// to the visible set.
+  /// Adds [person]'s siblings to the visible set.
   void _expandSiblings(
     Person person,
     Map<String, Person> personMap,
     List<Partnership> partnerships,
   ) {
-    final newIds = <String>{};
-    for (final parentId in person.parentIds) {
-      final parent = personMap[parentId];
-      if (parent == null) continue;
-      for (final sibId in parent.childIds) {
-        if (sibId != person.id && personMap.containsKey(sibId)) {
-          newIds.add(sibId);
-          // Also include each sibling's partners so their couple knots render.
-          for (final part in partnerships) {
-            if (part.person1Id == sibId && personMap.containsKey(part.person2Id)) {
-              newIds.add(part.person2Id);
-            } else if (part.person2Id == sibId &&
-                personMap.containsKey(part.person1Id)) {
-              newIds.add(part.person1Id);
-            }
-          }
-        }
-      }
-    }
-    if (newIds.isNotEmpty) {
-      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
-    }
+    setState(() => _engine!.expandSiblings(person.id));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// BFS-expands ALL ancestors of [person] (and each ancestor's partners).
@@ -325,54 +325,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     Map<String, Person> personMap,
     List<Partnership> partnerships,
   ) {
-    final newIds = <String>{};
-    final queue = Queue<Person>()..add(person);
-    while (queue.isNotEmpty) {
-      final p = queue.removeFirst();
-      for (final parentId in p.parentIds) {
-        if (!personMap.containsKey(parentId)) continue;
-        if (!_visiblePersonIds.contains(parentId) && !newIds.contains(parentId)) {
-          newIds.add(parentId);
-          queue.add(personMap[parentId]!);
-        }
-        // Include each parent's partners so couple knots render correctly.
-        for (final part in partnerships) {
-          String? partnerId;
-          if (part.person1Id == parentId) partnerId = part.person2Id;
-          if (part.person2Id == parentId) partnerId = part.person1Id;
-          if (partnerId != null &&
-              personMap.containsKey(partnerId) &&
-              !_visiblePersonIds.contains(partnerId) &&
-              !newIds.contains(partnerId)) {
-            newIds.add(partnerId);
-          }
-        }
-      }
-    }
-    if (newIds.isNotEmpty) {
-      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
-    }
+    setState(() => _engine!.expandAllAncestors(person.id));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// BFS-expands ALL descendants of [person].
   void _expandAllDescendants(Person person, Map<String, Person> personMap) {
-    final newIds = <String>{};
-    final queue = Queue<Person>()..add(person);
-    while (queue.isNotEmpty) {
-      final p = queue.removeFirst();
-      for (final childId in p.childIds) {
-        if (!personMap.containsKey(childId)) continue;
-        if (!_visiblePersonIds.contains(childId) && !newIds.contains(childId)) {
-          newIds.add(childId);
-          queue.add(personMap[childId]!);
-        }
-      }
-    }
-    if (newIds.isNotEmpty) {
-      setState(() => _visiblePersonIds = {..._visiblePersonIds, ...newIds});
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
-    }
+    setState(() => _engine!.expandAllDescendants(person.id));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   @override
@@ -413,16 +373,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final hasHiddenParents = person.parentIds
-        .any((id) => personMap.containsKey(id) && !_visiblePersonIds.contains(id));
-    final hasHiddenChildren = person.childIds
-        .any((id) => personMap.containsKey(id) && !_visiblePersonIds.contains(id));
-    final hasHiddenSiblings = person.parentIds.any((parentId) {
-      final parent = personMap[parentId];
-      if (parent == null) return false;
-      return parent.childIds.any(
-          (id) => id != person.id && personMap.containsKey(id) && !_visiblePersonIds.contains(id));
-    });
+    final hasHiddenParents = _engine!.hasHiddenAncestors(person.id);
+    final hasHiddenChildren = _engine!.hasHiddenDescendants(person.id);
+    final hasHiddenSiblings = _engine!.hasHiddenSiblings(person.id);
 
     showModalBottomSheet(
       context: context,
@@ -494,10 +447,11 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                     Navigator.pop(ctx);
                     setState(() {
                       _selectedPersonId = person.id;
-                      _visiblePersonIds = _buildInitialFamily(
-                          person.id,
-                          personMap.values.toList(),
-                          partnerships);
+                      _engine!.focusOn(
+                        person.id,
+                        ancestorGens: _effectiveAncestorGens,
+                        descendantGens: _effectiveDescendantGens,
+                      );
                     });
                     _resetView();
                   })),
@@ -595,7 +549,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         String? partnerId;
         if (part.person1Id == current.id) partnerId = part.person2Id;
         if (part.person2Id == current.id) partnerId = part.person1Id;
-        if (partnerId != null && _visiblePersonIds.contains(partnerId)) {
+        if (partnerId != null && _engine!.visibleIds.contains(partnerId)) {
           visiblePartnerId = partnerId;
           break;
         }
@@ -691,7 +645,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       if (!mounted) return;
       setState(() {
         _selectedPersonId = current.id;
-        _visiblePersonIds = {..._visiblePersonIds, created.id};
+        _engine!.addVisibleId(created.id);
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     } on StateError catch (e) {
@@ -706,7 +660,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     required Map<String, Person> personMap,
     required ColorScheme colorScheme,
   }) {
-    if (!_showEmptyAddSlots) return const [];
+    if (!_effectiveShowEmptySlots) return const [];
     final anchorNode = layout.nodes[anchorId];
     final anchorPerson = personMap[anchorId];
     if (anchorNode == null || anchorPerson == null) return const [];
@@ -721,16 +675,18 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       const _AddSlotSpec(_TreeQuickRelation.daughter, 1, 1),
     ];
 
-    final baseDx = kTreeNodeW + kTreeColGap;
-    const baseDy = _kEmptySlotBaseDy;
-    final maxLeft = (layout.canvasSize.width - kTreeNodeW) < 0
+    final nw = _preset.nodeWidth;
+    final nh = _preset.nodeHeight;
+    final baseDx = nw + _preset.colGap;
+    final baseDy = nh + (_preset.rowGap * 0.55);
+    final maxLeft = (layout.canvasSize.width - nw) < 0
         ? 0.0
-        : (layout.canvasSize.width - kTreeNodeW);
-    final maxTop = (layout.canvasSize.height - kTreeNodeH) < 0
+        : (layout.canvasSize.width - nw);
+    final maxTop = (layout.canvasSize.height - nh) < 0
         ? 0.0
-        : (layout.canvasSize.height - kTreeNodeH);
+        : (layout.canvasSize.height - nh);
 
-    for (int tier = 1; tier <= _emptyAddSlotTiers; tier++) {
+    for (int tier = 1; tier <= _effectiveEmptyTiers; tier++) {
       for (final slot in relations) {
         final relation = slot.relation;
         final targetLeft = (anchorNode.x + slot.horizontalMultiplier * baseDx * tier)
@@ -743,8 +699,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
           Positioned(
             left: targetLeft,
             top: targetTop,
-            width: kTreeNodeW,
-            height: kTreeNodeH,
+            width: nw,
+            height: nh,
             child: _EmptyAddNode(
               text: relation.label,
               tier: tier,
@@ -799,26 +755,41 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
     final personMap = {for (final p in persons) p.id: p};
 
-    // Ensure visible set is initialised (e.g. first build after load).
-    if (_visiblePersonIds.isEmpty) {
+    // Ensure engine is initialised (guard against rare edge cases).
+    if (_engine == null || !_engine!.hasVisible) {
       final homeId = provider.homePersonId ??
           (persons.isNotEmpty ? persons.first.id : null);
       if (homeId != null) {
-        _visiblePersonIds =
-            _buildInitialFamily(homeId, persons, partnerships);
+        _engine = TreeVisibilityEngine(
+          persons: persons,
+          partnerships: partnerships,
+          homePersonId: homeId,
+        );
+        _engine!.resetToHome(
+          ancestorGens: _effectiveAncestorGens,
+          descendantGens: _effectiveDescendantGens,
+        );
         _lastHomePersonId = homeId;
       }
     }
 
-    // Build layout from visible persons only.
+    final visibleIds = _engine?.visibleIds ?? const <String>{};
+
+    // Build layout from visible persons only using the current preset config.
     final visiblePersons = persons
-        .where((p) => _visiblePersonIds.contains(p.id))
+        .where((p) => visibleIds.contains(p.id))
         .toList();
     final visiblePartnerships = partnerships.where((part) =>
-        _visiblePersonIds.contains(part.person1Id) &&
-        _visiblePersonIds.contains(part.person2Id)).toList();
+        visibleIds.contains(part.person1Id) &&
+        visibleIds.contains(part.person2Id)).toList();
 
-    final layout = TreeLayout(visiblePersons, visiblePartnerships);
+    final layoutConfig = TreeLayoutConfig(
+      nodeWidth: _preset.nodeWidth,
+      nodeHeight: _preset.nodeHeight,
+      colGap: _preset.colGap,
+      rowGap: _preset.rowGap,
+    );
+    final layout = TreeLayout(visiblePersons, visiblePartnerships, layoutConfig);
     layout.compute();
     _lastLayout = layout;
     final searchLower = _searchQuery.toLowerCase();
@@ -888,37 +859,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             tooltip: 'Legend',
             onPressed: () => setState(() => _showLegend = !_showLegend)),
           IconButton(
-            icon: Icon(
-              _showEmptyAddSlots
-                  ? Icons.person_add_alt_1
-                  : Icons.person_add_disabled,
-            ),
-            tooltip: _showEmptyAddSlots
+            icon: Icon(_localShowSlots
+                ? Icons.person_add_alt_1
+                : Icons.person_add_disabled),
+            tooltip: _localShowSlots
                 ? 'Hide empty add slots'
                 : 'Show empty add slots',
             onPressed: () =>
-                setState(() => _showEmptyAddSlots = !_showEmptyAddSlots),
-          ),
-          PopupMenuButton<int>(
-            tooltip: 'Set add-slot tiers',
-            icon: const Icon(Icons.layers_outlined),
-            onSelected: (tier) => setState(() => _emptyAddSlotTiers = tier),
-            itemBuilder: (_) => List.generate(
-              3,
-              (i) => i + 1,
-            ).map((tier) {
-              return PopupMenuItem<int>(
-                value: tier,
-                child: Row(
-                  children: [
-                    if (_emptyAddSlotTiers == tier)
-                      const Icon(Icons.check, size: 16),
-                    if (_emptyAddSlotTiers == tier) const SizedBox(width: 8),
-                    Text('Add tiers: $tier'),
-                  ],
-                ),
-              );
-            }).toList(),
+                setState(() => _localShowSlots = !_localShowSlots),
           ),
           IconButton(
             icon: const Icon(Icons.account_tree_outlined),
@@ -970,52 +918,50 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 width: layout.canvasSize.width,
                 height: layout.canvasSize.height,
                 child: Stack(children: [
-                  // Bezier edge lines
+                  // Edge lines — style driven by the active preset
                   Positioned.fill(child: CustomPaint(painter: _EdgePainter(
                     nodes: layout.nodes, edges: layout.edges,
                     edgeColor: colorScheme.outline.withOpacity(0.5),
-                    coupleColor: colorScheme.tertiary.withOpacity(0.7)))),
+                    coupleColor: colorScheme.tertiary.withOpacity(0.7),
+                    edgeStyle: _preset.edgeStyle,
+                    nodeWidth: _preset.nodeWidth,
+                    nodeHeight: _preset.nodeHeight,
+                  ))),
 
-                  // Generation row labels (left rail)
-                  for (final row in layout.generationRows)
-                    Positioned(
-                      left: 0,
-                      top: (row.y - _kGenLabelTopOffset).clamp(0.0, double.infinity),
-                      child: _GenLabel(
-                        generation: row.generation,
-                        colorScheme: colorScheme,
+                  // Generation row labels (left rail) — hidden for compact layout
+                  if (_preset.showGenerationLabels)
+                    for (final row in layout.generationRows)
+                      Positioned(
+                        left: 0,
+                        top: (row.y - _kGenLabelTopOffset).clamp(0.0, double.infinity),
+                        child: _GenLabel(
+                          generation: row.generation,
+                          colorScheme: colorScheme,
+                        ),
                       ),
-                    ),
 
                   // Person / couple-knot nodes
                   for (final node in layout.nodes.values)
                     Positioned(
-                      left: node.x, top: node.y, width: kTreeNodeW, height: kTreeNodeH,
-                      child: node.isCoupleKnot
+                      left: node.x, top: node.y,
+                      width: _preset.nodeWidth,
+                      height: _preset.nodeHeight,
+                      child: node.isCoupleKnot && _preset.showCoupleKnot
                           ? _CoupleKnot(
                               node: node,
                               partnerships: visiblePartnerships,
                               colorScheme: colorScheme)
+                          : node.isCoupleKnot
+                              ? const SizedBox.shrink()
                           : _PersonNodeWidget(
                               person: personMap[node.id] ?? Person(id: node.id, name: '?'),
                               colorScheme: colorScheme,
+                              preset: _preset,
                               isHighlighted: searchLower.isNotEmpty &&
                                   (personMap[node.id]?.name.toLowerCase().contains(searchLower) ?? false),
                               isSelected: _selectedPersonId == node.id,
-                              hasHiddenAncestors: (() {
-                                final p = personMap[node.id];
-                                if (p == null) return false;
-                                return p.parentIds.any((id) =>
-                                    personMap.containsKey(id) &&
-                                    !_visiblePersonIds.contains(id));
-                              })(),
-                              hasHiddenDescendants: (() {
-                                final p = personMap[node.id];
-                                if (p == null) return false;
-                                return p.childIds.any((id) =>
-                                    personMap.containsKey(id) &&
-                                    !_visiblePersonIds.contains(id));
-                              })(),
+                              hasHiddenAncestors: _engine?.hasHiddenAncestors(node.id) ?? false,
+                              hasHiddenDescendants: _engine?.hasHiddenDescendants(node.id) ?? false,
                               onTap: () {
                                 final p = personMap[node.id];
                                 if (p == null) return;
@@ -1243,10 +1189,11 @@ class _EmptyAddNode extends StatelessWidget {
   }
 }
 
-// Person node widget
+// Person node widget — renders differently based on the active preset card style.
 class _PersonNodeWidget extends StatelessWidget {
   final Person person;
   final ColorScheme colorScheme;
+  final TreePreset preset;
   final bool isHighlighted;
   final bool isSelected;
   final bool hasHiddenAncestors;
@@ -1255,6 +1202,7 @@ class _PersonNodeWidget extends StatelessWidget {
 
   const _PersonNodeWidget({
     required this.person, required this.colorScheme,
+    this.preset = TreePreset.classic,
     required this.isHighlighted, required this.isSelected,
     this.hasHiddenAncestors = false,
     this.hasHiddenDescendants = false,
@@ -1268,7 +1216,7 @@ class _PersonNodeWidget extends StatelessWidget {
     return colorScheme.secondary;
   }
 
-  Color _avatarBg() {
+  Color _accentColor() {
     if (person.gender?.toLowerCase() == 'male') return colorScheme.primary;
     if (person.gender?.toLowerCase() == 'female') return colorScheme.error;
     return colorScheme.secondary;
@@ -1276,8 +1224,20 @@ class _PersonNodeWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    switch (preset.cardStyle) {
+      case TreeCardStyle.box:
+        return _buildBox(context);
+      case TreeCardStyle.minimal:
+        return _buildMinimal(context);
+      case TreeCardStyle.card:
+        return _buildCard(context);
+    }
+  }
+
+  /// Standard card style (rounded card with gender strip).
+  Widget _buildCard(BuildContext context) {
     final borderColor = _borderColor();
-    final avatarBg = _avatarBg();
+    final accentColor = _accentColor();
     final bool isDead = person.deathDate != null;
     final card = GestureDetector(
       onTap: onTap,
@@ -1290,14 +1250,15 @@ class _PersonNodeWidget extends StatelessWidget {
           boxShadow: [BoxShadow(color: borderColor.withOpacity(isSelected ? 0.3 : 0.12), blurRadius: isSelected ? 8 : 4, offset: const Offset(0, 2))],
         ),
         child: Row(children: [
-          Container(width: 6, decoration: BoxDecoration(
-            color: avatarBg.withOpacity(0.85),
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)))),
+          if (preset.showGenderStrip)
+            Container(width: 6, decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.85),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)))),
           Expanded(child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                CircleAvatar(radius: 14, backgroundColor: avatarBg,
+                CircleAvatar(radius: 14, backgroundColor: accentColor,
                   child: Text(person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
                     style: TextStyle(color: colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: 12))),
                 const SizedBox(width: 6),
@@ -1307,12 +1268,13 @@ class _PersonNodeWidget extends StatelessWidget {
                 if (isDead) Icon(Icons.star, size: 10, color: colorScheme.onSurfaceVariant.withOpacity(0.6)),
               ]),
               const SizedBox(height: 3),
-              if (person.birthDate != null || person.deathDate != null)
+              if ((preset.showBirthYear && person.birthDate != null) ||
+                  (preset.showDeathYear && person.deathDate != null))
                 Text(
-                  [if (person.birthDate != null) '${person.birthDate!.year}',
-                   if (person.deathDate != null) '${person.deathDate!.year}'].join(' – '),
+                  [if (preset.showBirthYear && person.birthDate != null) '${person.birthDate!.year}',
+                   if (preset.showDeathYear && person.deathDate != null) '${person.deathDate!.year}'].join(' – '),
                   style: TextStyle(fontSize: 9, color: colorScheme.onSurfaceVariant)),
-              if (person.birthPlace != null)
+              if (preset.showBirthPlace && person.birthPlace != null)
                 Text(person.birthPlace!, style: TextStyle(fontSize: 9, color: colorScheme.onSurfaceVariant.withOpacity(0.8)),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
@@ -1320,26 +1282,96 @@ class _PersonNodeWidget extends StatelessWidget {
         ]),
       ),
     );
-
-    // Wrap in a Stack to overlay expand indicator dots.
     if (!hasHiddenAncestors && !hasHiddenDescendants) return card;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        card,
-        if (hasHiddenAncestors)
-          Positioned(
-            top: -7,
-            left: 0, right: 0,
-            child: Center(child: _ExpandDot(
-              icon: Icons.keyboard_arrow_up, colorScheme: colorScheme))),
-        if (hasHiddenDescendants)
-          Positioned(
-            bottom: -7,
-            left: 0, right: 0,
-            child: Center(child: _ExpandDot(
-              icon: Icons.keyboard_arrow_down, colorScheme: colorScheme))),
-      ],
+    return Stack(clipBehavior: Clip.none, children: [
+      card,
+      if (hasHiddenAncestors) Positioned(top: -7, left: 0, right: 0,
+          child: Center(child: _ExpandDot(icon: Icons.keyboard_arrow_up, colorScheme: colorScheme))),
+      if (hasHiddenDescendants) Positioned(bottom: -7, left: 0, right: 0,
+          child: Center(child: _ExpandDot(icon: Icons.keyboard_arrow_down, colorScheme: colorScheme))),
+    ]);
+  }
+
+  /// Compact box style (dense layout).
+  Widget _buildBox(BuildContext context) {
+    final accentColor = _accentColor();
+    final bool isDead = person.deathDate != null;
+    final box = GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isHighlighted ? Colors.amber : accentColor.withOpacity(0.7),
+            width: isHighlighted || isSelected ? 2.0 : 1.0,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Container(width: 3, height: 28,
+                decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 5),
+              Expanded(child: Text(person.name,
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 10,
+                    color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface),
+                maxLines: 2, overflow: TextOverflow.ellipsis)),
+              if (isDead) Icon(Icons.star, size: 9, color: colorScheme.onSurfaceVariant.withOpacity(0.5)),
+            ]),
+            if (preset.showBirthYear && person.birthDate != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 2),
+                child: Text('b. ${person.birthDate!.year}',
+                  style: TextStyle(fontSize: 9, color: colorScheme.onSurfaceVariant))),
+          ],
+        ),
+      ),
+    );
+    if (!hasHiddenAncestors && !hasHiddenDescendants) return box;
+    return Stack(clipBehavior: Clip.none, children: [
+      box,
+      if (hasHiddenAncestors) Positioned(top: -6, left: 0, right: 0,
+          child: Center(child: _ExpandDot(icon: Icons.keyboard_arrow_up, colorScheme: colorScheme))),
+      if (hasHiddenDescendants) Positioned(bottom: -6, left: 0, right: 0,
+          child: Center(child: _ExpandDot(icon: Icons.keyboard_arrow_down, colorScheme: colorScheme))),
+    ]);
+  }
+
+  /// Text-only minimal style.
+  Widget _buildMinimal(BuildContext context) {
+    final accentColor = _accentColor();
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(
+              color: isSelected ? colorScheme.primary : accentColor.withOpacity(0.5),
+              width: isSelected ? 2.0 : 1.0)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(person.name,
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 10, color: colorScheme.onSurface),
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+            if (person.birthDate != null || person.deathDate != null)
+              Text(
+                [if (person.birthDate != null) '${person.birthDate!.year}',
+                 if (person.deathDate != null) '†${person.deathDate!.year}'].join(' '),
+                style: TextStyle(fontSize: 9, color: colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
     );
   }
 }
