@@ -386,12 +386,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.family_restroom),
-                tooltip: 'Descendants Chart',
+                tooltip: 'Descendancy',
                 onPressed: () => Navigator.push(
                   context,
                   fadeSlideRoute(
                       builder: (_) =>
-                          const FamilyTreeScreen(initialTabIndex: 1)),
+                          const FamilyTreeScreen(initialTabIndex: 3)),
                 ),
               ),
               _buildAuthButton(context, provider),
@@ -722,27 +722,27 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.family_restroom),
-            title: const Text('Pedigree Chart'),
+            title: const Text('Pedigree'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
                 context,
                 fadeSlideRoute(
                     builder: (_) =>
-                        const FamilyTreeScreen(initialTabIndex: 2)),
+                        const FamilyTreeScreen(initialTabIndex: 4)),
               );
             },
           ),
           ListTile(
             leading: const Icon(Icons.account_tree),
-            title: const Text('Descendants Chart'),
+            title: const Text('Descendancy'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
                 context,
                 fadeSlideRoute(
                     builder: (_) =>
-                        const FamilyTreeScreen(initialTabIndex: 1)),
+                        const FamilyTreeScreen(initialTabIndex: 3)),
               );
             },
           ),

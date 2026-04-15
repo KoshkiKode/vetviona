@@ -314,14 +314,10 @@ class _PresetTile extends StatelessWidget {
 
   static IconData _iconFor(TreePresetType type) {
     switch (type) {
-      case TreePresetType.ancestry:
+      case TreePresetType.classic:
         return Icons.account_tree;
-      case TreePresetType.myHeritage:
-        return Icons.family_restroom;
-      case TreePresetType.familySearch:
-        return Icons.linear_scale;
-      case TreePresetType.hybrid:
-        return Icons.tune;
+      case TreePresetType.compact:
+        return Icons.density_medium;
     }
   }
 }

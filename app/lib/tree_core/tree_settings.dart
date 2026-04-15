@@ -15,7 +15,7 @@ import 'tree_preset.dart';
 /// All fields have sensible defaults so first-launch works without any
 /// stored data.
 class TreeViewSettings {
-  /// Visual preset currently selected.
+  /// Visual layout currently selected.
   TreePresetType preset;
 
   /// How many ancestor generations to show when opening / resetting the tree.
@@ -31,7 +31,7 @@ class TreeViewSettings {
   int emptyAddSlotTiers;
 
   TreeViewSettings({
-    this.preset = TreePresetType.hybrid,
+    this.preset = TreePresetType.classic,
     this.ancestorGenerations = 2,
     this.descendantGenerations = 2,
     this.showEmptyAddSlots = true,
@@ -52,12 +52,12 @@ class TreeViewSettings {
   static Future<TreeViewSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
     final presetStr = prefs.getString(_kPreset);
-    TreePresetType preset = TreePresetType.hybrid;
+    TreePresetType preset = TreePresetType.classic;
     if (presetStr != null) {
       try {
         preset = TreePresetType.values.byName(presetStr);
       } catch (_) {
-        // Unknown value — keep default.
+        // Unknown value (e.g. stale data from an old build) — keep default.
       }
     }
     return TreeViewSettings(

@@ -104,7 +104,7 @@ class _EdgePainter extends CustomPainter {
             canvas.drawPath(path, parentPaint);
 
           case TreeEdgeStyle.orthogonal:
-            // Right-angle elbow: down → horizontal → down (Ancestry style).
+            // Right-angle elbow: down → horizontal → down (structured style).
             final midY = fromBot + (toTop - fromBot) * 0.45;
             final path = Path()
               ..moveTo(fromCx, fromBot)
@@ -114,7 +114,7 @@ class _EdgePainter extends CustomPainter {
             canvas.drawPath(path, parentPaint);
 
           case TreeEdgeStyle.straight:
-            // Diagonal straight line (FamilySearch minimalist style).
+            // Diagonal straight line (minimal style).
             canvas.drawLine(
               Offset(fromCx, fromBot),
               Offset(toCx, toTop),
@@ -928,7 +928,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                     nodeHeight: _preset.nodeHeight,
                   ))),
 
-                  // Generation row labels (left rail) — hidden for MyHeritage
+                  // Generation row labels (left rail) — hidden for compact layout
                   if (_preset.showGenerationLabels)
                     for (final row in layout.generationRows)
                       Positioned(
@@ -1234,7 +1234,7 @@ class _PersonNodeWidget extends StatelessWidget {
     }
   }
 
-  /// Original card style (Ancestry / FamilySearch / Hybrid).
+  /// Standard card style (rounded card with gender strip).
   Widget _buildCard(BuildContext context) {
     final borderColor = _borderColor();
     final accentColor = _accentColor();
@@ -1292,7 +1292,7 @@ class _PersonNodeWidget extends StatelessWidget {
     ]);
   }
 
-  /// Compact box style (MyHeritage preset).
+  /// Compact box style (dense layout).
   Widget _buildBox(BuildContext context) {
     final accentColor = _accentColor();
     final bool isDead = person.deathDate != null;

@@ -775,7 +775,7 @@ class _CoupleKnot extends StatelessWidget {
 
 // ── Person card ───────────────────────────────────────────────────────────────
 
-/// Ancestry-style card: white surface, coloured left-strip + avatar, name and
+/// Standard person card: white surface, coloured left-strip + avatar, name and
 /// birth/death years on the right.  Matches the visual language of
 /// tree_diagram_screen.dart's _PersonNodeWidget.
 class _DescCard extends StatelessWidget {
