@@ -7,11 +7,11 @@ import 'package:provider/provider.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../widgets/quick_add_person_dialog.dart';
+import 'family_tree_screen.dart';
 import 'person_detail_screen.dart';
 import 'relationship_screen.dart';
 import 'sources_page.dart';
 import 'timeline_screen.dart';
-import 'tree_diagram_screen.dart';
 
 class TreeScreen extends StatefulWidget {
   const TreeScreen({super.key});
@@ -74,7 +74,7 @@ class _TreeScreenState extends State<TreeScreen> {
             onPressed: () => Navigator.push(
               context,
               fadeSlideRoute(
-                  builder: (_) => const TreeDiagramScreen()),
+                  builder: (_) => const FamilyTreeScreen()),
             ),
           ),
           IconButton(
@@ -162,7 +162,7 @@ class _TreeScreenState extends State<TreeScreen> {
                   onTap: () => Navigator.push(
                     context,
                     fadeSlideRoute(
-                        builder: (_) => const TreeDiagramScreen()),
+                        builder: (_) => const FamilyTreeScreen()),
                   ),
                   child: Container(
                     width: double.infinity,

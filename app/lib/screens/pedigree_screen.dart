@@ -4,12 +4,24 @@ import 'package:provider/provider.dart';
 
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../tree_core/tree_preset.dart';
 import 'person_detail_screen.dart';
 
 class PedigreeScreen extends StatefulWidget {
   final Person? initialPerson;
 
-  const PedigreeScreen({super.key, this.initialPerson});
+  /// Visual preset supplied by [FamilyTreeScreen].
+  final TreePreset? preset;
+
+  /// Override for the initial max-generations value.
+  final int? initialMaxGenerations;
+
+  const PedigreeScreen({
+    super.key,
+    this.initialPerson,
+    this.preset,
+    this.initialMaxGenerations,
+  });
 
   @override
   State<PedigreeScreen> createState() => _PedigreeScreenState();
@@ -17,7 +29,7 @@ class PedigreeScreen extends StatefulWidget {
 
 class _PedigreeScreenState extends State<PedigreeScreen> {
   Person? _focusedPerson;
-  int _maxGenerations = 4;
+  late int _maxGenerations;
 
   // Controller for the searchable name field.
   final TextEditingController _searchCtrl = TextEditingController();
@@ -26,6 +38,10 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
   void initState() {
     super.initState();
     _focusedPerson = widget.initialPerson;
+    // Use initialMaxGenerations if provided; otherwise use preset default
+    // (capped to 4 for pedigree chart readability) or fall back to 4.
+    final presetDefault = widget.preset?.defaultAncestorGens ?? 4;
+    _maxGenerations = widget.initialMaxGenerations ?? presetDefault.clamp(2, 6);
   }
 
   @override
@@ -106,7 +122,7 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
             icon: const Icon(Icons.layers_outlined),
             onSelected: (v) => setState(() => _maxGenerations = v),
             itemBuilder: (_) => [
-              for (int g = 2; g <= 4; g++)
+              for (int g = 2; g <= 6; g++)
                 PopupMenuItem(
                   value: g,
                   child: Text('$g generations'),

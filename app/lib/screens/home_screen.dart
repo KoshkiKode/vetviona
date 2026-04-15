@@ -19,12 +19,10 @@ import '../utils/platform_utils.dart';
 import 'calendar_screen.dart';
 import 'wikitree_screen.dart';
 import 'conflict_resolver_screen.dart';
-import 'descendants_screen.dart';
 import 'family_timeline_screen.dart';
 import 'gedcom_import_screen.dart';
 import 'login_screen.dart';
 import 'medical_history_screen.dart';
-import 'pedigree_screen.dart';
 import 'person_detail_screen.dart';
 import 'relationship_certificate_screen.dart';
 import 'relationship_finder_screen.dart';
@@ -32,7 +30,7 @@ import 'research_tasks_screen.dart';
 import 'settings_screen.dart';
 import 'statistics_screen.dart';
 import 'sync_screen.dart';
-import 'tree_diagram_screen.dart';
+import 'family_tree_screen.dart';
 import 'tree_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -195,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 switch (index) {
                   case 1:
                     Navigator.push(context,
-                        fadeSlideRoute(builder: (_) => const TreeDiagramScreen()));
+                        fadeSlideRoute(builder: (_) => const FamilyTreeScreen()));
                   case 2:
                     Navigator.push(context,
                         fadeSlideRoute(builder: (_) => const CalendarScreen()));
@@ -383,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 tooltip: 'Tree Diagram',
                 onPressed: () => Navigator.push(
                   context,
-                  fadeSlideRoute(builder: (_) => const TreeDiagramScreen()),
+                  fadeSlideRoute(builder: (_) => const FamilyTreeScreen()),
                 ),
               ),
               IconButton(
@@ -391,7 +389,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 tooltip: 'Descendants Chart',
                 onPressed: () => Navigator.push(
                   context,
-                  fadeSlideRoute(builder: (_) => const DescendantsScreen()),
+                  fadeSlideRoute(
+                      builder: (_) =>
+                          const FamilyTreeScreen(initialTabIndex: 1)),
                 ),
               ),
               _buildAuthButton(context, provider),
@@ -449,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
           case 1:
             Navigator.push(
               context,
-              fadeSlideRoute(builder: (_) => const TreeDiagramScreen()),
+              fadeSlideRoute(builder: (_) => const FamilyTreeScreen()),
             );
           case 2:
             Navigator.push(
@@ -690,13 +690,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.account_tree_outlined),
-            title: const Text('Tree Diagram'),
+            title: const Text('Family Tree'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
                   context,
                   fadeSlideRoute(
-                      builder: (_) => const TreeDiagramScreen()));
+                      builder: (_) => const FamilyTreeScreen()));
             },
           ),
           ListTile(
@@ -727,7 +727,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                fadeSlideRoute(builder: (_) => const PedigreeScreen()),
+                fadeSlideRoute(
+                    builder: (_) =>
+                        const FamilyTreeScreen(initialTabIndex: 2)),
               );
             },
           ),
@@ -738,7 +740,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                fadeSlideRoute(builder: (_) => const DescendantsScreen()),
+                fadeSlideRoute(
+                    builder: (_) =>
+                        const FamilyTreeScreen(initialTabIndex: 1)),
               );
             },
           ),
