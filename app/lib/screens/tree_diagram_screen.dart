@@ -305,6 +305,11 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         persons: provider.persons,
         partnerships: provider.partnerships,
       );
+      // If the user had expanded the whole tree, make sure any newly added
+      // persons are also included in the visible set.
+      if (_showingAll) {
+        _engine!.showAll();
+      }
     }
   }
 

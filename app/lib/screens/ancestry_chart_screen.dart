@@ -113,18 +113,25 @@ class _AncestryLayout {
     // For the ancestry layout, all persons in `persons` list are included.
     // Find the person who is the "root" (lowest gen = 0) = the one who is not
     // in any person's parentIds within this set.
-    final allParentIds = <String>{};
-    for (final p in persons) {
-      for (final id in p.parentIds) {
-        allParentIds.add(id);
+    // ── Detect root person ────────────────────────────────────────────────────
+    // The root is the focal person (lowest generation): the only member of
+    // `ancestorIds` that does NOT appear as a parentId of any other member of
+    // `ancestorIds`.  Using only `ancestorIds` (not all `persons`) avoids
+    // incorrectly picking a partner-in-law who also has no children in the set.
+    final ancestorParentIds = <String>{};
+    for (final id in ancestorIds) {
+      final p = pm[id];
+      if (p == null) continue;
+      for (final pid in p.parentIds) {
+        if (ancestorIds.contains(pid)) ancestorParentIds.add(pid);
       }
     }
-    final roots = persons
-        .where((p) => !allParentIds.contains(p.id))
+    final rootCandidates = ancestorIds
+        .where((id) => !ancestorParentIds.contains(id))
         .toList();
-    // If multiple "roots" (disconnected sub-trees or single people with no
-    // children listed), just pick the first person.
-    final rootPerson = roots.isNotEmpty ? roots.first : persons.first;
+    final rootPerson =
+        (rootCandidates.isNotEmpty ? pm[rootCandidates.first] : null) ??
+        persons.first;
 
     // BFS upward from the root.
     queue.add(rootPerson.id);
@@ -161,7 +168,8 @@ class _AncestryLayout {
     final knotFor = <String, String>{}; // partnshipId → knotId
     for (final part in partnerships) {
       if (!genMap.containsKey(part.person1Id) ||
-          !genMap.containsKey(part.person2Id)) continue;
+          !genMap.containsKey(part.person2Id))
+        continue;
       if (genMap[part.person1Id] != genMap[part.person2Id]) continue;
       final knotId = '__knot__${part.id}';
       final gen = genMap[part.person1Id]!;
@@ -197,12 +205,14 @@ class _AncestryLayout {
       for (final parentId in p.parentIds) {
         if (!genMap.containsKey(parentId)) continue;
         // Skip if parent is part of a knot already connected above.
-        final alreadyKnotted = partnerships.any((part) =>
-            knotFor.containsKey(part.id) &&
-            ((part.person1Id == parentId &&
-                    p.parentIds.contains(part.person2Id)) ||
-                (part.person2Id == parentId &&
-                    p.parentIds.contains(part.person1Id))));
+        final alreadyKnotted = partnerships.any(
+          (part) =>
+              knotFor.containsKey(part.id) &&
+              ((part.person1Id == parentId &&
+                      p.parentIds.contains(part.person2Id)) ||
+                  (part.person2Id == parentId &&
+                      p.parentIds.contains(part.person1Id))),
+        );
         if (!alreadyKnotted) {
           edges.add(_AncEdge(p.id, parentId));
         }
@@ -231,8 +241,10 @@ class _AncestryLayout {
             ordered.remove(p2);
             ordered.insert(ordered.indexOf(p1!) + 1, p2!);
           }
-          final minIdx =
-              math.min(ordered.indexOf(p1 ?? ''), ordered.indexOf(p2 ?? ''));
+          final minIdx = math.min(
+            ordered.indexOf(p1 ?? ''),
+            ordered.indexOf(p2 ?? ''),
+          );
           ordered.insert(minIdx + 1, nid);
           added.add(nid);
         } else {
@@ -253,15 +265,15 @@ class _AncestryLayout {
           isCoupleKnot: isKnot,
           knotPartner1: isKnot
               ? edges
-                  .where((e) => e.isCouple && e.to == id)
-                  .map((e) => e.from)
-                  .firstOrNull
+                    .where((e) => e.isCouple && e.to == id)
+                    .map((e) => e.from)
+                    .firstOrNull
               : null,
           knotPartner2: isKnot
               ? edges
-                  .where((e) => e.isCouple && e.from == id)
-                  .map((e) => e.to)
-                  .firstOrNull
+                    .where((e) => e.isCouple && e.from == id)
+                    .map((e) => e.to)
+                    .firstOrNull
               : null,
         );
       }
@@ -295,12 +307,13 @@ class _AncestryLayout {
         for (final id in (byGen[gen] ?? [])) {
           if (nodes[id]?.isCoupleKnot ?? false) continue;
           final children = (parentsOf.entries
-                  .where((e) => e.value.contains(id))
-                  .map((e) => e.key)
-                  .where((k) => nodes.containsKey(k))
-                  .toList());
+              .where((e) => e.value.contains(id))
+              .map((e) => e.key)
+              .where((k) => nodes.containsKey(k))
+              .toList());
           if (children.isEmpty) continue;
-          final childCx = children
+          final childCx =
+              children
                   .map((k) => nodes[k]!.x + nodeW / 2)
                   .reduce((a, b) => a + b) /
               children.length;
@@ -308,9 +321,7 @@ class _AncestryLayout {
         }
 
         // Pass B: push apart overlapping nodes in this row.
-        final rowNodes = (byGen[gen] ?? [])
-            .map((id) => nodes[id]!)
-            .toList()
+        final rowNodes = (byGen[gen] ?? []).map((id) => nodes[id]!).toList()
           ..sort((a, b) => a.x.compareTo(b.x));
         for (int i = 1; i < rowNodes.length; i++) {
           final minX = rowNodes[i - 1].x + step;
@@ -401,9 +412,12 @@ class _AncEdgePainter extends CustomPainter {
             final path = Path()
               ..moveTo(fromCx, fromTop)
               ..cubicTo(
-                fromCx, fromTop - tension,
-                toCx, toBot + tension,
-                toCx, toBot,
+                fromCx,
+                fromTop - tension,
+                toCx,
+                toBot + tension,
+                toCx,
+                toBot,
               );
             canvas.drawPath(path, parentPaint);
           case TreeEdgeStyle.orthogonal:
@@ -453,8 +467,8 @@ class _AncCard extends StatelessWidget {
     final Color accentColor = person.gender?.toLowerCase() == 'male'
         ? colorScheme.primary
         : person.gender?.toLowerCase() == 'female'
-            ? colorScheme.error
-            : colorScheme.secondary;
+        ? colorScheme.error
+        : colorScheme.secondary;
 
     return GestureDetector(
       onTap: onTap,
@@ -489,8 +503,7 @@ class _AncCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,8 +611,7 @@ class _RootPicker extends StatelessWidget {
           const Text('Ancestry'),
           const SizedBox(width: 6),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(12),
@@ -614,8 +626,7 @@ class _RootPicker extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Icon(Icons.arrow_drop_down,
-              color: colorScheme.onSurface, size: 18),
+          Icon(Icons.arrow_drop_down, color: colorScheme.onSurface, size: 18),
         ],
       ),
     );
@@ -628,16 +639,14 @@ class _PersonSearchDelegate extends SearchDelegate<Person?> {
 
   @override
   List<Widget> buildActions(BuildContext context) => [
-        IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () => query = ''),
-      ];
+    IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+  ];
 
   @override
   Widget buildLeading(BuildContext context) => IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => close(context, null),
-      );
+    icon: const Icon(Icons.arrow_back),
+    onPressed: () => close(context, null),
+  );
 
   @override
   Widget buildResults(BuildContext context) => _buildList(context);
@@ -669,7 +678,16 @@ class AncestryChartScreen extends StatefulWidget {
   final Person? initialPerson;
   final TreePreset? preset;
 
-  const AncestryChartScreen({super.key, this.initialPerson, this.preset});
+  /// Maximum number of ancestor generations to show.  [null] means unlimited
+  /// (standalone usage).  Supplied by [FamilyTreeScreen] from shared settings.
+  final int? ancestorGens;
+
+  const AncestryChartScreen({
+    super.key,
+    this.initialPerson,
+    this.preset,
+    this.ancestorGens,
+  });
 
   @override
   State<AncestryChartScreen> createState() => _AncestryChartScreenState();
@@ -724,19 +742,28 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
-  /// BFS upward through parentIds to collect all ancestors.
-  Set<String> _collectAncestors(Person root, Map<String, Person> pm) {
-    final visited = <String>{};
-    final q = Queue<String>()..add(root.id);
-    while (q.isNotEmpty) {
-      final id = q.removeFirst();
-      if (visited.contains(id)) continue;
-      visited.add(id);
-      for (final parentId in pm[id]?.parentIds ?? []) {
-        if (!visited.contains(parentId) && pm.containsKey(parentId)) {
-          q.add(parentId);
+  /// BFS upward through parentIds to collect ancestors up to [maxGens]
+  /// generations.  When [maxGens] is null the traversal is unlimited.
+  Set<String> _collectAncestors(
+    Person root,
+    Map<String, Person> pm, {
+    int? maxGens,
+  }) {
+    final visited = <String>{root.id};
+    var frontier = [root.id];
+    int depth = 0;
+    while (frontier.isNotEmpty && (maxGens == null || depth < maxGens)) {
+      final next = <String>[];
+      for (final id in frontier) {
+        for (final parentId in pm[id]?.parentIds ?? []) {
+          if (!visited.contains(parentId) && pm.containsKey(parentId)) {
+            visited.add(parentId);
+            next.add(parentId);
+          }
         }
       }
+      frontier = next;
+      depth++;
     }
     return visited;
   }
@@ -759,7 +786,11 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
     final pm = {for (final p in persons) p.id: p};
     if (!pm.containsKey(_rootPerson!.id)) _rootPerson = persons.first;
 
-    final ancestorIds = _collectAncestors(_rootPerson!, pm);
+    final ancestorIds = _collectAncestors(
+      _rootPerson!,
+      pm,
+      maxGens: widget.ancestorGens,
+    );
 
     if (ancestorIds.length <= 1) {
       return Scaffold(
@@ -776,7 +807,8 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
           ),
         ),
         body: const Center(
-            child: Text('This person has no recorded ancestors.')),
+          child: Text('This person has no recorded ancestors.'),
+        ),
       );
     }
 
@@ -796,12 +828,16 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
     }
 
     final visibleIds = {...ancestorIds, ...partnerIds};
-    final visiblePersons =
-        visibleIds.map((id) => pm[id]).whereType<Person>().toList();
+    final visiblePersons = visibleIds
+        .map((id) => pm[id])
+        .whereType<Person>()
+        .toList();
     final visiblePartnerships = partnerships
-        .where((p) =>
-            visibleIds.contains(p.person1Id) &&
-            visibleIds.contains(p.person2Id))
+        .where(
+          (p) =>
+              visibleIds.contains(p.person1Id) &&
+              visibleIds.contains(p.person2Id),
+        )
         .toList();
 
     // Resolve dimensions from preset.
@@ -859,8 +895,7 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
                             nodes: layout.nodes,
                             edges: layout.edges,
                             edgeColor: colorScheme.outline.withOpacity(0.5),
-                            coupleColor:
-                                colorScheme.tertiary.withOpacity(0.7),
+                            coupleColor: colorScheme.tertiary.withOpacity(0.7),
                             nodeW: nodeW,
                             nodeH: nodeH,
                             edgeStyle: edgeStyle,
@@ -883,7 +918,8 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
                                     context,
                                     fadeSlideRoute(
                                       builder: (_) => PersonDetailScreen(
-                                          person: pm[node.id]!),
+                                        person: pm[node.id]!,
+                                      ),
                                     ),
                                   ),
                                 ),

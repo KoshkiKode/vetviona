@@ -130,7 +130,8 @@ class _DescLayout {
     final knotMap = <String, String>{}; // partnershipId → knotId
     for (final part in partnerships) {
       if (!personMap.containsKey(part.person1Id) ||
-          !personMap.containsKey(part.person2Id)) continue;
+          !personMap.containsKey(part.person2Id))
+        continue;
       final knotId = 'knot_${part.id}';
       final knotGen = math.min(
         generation[part.person1Id] ?? 0,
@@ -259,17 +260,14 @@ class _DescLayout {
               .where((k) => nodes.containsKey(k))
               .toList();
           if (kids.isEmpty) continue;
-          final childCx = kids
-                  .map((k) => nodes[k]!.x + cardW / 2)
-                  .reduce((a, b) => a + b) /
+          final childCx =
+              kids.map((k) => nodes[k]!.x + cardW / 2).reduce((a, b) => a + b) /
               kids.length;
           nodes[id]!.x = childCx - cardW / 2;
         }
 
         // Pass B: push apart overlapping nodes in this row.
-        final rowNodes = (byGen[gen] ?? [])
-            .map((id) => nodes[id]!)
-            .toList()
+        final rowNodes = (byGen[gen] ?? []).map((id) => nodes[id]!).toList()
           ..sort((a, b) => a.x.compareTo(b.x));
         for (int i = 1; i < rowNodes.length; i++) {
           final minX = rowNodes[i - 1].x + step;
@@ -359,9 +357,12 @@ class _DescEdgePainter extends CustomPainter {
             final path = Path()
               ..moveTo(fromCx, fromBot)
               ..cubicTo(
-                fromCx, fromBot + tension,
-                toCx, toTop - tension,
-                toCx, toTop,
+                fromCx,
+                fromBot + tension,
+                toCx,
+                toTop - tension,
+                toCx,
+                toTop,
               );
             canvas.drawPath(path, parentPaint);
 
@@ -407,7 +408,16 @@ class DescendantsScreen extends StatefulWidget {
   /// default dimensions when null (standalone usage).
   final TreePreset? preset;
 
-  const DescendantsScreen({super.key, this.initialPerson, this.preset});
+  /// Maximum number of descendant generations to show.  [null] means unlimited
+  /// (standalone usage).  Supplied by [FamilyTreeScreen] from shared settings.
+  final int? descendantGens;
+
+  const DescendantsScreen({
+    super.key,
+    this.initialPerson,
+    this.preset,
+    this.descendantGens,
+  });
 
   @override
   State<DescendantsScreen> createState() => _DescendantsScreenState();
@@ -465,17 +475,29 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
-  /// BFS to collect this person and all their descendants.
-  Set<String> _collectDescendants(Person root, Map<String, Person> pm) {
-    final visited = <String>{};
-    final q = Queue<String>()..add(root.id);
-    while (q.isNotEmpty) {
-      final id = q.removeFirst();
-      if (visited.contains(id)) continue;
-      visited.add(id);
-      for (final c in pm[id]?.childIds ?? []) {
-        if (!visited.contains(c)) q.add(c);
+  /// BFS downward through childIds to collect this person and their
+  /// descendants up to [maxGens] generations.  When [maxGens] is null the
+  /// traversal is unlimited.
+  Set<String> _collectDescendants(
+    Person root,
+    Map<String, Person> pm, {
+    int? maxGens,
+  }) {
+    final visited = <String>{root.id};
+    var frontier = [root.id];
+    int depth = 0;
+    while (frontier.isNotEmpty && (maxGens == null || depth < maxGens)) {
+      final next = <String>[];
+      for (final id in frontier) {
+        for (final childId in pm[id]?.childIds ?? []) {
+          if (!visited.contains(childId)) {
+            visited.add(childId);
+            next.add(childId);
+          }
+        }
       }
+      frontier = next;
+      depth++;
     }
     return visited;
   }
@@ -500,7 +522,11 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
     // Ensure root still exists after tree changes.
     if (!pm.containsKey(_rootPerson!.id)) _rootPerson = persons.first;
 
-    final descIds = _collectDescendants(_rootPerson!, pm);
+    final descIds = _collectDescendants(
+      _rootPerson!,
+      pm,
+      maxGens: widget.descendantGens,
+    );
 
     if (descIds.length <= 1) {
       return Scaffold(
@@ -517,7 +543,8 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
           ),
         ),
         body: const Center(
-            child: Text('This person has no recorded descendants.')),
+          child: Text('This person has no recorded descendants.'),
+        ),
       );
     }
 
@@ -538,12 +565,16 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
     }
 
     final visibleIds = {...descIds, ...partnerIds};
-    final visiblePersons =
-        visibleIds.map((id) => pm[id]).whereType<Person>().toList();
+    final visiblePersons = visibleIds
+        .map((id) => pm[id])
+        .whereType<Person>()
+        .toList();
     final visiblePartnerships = partnerships
-        .where((p) =>
-            visibleIds.contains(p.person1Id) &&
-            visibleIds.contains(p.person2Id))
+        .where(
+          (p) =>
+              visibleIds.contains(p.person1Id) &&
+              visibleIds.contains(p.person2Id),
+        )
         .toList();
 
     // Resolve effective preset dimensions.
@@ -583,91 +614,92 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
         builder: (ctx, constraints) {
           _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
           return Stack(
-        children: [
-          InteractiveViewer(
-            constrained: false,
-            transformationController: _transformCtrl,
-            boundaryMargin: const EdgeInsets.all(200),
-            minScale: 0.1,
-            maxScale: 5.0,
-            child: SizedBox(
-              width: layout.canvasSize.width,
-              height: layout.canvasSize.height,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _DescEdgePainter(
-                        nodes: layout.nodes,
-                        edges: layout.edges,
-                        edgeColor: colorScheme.outline.withOpacity(0.5),
-                        coupleColor: colorScheme.tertiary.withOpacity(0.7),
-                        edgeStyle: effectiveEdgeStyle,
-                        cardW: effectiveCardW,
-                        cardH: effectiveCardH,
+            children: [
+              InteractiveViewer(
+                constrained: false,
+                transformationController: _transformCtrl,
+                boundaryMargin: const EdgeInsets.all(200),
+                minScale: 0.1,
+                maxScale: 5.0,
+                child: SizedBox(
+                  width: layout.canvasSize.width,
+                  height: layout.canvasSize.height,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _DescEdgePainter(
+                            nodes: layout.nodes,
+                            edges: layout.edges,
+                            edgeColor: colorScheme.outline.withOpacity(0.5),
+                            coupleColor: colorScheme.tertiary.withOpacity(0.7),
+                            edgeStyle: effectiveEdgeStyle,
+                            cardW: effectiveCardW,
+                            cardH: effectiveCardH,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  for (final node in layout.nodes.values)
-                    Positioned(
-                      left: node.x,
-                      top: node.y,
-                      width: effectiveCardW,
-                      height: effectiveCardH,
-                      child: node.isCoupleKnot
-                          ? _CoupleKnot(
-                              node: node,
-                              partnerships: visiblePartnerships,
-                              colorScheme: colorScheme,
-                            )
-                          : _DescCard(
-                              person: pm[node.id]!,
-                              isRoot: node.id == _rootPerson!.id,
-                              colorScheme: colorScheme,
-                              onTap: () => Navigator.push(
-                                context,
-                                fadeSlideRoute(
-                                  builder: (_) =>
-                                      PersonDetailScreen(person: pm[node.id]!),
+                      for (final node in layout.nodes.values)
+                        Positioned(
+                          left: node.x,
+                          top: node.y,
+                          width: effectiveCardW,
+                          height: effectiveCardH,
+                          child: node.isCoupleKnot
+                              ? _CoupleKnot(
+                                  node: node,
+                                  partnerships: visiblePartnerships,
+                                  colorScheme: colorScheme,
+                                )
+                              : _DescCard(
+                                  person: pm[node.id]!,
+                                  isRoot: node.id == _rootPerson!.id,
+                                  colorScheme: colorScheme,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    fadeSlideRoute(
+                                      builder: (_) => PersonDetailScreen(
+                                        person: pm[node.id]!,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                    ),
-                ],
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-          // Zoom controls
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'desc_zoom_in',
-                  onPressed: () => _changeScale(1.3),
-                  tooltip: 'Zoom in',
-                  child: const Icon(Icons.add),
+              // Zoom controls
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FloatingActionButton.small(
+                      heroTag: 'desc_zoom_in',
+                      onPressed: () => _changeScale(1.3),
+                      tooltip: 'Zoom in',
+                      child: const Icon(Icons.add),
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: 'desc_zoom_out',
+                      onPressed: () => _changeScale(0.77),
+                      tooltip: 'Zoom out',
+                      child: const Icon(Icons.remove),
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: 'desc_reset',
+                      onPressed: _fitView,
+                      tooltip: 'Fit to view',
+                      child: const Icon(Icons.fit_screen),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'desc_zoom_out',
-                  onPressed: () => _changeScale(0.77),
-                  tooltip: 'Zoom out',
-                  child: const Icon(Icons.remove),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'desc_reset',
-                  onPressed: _fitView,
-                  tooltip: 'Fit to view',
-                  child: const Icon(Icons.fit_screen),
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
           );
         },
       ),
@@ -705,21 +737,25 @@ class _RootPicker extends StatelessWidget {
       ),
       icon: Icon(Icons.arrow_drop_down, color: colorScheme.onPrimary),
       selectedItemBuilder: (_) => persons
-          .map((p) => Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  p.name,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: TextStyle(color: colorScheme.onPrimary, fontSize: 13),
-                ),
-              ))
+          .map(
+            (p) => Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                p.name,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: TextStyle(color: colorScheme.onPrimary, fontSize: 13),
+              ),
+            ),
+          )
           .toList(),
       items: persons
-          .map((p) => DropdownMenuItem(
-                value: p.id,
-                child: Text(p.name, overflow: TextOverflow.ellipsis),
-              ))
+          .map(
+            (p) => DropdownMenuItem(
+              value: p.id,
+              child: Text(p.name, overflow: TextOverflow.ellipsis),
+            ),
+          )
           .toList(),
       onChanged: (id) {
         if (id != null && pm.containsKey(id)) onChanged(pm[id]!);
@@ -743,8 +779,7 @@ class _CoupleKnot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final partId =
-        node.id.startsWith('knot_') ? node.id.substring(5) : '';
+    final partId = node.id.startsWith('knot_') ? node.id.substring(5) : '';
     final part = partnerships.where((p) => p.id == partId).firstOrNull;
     final year = part?.startDate?.year;
     return Center(
@@ -872,13 +907,14 @@ class _DescCard extends StatelessWidget {
                           Icon(
                             Icons.star,
                             size: 10,
-                            color:
-                                colorScheme.onSurfaceVariant.withOpacity(0.6),
+                            color: colorScheme.onSurfaceVariant.withOpacity(
+                              0.6,
+                            ),
                           ),
                       ],
                     ),
-                    if (person.birthDate != null || person.deathDate != null)
-                      ...[
+                    if (person.birthDate != null ||
+                        person.deathDate != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         [
