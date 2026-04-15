@@ -470,13 +470,11 @@ class SyncService extends ChangeNotifier {
 
   // ── HTTP request handlers ───────────────────────────────────────────────────
 
+  // The /info endpoint intentionally returns no device-identifying data.
+  // Device ID and tier are exchanged only inside encrypted /sync payloads.
   Response _handleInfo(Request request) {
-    final tp = _treeProvider;
     return Response.ok(
-      jsonEncode({
-        'deviceId': tp?.localDeviceId ?? '',
-        'tier': tp?.currentAppTierString ?? 'mobileFree',
-      }),
+      jsonEncode({'app': 'vetviona'}),
       headers: {'content-type': 'application/json'},
     );
   }
@@ -1134,25 +1132,40 @@ class SyncService extends ChangeNotifier {
     return enc.Key(Uint8List.fromList(digest.bytes));
   }
 
-  /// Encrypts [data] as JSON with AES-256-CBC and returns
-  /// `<iv-base64>::<ciphertext-base64>`.
+  /// Encrypts [data] as JSON with AES-256-GCM (AEAD) and returns
+  /// `<nonce-base64>::<ciphertext+tag-base64>`.
+  ///
+  /// AES-GCM provides both confidentiality **and** authentication (the
+  /// 16-byte GHASH tag is appended to the ciphertext by the `encrypt`
+  /// package).  Any attempt to tamper with the ciphertext is detected at
+  /// decryption time, making padding-oracle and bit-flipping attacks
+  /// impossible.
+  ///
+  /// A fresh 12-byte (96-bit) nonce is generated for every message, which is
+  /// the NIST-recommended nonce size for GCM and provides strong security
+  /// guarantees for typical message volumes.
   static String _encrypt(Map<String, dynamic> data, String sharedSecret) {
     final key = _keyFromSecret(sharedSecret);
-    final iv = enc.IV.fromSecureRandom(16);
-    final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+    final iv = enc.IV.fromSecureRandom(12); // 12-byte nonce (NIST GCM std)
+    final encrypter =
+        enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm, padding: null));
     final encrypted = encrypter.encrypt(jsonEncode(data), iv: iv);
     return '${iv.base64}::${encrypted.base64}';
   }
 
-  /// Tries to decrypt an `<iv-base64>::<ciphertext-base64>` payload.
-  /// Returns `null` if decryption or JSON parsing fails.
+  /// Tries to decrypt an `<nonce-base64>::<ciphertext+tag-base64>` payload.
+  ///
+  /// Returns `null` if decryption fails **for any reason** — wrong key,
+  /// corrupted ciphertext, failed GCM authentication tag verification, or
+  /// invalid JSON.  Callers should treat `null` as "unauthorized".
   static Map<String, dynamic>? _tryDecrypt(String raw, String sharedSecret) {
     try {
       final parts = raw.split('::');
       if (parts.length != 2) return null;
       final key = _keyFromSecret(sharedSecret);
       final iv = enc.IV.fromBase64(parts[0]);
-      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+      final encrypter =
+          enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm, padding: null));
       final decrypted = encrypter.decrypt64(parts[1], iv: iv);
       return jsonDecode(decrypted) as Map<String, dynamic>;
     } catch (_) {

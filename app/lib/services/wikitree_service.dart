@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -170,15 +171,20 @@ enum WikiTreeLoginResult { success, wrongPassword, notFound, networkError }
 /// operations (GEDCOM export, watchlist, editing) require a logged-in session.
 ///
 /// Authentication is cookie-based: [login] POSTs `clientLogin`, captures the
-/// `wikitree_wtb` session cookie from `Set-Cookie`, and stores it in
-/// [SharedPreferences].  Every subsequent request that needs auth includes the
-/// cookie as the `Cookie` header.
+/// `wikitree_wtb` session cookie from `Set-Cookie`, and stores it in the
+/// platform's **secure storage** (Keychain on iOS/macOS, Keystore-backed
+/// EncryptedSharedPreferences on Android, Credential Manager on Windows,
+/// libsecret on Linux).  Only the non-sensitive username is kept in regular
+/// SharedPreferences.
 class WikiTreeService extends ChangeNotifier {
   WikiTreeService._();
   static final WikiTreeService instance = WikiTreeService._();
 
   static const _base = 'https://api.wikitree.com/api.php';
   static const _ua = 'Vetviona/1.0 (genealogy; contact@vetviona.app)';
+
+  /// Platform secure storage for the session cookie.
+  static const _secureStorage = FlutterSecureStorage();
 
   // ── Auth state ────────────────────────────────────────────────────────────
 
@@ -191,8 +197,9 @@ class WikiTreeService extends ChangeNotifier {
   // ── Initialisation ────────────────────────────────────────────────────────
 
   Future<void> loadCredentials() async {
+    // Cookie comes from secure storage; username from plain SharedPreferences.
+    _cookie = await _secureStorage.read(key: 'wikitree_cookie');
     final prefs = await SharedPreferences.getInstance();
-    _cookie = prefs.getString('wikitree_cookie');
     _loggedInUser = prefs.getString('wikitree_user');
     notifyListeners();
   }
@@ -231,15 +238,15 @@ class WikiTreeService extends ChangeNotifier {
             loginResult?['userid']?.toString() ??
             email;
 
-        // Store cookie + username
+        // Store cookie in platform secure storage; username in SharedPreferences.
         final cookie = cookieMatch != null
             ? '${cookieMatch.group(1)}=${cookieMatch.group(2)}'
             : null;
-        final prefs = await SharedPreferences.getInstance();
         if (cookie != null) {
-          await prefs.setString('wikitree_cookie', cookie);
+          await _secureStorage.write(key: 'wikitree_cookie', value: cookie);
           _cookie = cookie;
         }
+        final prefs = await SharedPreferences.getInstance();
         await prefs.setString('wikitree_user', username);
         _loggedInUser = username;
         notifyListeners();
@@ -256,8 +263,8 @@ class WikiTreeService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await _secureStorage.delete(key: 'wikitree_cookie');
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('wikitree_cookie');
     await prefs.remove('wikitree_user');
     _cookie = null;
     _loggedInUser = null;

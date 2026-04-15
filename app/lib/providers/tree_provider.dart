@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,56 @@ import '../models/person.dart';
 import '../models/research_task.dart';
 import '../models/source.dart';
 import '../services/gedcom_parser.dart';
+import '../utils/input_sanitizer.dart';
+
+// ── PBKDF2-HMAC-SHA256 helpers ─────────────────────────────────────────────
+//
+// These are top-level (not instance methods) so they can be passed to
+// Flutter's [compute()] function, which runs them in a separate isolate and
+// avoids blocking the UI thread during the intentionally-slow key derivation.
+
+/// Number of PBKDF2 iterations.  100 000 is the OWASP-recommended minimum
+/// for PBKDF2-HMAC-SHA256 as of current OWASP recommendations.
+const int _kPbkdf2Iterations = 100000;
+
+/// Argument bundle for [_runPbkdf2] (must be sendable across isolates).
+class _Pbkdf2Args {
+  final String password;
+  final String salt;
+  final int iterations;
+  const _Pbkdf2Args(this.password, this.salt, this.iterations);
+}
+
+/// Derives a 32-byte key from [args.password] and [args.salt] using
+/// PBKDF2-HMAC-SHA256 with [args.iterations] rounds.
+///
+/// Returns the result as a lowercase hex string (64 characters).
+///
+/// This is a CPU-bound, blocking function — always invoke it via
+/// `compute(_runPbkdf2, args)` so it runs in an isolate.
+String _runPbkdf2(_Pbkdf2Args args) {
+  final pwBytes = utf8.encode(args.password);
+  final saltBytes = utf8.encode(args.salt);
+  const hashLen = 32; // SHA-256 output is 32 bytes → one PBKDF2 block
+
+  // PBKDF2 block 1: PRF(Password, Salt || 0x00000001)
+  final saltBlock = Uint8List(saltBytes.length + 4);
+  saltBlock.setAll(0, saltBytes);
+  saltBlock[saltBytes.length + 3] = 1; // big-endian block index = 1
+
+  var u = Uint8List.fromList(
+      Hmac(sha256, pwBytes).convert(saltBlock).bytes);
+  final t = Uint8List.fromList(u);
+
+  for (int i = 1; i < args.iterations; i++) {
+    u = Uint8List.fromList(Hmac(sha256, pwBytes).convert(u).bytes);
+    for (int j = 0; j < hashLen; j++) {
+      t[j] ^= u[j];
+    }
+  }
+
+  return t.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+}
 
 class TreeProvider extends ChangeNotifier {
   // ── State ──────────────────────────────────────────────────────────────────
@@ -887,54 +938,129 @@ class TreeProvider extends ChangeNotifier {
   // ── Auth ───────────────────────────────────────────────────────────────────
 
   static const _uuidLength = 36; // UUID v4 string length
-  static const _sha256HexLength = 64; // SHA-256 hex digest length
+  static const _sha256HexLength = 64; // SHA-256 hex digest length (legacy)
 
-  /// Generates a SHA-256 hash of [password] using [salt].
+  // ── Login rate-limiting ────────────────────────────────────────────────────
+  //
+  // After [_maxLoginFailures] consecutive failed attempts for a given username
+  // the account is locked out for [_lockoutDuration].  The counter resets on
+  // successful authentication.  The map is in-memory only — a restart clears
+  // it — which is acceptable for a local-device lock screen.
+
+  static const _maxLoginFailures = 5;
+  static const _lockoutDuration = Duration(minutes: 1);
+
+  final Map<String, ({int count, DateTime since})> _loginFailures = {};
+
+  /// Returns `true` if [username] is currently locked out.
+  bool _isLockedOut(String username) {
+    final entry = _loginFailures[username];
+    if (entry == null || entry.count < _maxLoginFailures) return false;
+    return DateTime.now().difference(entry.since) < _lockoutDuration;
+  }
+
+  /// Records a failed login attempt for [username].
+  void _recordFailure(String username) {
+    final existing = _loginFailures[username];
+    if (existing == null ||
+        DateTime.now().difference(existing.since) >= _lockoutDuration) {
+      // Start a new failure window.
+      _loginFailures[username] = (count: 1, since: DateTime.now());
+    } else {
+      _loginFailures[username] =
+          (count: existing.count + 1, since: existing.since);
+    }
+  }
+
+  /// Clears the failure counter for [username] after a successful login.
+  void _clearFailures(String username) {
+    _loginFailures.remove(username);
+  }
+
+  /// Legacy SHA-256 password hash — kept only for migration of old accounts.
+  ///
+  /// New registrations use PBKDF2-HMAC-SHA256 via [_runPbkdf2].
   static String _hashPassword(String password, String salt) {
     final bytes = utf8.encode('$salt:$password');
     return sha256.convert(bytes).toString();
   }
 
+  /// Registers [username] with [password].
+  ///
+  /// Stores `pbkdf2:<uuid-salt>:<iterations>:<hex-dk>` in SharedPreferences.
+  /// Returns `false` if the username is already taken.
   Future<bool> register(String username, String password) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'user_$username';
     if (prefs.containsKey(key)) return false;
     final salt = _uuid.v4();
-    final hash = _hashPassword(password, salt);
-    await prefs.setString(key, '$salt:$hash');
+    final hash = await compute(
+        _runPbkdf2, _Pbkdf2Args(password, salt, _kPbkdf2Iterations));
+    await prefs.setString(key, 'pbkdf2:$salt:$_kPbkdf2Iterations:$hash');
     _currentUser = username;
     notifyListeners();
     return true;
   }
 
+  /// Logs in [username] with [password].
+  ///
+  /// Returns `false` immediately if the account is temporarily locked due to
+  /// too many consecutive failed attempts.
+  ///
+  /// Handles three stored-credential formats (in priority order):
+  /// 1. `pbkdf2:<salt>:<iterations>:<hex>` — current PBKDF2 format.
+  /// 2. `<uuid>:<sha256hex>` — previous single-pass SHA-256 format; migrated
+  ///    to PBKDF2 on successful login.
+  /// 3. Anything else — legacy plaintext; migrated to PBKDF2 on success.
   Future<bool> login(String username, String password) async {
+    if (_isLockedOut(username)) return false;
+
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString('user_$username');
     if (stored == null) return false;
-    // Support both new hashed format (salt:hash) and legacy plaintext.
-    final parts = stored.split(':');
+
     bool valid;
-    if (parts.length == 2 &&
+    final parts = stored.split(':');
+
+    if (parts.length == 4 && parts[0] == 'pbkdf2') {
+      // ── Current PBKDF2 format ─────────────────────────────────────────────
+      final salt = parts[1];
+      final iterations = int.tryParse(parts[2]) ?? _kPbkdf2Iterations;
+      final storedHash = parts[3];
+      final hash = await compute(
+          _runPbkdf2, _Pbkdf2Args(password, salt, iterations));
+      valid = hash == storedHash;
+    } else if (parts.length == 2 &&
         parts[0].length == _uuidLength &&
         parts[1].length == _sha256HexLength) {
-      // New format: salt (UUID) : SHA-256 hash
-      final salt = parts[0];
-      final hash = parts[1];
-      valid = _hashPassword(password, salt) == hash;
+      // ── Legacy SHA-256 format — migrate to PBKDF2 on success ─────────────
+      valid = _hashPassword(password, parts[0]) == parts[1];
+      if (valid) {
+        final newSalt = _uuid.v4();
+        final newHash = await compute(
+            _runPbkdf2, _Pbkdf2Args(password, newSalt, _kPbkdf2Iterations));
+        await prefs.setString(
+            'user_$username', 'pbkdf2:$newSalt:$_kPbkdf2Iterations:$newHash');
+      }
     } else {
-      // Legacy plaintext — migrate to hashed format on successful login.
+      // ── Legacy plaintext — migrate to PBKDF2 on success ──────────────────
       valid = stored == password;
       if (valid) {
         final salt = _uuid.v4();
-        final hash = _hashPassword(password, salt);
-        await prefs.setString('user_$username', '$salt:$hash');
+        final hash = await compute(
+            _runPbkdf2, _Pbkdf2Args(password, salt, _kPbkdf2Iterations));
+        await prefs.setString(
+            'user_$username', 'pbkdf2:$salt:$_kPbkdf2Iterations:$hash');
       }
     }
+
     if (valid) {
+      _clearFailures(username);
       _currentUser = username;
       notifyListeners();
       return true;
     }
+    _recordFailure(username);
     return false;
   }
 
@@ -1228,7 +1354,32 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = person.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
-      person.treeId = currentTreeId;
+      // Sanitise all string fields before writing to the local database so
+      // that a crafted peer payload cannot persist control characters or
+      // excessively long strings.
+      person
+        ..name = InputSanitizer.name(person.name)
+        ..birthPlace = InputSanitizer.shortField(person.birthPlace)
+        ..deathPlace = InputSanitizer.shortField(person.deathPlace)
+        ..notes = InputSanitizer.mediumField(person.notes)
+        ..occupation = InputSanitizer.shortField(person.occupation)
+        ..nationality = InputSanitizer.shortField(person.nationality)
+        ..maidenName = InputSanitizer.shortField(person.maidenName)
+        ..burialPlace = InputSanitizer.shortField(person.burialPlace)
+        ..birthPostalCode = InputSanitizer.shortField(person.birthPostalCode)
+        ..deathPostalCode = InputSanitizer.shortField(person.deathPostalCode)
+        ..burialPostalCode = InputSanitizer.shortField(person.burialPostalCode)
+        ..causeOfDeath = InputSanitizer.shortField(person.causeOfDeath)
+        ..eyeColour = InputSanitizer.shortField(person.eyeColour)
+        ..hairColour = InputSanitizer.shortField(person.hairColour)
+        ..height = InputSanitizer.shortField(person.height)
+        ..religion = InputSanitizer.shortField(person.religion)
+        ..education = InputSanitizer.shortField(person.education)
+        ..bloodType = InputSanitizer.shortField(person.bloodType)
+        ..aliases = person.aliases
+            .map((a) => InputSanitizer.sanitizeRequired(a))
+            .toList()
+        ..treeId = currentTreeId;
       await db.insert('persons', person.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
       if (isNew) added++;
@@ -1243,7 +1394,9 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = partnership.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
-      partnership.treeId = currentTreeId;
+      partnership
+        ..notes = InputSanitizer.mediumField(partnership.notes)
+        ..treeId = currentTreeId;
       await db.insert('partnerships', partnership.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -1256,7 +1409,15 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = source.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
-      source.treeId ??= currentTreeId;
+      source
+        ..title = InputSanitizer.sanitizeRequired(
+            source.title, maxLength: InputSanitizer.maxShortField)
+        ..extractedInfo = InputSanitizer.mediumField(source.extractedInfo)
+        ..author = InputSanitizer.shortField(source.author)
+        ..publisher = InputSanitizer.shortField(source.publisher)
+        ..repository = InputSanitizer.shortField(source.repository)
+        ..volumePage = InputSanitizer.shortField(source.volumePage)
+        ..treeId ??= currentTreeId;
       await db.insert('sources', source.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -1270,6 +1431,11 @@ class TreeProvider extends ChangeNotifier {
         final incomingTs = event.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
+      event
+        ..title = InputSanitizer.sanitizeRequired(
+            event.title, maxLength: InputSanitizer.maxShortField)
+        ..place = InputSanitizer.shortField(event.place)
+        ..notes = InputSanitizer.mediumField(event.notes);
       await db.insert('life_events', event.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }

@@ -777,10 +777,12 @@ class _QrScannerCardState extends State<_QrScannerCard> {
       final uri = Uri.parse(raw);
       if (uri.scheme != 'vetviona') return null;
       final host = uri.host;
-      final port = uri.port.toString();
+      final port = uri.port;
       final secret = uri.queryParameters['secret'];
       if (host.isEmpty || secret == null || secret.isEmpty) return null;
-      return {'host': host, 'port': port, 'secret': secret};
+      // Reject invalid / reserved ports (0 is "unspecified"; >65535 is invalid).
+      if (port <= 0 || port > 65535) return null;
+      return {'host': host, 'port': port.toString(), 'secret': secret};
     } catch (_) {
       return null;
     }
