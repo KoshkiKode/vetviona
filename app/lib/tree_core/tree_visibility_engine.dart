@@ -59,13 +59,12 @@ class TreeVisibilityEngine {
     required List<Person> persons,
     required List<Partnership> partnerships,
     String? homePersonId,
-  }) =>
-      TreeVisibilityEngine(
-        persons: persons,
-        partnerships: partnerships,
-        homePersonId: homePersonId ?? this.homePersonId,
-        initialVisibleIds: Set<String>.from(_visibleIds),
-      );
+  }) => TreeVisibilityEngine(
+    persons: persons,
+    partnerships: partnerships,
+    homePersonId: homePersonId ?? this.homePersonId,
+    initialVisibleIds: Set<String>.from(_visibleIds),
+  );
 
   // ── State accessors ─────────────────────────────────────────────────────────
 
@@ -86,7 +85,7 @@ class TreeVisibilityEngine {
     _visibleIds.clear();
     final homeId =
         homePersonId ?? (persons.isNotEmpty ? persons.first.id : null);
-    if (homeId == null) return;
+    if (homeId == null || !_personMap.containsKey(homeId)) return;
     _addFamily(homeId, ancestorGens, descendantGens);
   }
 

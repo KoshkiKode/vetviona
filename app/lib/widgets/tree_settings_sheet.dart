@@ -64,8 +64,7 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
         return Container(
           decoration: BoxDecoration(
             color: colorScheme.surface,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: CustomScrollView(
             controller: scrollCtrl,
@@ -94,8 +93,9 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
                     children: [
                       Text(
                         'Tree Settings',
-                        style: textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style: textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
@@ -117,8 +117,8 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
                         preset: preset,
                         selected: selected,
                         colorScheme: colorScheme,
-                        onTap: () => _update(
-                            _settings.copyWith(preset: preset.type)),
+                        onTap: () =>
+                            _update(_settings.copyWith(preset: preset.type)),
                       );
                     }).toList(),
                   ),
@@ -134,22 +134,23 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
                         label: 'Ancestors',
                         icon: Icons.keyboard_arrow_up,
                         value: _settings.ancestorGenerations,
-                        min: 1,
+                        min: 0,
                         max: 6,
                         colorScheme: colorScheme,
-                        onChanged: (v) => _update(
-                            _settings.copyWith(ancestorGenerations: v)),
+                        onChanged: (v) =>
+                            _update(_settings.copyWith(ancestorGenerations: v)),
                       ),
                       const SizedBox(height: 4),
                       _DepthSlider(
                         label: 'Descendants',
                         icon: Icons.keyboard_arrow_down,
                         value: _settings.descendantGenerations,
-                        min: 1,
+                        min: 0,
                         max: 6,
                         colorScheme: colorScheme,
                         onChanged: (v) => _update(
-                            _settings.copyWith(descendantGenerations: v)),
+                          _settings.copyWith(descendantGenerations: v),
+                        ),
                       ),
                     ],
                   ),
@@ -165,10 +166,11 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
                         dense: true,
                         title: const Text('Show "Add…" placeholder slots'),
                         subtitle: const Text(
-                            'Quick-add buttons for missing relatives'),
+                          'Quick-add buttons for missing relatives',
+                        ),
                         value: _settings.showEmptyAddSlots,
-                        onChanged: (v) => _update(
-                            _settings.copyWith(showEmptyAddSlots: v)),
+                        onChanged: (v) =>
+                            _update(_settings.copyWith(showEmptyAddSlots: v)),
                       ),
                       if (_settings.showEmptyAddSlots)
                         _DepthSlider(
@@ -178,8 +180,8 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
                           min: 1,
                           max: 3,
                           colorScheme: colorScheme,
-                          onChanged: (v) => _update(
-                              _settings.copyWith(emptyAddSlotTiers: v)),
+                          onChanged: (v) =>
+                              _update(_settings.copyWith(emptyAddSlotTiers: v)),
                         ),
                     ],
                   ),
@@ -302,8 +304,11 @@ class _PresetTile extends StatelessWidget {
                   ),
                 ),
                 if (selected)
-                  Icon(Icons.check_circle,
-                      size: 18, color: colorScheme.primary),
+                  Icon(
+                    Icons.check_circle,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
               ],
             ),
           ),
@@ -353,8 +358,7 @@ class _DepthSlider extends StatelessWidget {
             width: 90,
             child: Text(
               label,
-              style: TextStyle(
-                  fontSize: 13, color: colorScheme.onSurface),
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
             ),
           ),
           Expanded(
