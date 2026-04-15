@@ -160,14 +160,22 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen>
                 // 1: Fan Chart
                 const FanChartScreen(),
                 // 2: Ancestry
-                AncestryChartScreen(preset: preset),
+                AncestryChartScreen(
+                  preset: preset,
+                  ancestorGens: _settings.ancestorGenerations,
+                ),
                 // 3: Descendancy
-                DescendantsScreen(preset: preset),
+                DescendantsScreen(
+                  preset: preset,
+                  descendantGens: _settings.descendantGenerations,
+                ),
                 // 4: Pedigree
                 PedigreeScreen(
                   preset: preset,
-                  initialMaxGenerations:
-                      _settings.ancestorGenerations.clamp(2, 6),
+                  initialMaxGenerations: _settings.ancestorGenerations.clamp(
+                    2,
+                    6,
+                  ),
                 ),
               ],
             ),
@@ -229,8 +237,9 @@ class _LayoutStyleStrip extends StatelessWidget {
                 selectedColor: colorScheme.primary,
                 onSelected: (_) => onSelected(preset.type),
                 labelStyle: TextStyle(
-                  color:
-                      selected ? colorScheme.onPrimary : colorScheme.onSurface,
+                  color: selected
+                      ? colorScheme.onPrimary
+                      : colorScheme.onSurface,
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
