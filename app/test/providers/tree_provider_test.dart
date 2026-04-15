@@ -6,6 +6,7 @@
 
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -564,17 +565,20 @@ void main() {
 
     // ── Stored format ──────────────────────────────────────────────────────
 
-    test('register stores password as salt:sha256hash (not plaintext)', () async {
+    test('register stores password as pbkdf2 hash (not plaintext)', () async {
       await provider.register('alice', 'secret');
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString('user_alice')!;
       // Must NOT be the raw password
       expect(stored, isNot('secret'));
-      // Must be UUID (36 chars) + ':' + SHA-256 hex (64 chars) = 101 chars
-      expect(stored.length, 101);
+      // Must use the new PBKDF2 format: pbkdf2:<salt>:<iterations>:<hex>
+      expect(stored.startsWith('pbkdf2:'), isTrue);
       final parts = stored.split(':');
-      expect(parts[0].length, 36);
-      expect(parts[1].length, 64);
+      expect(parts.length, 4);
+      expect(parts[0], 'pbkdf2');
+      expect(parts[1].length, 36); // UUID v4 salt
+      expect(int.parse(parts[2]), greaterThan(0)); // iterations > 0
+      expect(parts[3].length, 64); // 32-byte hex digest
     });
 
     test('two users with the same password get different stored values (salt)', () async {
@@ -600,10 +604,10 @@ void main() {
       final ok = await freshProvider.login('legacyuser', 'legacypassword');
       expect(ok, true);
 
-      // After login the stored value should have been migrated to salt:hash.
+      // After login the stored value should have been migrated to PBKDF2 format.
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString('user_legacyuser')!;
-      expect(stored.length, 101); // 36 + 1 + 64
+      expect(stored.startsWith('pbkdf2:'), isTrue);
       expect(stored, isNot('legacypassword'));
     });
 
@@ -633,6 +637,34 @@ void main() {
       // Second login should use hashed format and still succeed.
       final ok = await p.login('legacyuser', 'mypassword');
       expect(ok, true);
+    });
+
+    test('old SHA-256 format logs in and is migrated to PBKDF2', () async {
+      // Simulate an installation that used the previous salt:sha256hex format.
+      // The salt is a valid UUID v4 (36 chars); the hash is 64 lowercase hex chars.
+      // We replicate the old _hashPassword logic (sha256("$salt:$password")) to
+      // build the fixture value dynamically rather than hardcoding the hash.
+      const testPwd = 'abc123';
+      const testSalt = '550e8400-e29b-41d4-a716-446655440000';
+      final saltBytes = utf8.encode('$testSalt:$testPwd');
+      final oldHash = sha256.convert(saltBytes).toString();
+      SharedPreferences.setMockInitialValues({
+        'user_sha256user': '$testSalt:$oldHash',
+      });
+      final p = TreeProvider();
+      final ok = await p.login('sha256user', testPwd);
+      expect(ok, true);
+      expect(p.isLoggedIn, true);
+
+      // Stored value must now be in PBKDF2 format.
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString('user_sha256user')!;
+      expect(stored.startsWith('pbkdf2:'), isTrue);
+
+      // Subsequent login with the same password must still work.
+      p.logout();
+      expect(await p.login('sha256user', testPwd), true);
+      expect(await p.login('sha256user', 'wrongpassword'), false);
     });
   });
 

@@ -273,7 +273,7 @@ class BluetoothSyncService extends ChangeNotifier {
   BleSyncPeer? _parsePeer(ScanResult result) {
     final mfData = result.advertisementData.manufacturerData;
     final payload = mfData[_kCompanyId];
-    if (payload == null || payload.length < 14) return null;
+    if (payload == null || payload.length < 18) return null;
 
     // Verify magic bytes.
     for (int i = 0; i < 4; i++) {
