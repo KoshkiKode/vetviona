@@ -176,7 +176,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   // ── Preset / settings ───────────────────────────────────────────────────────
   /// Returns the effective preset: the one passed in by FamilyTreeScreen (if
   /// any), otherwise the Hybrid default (standalone usage).
-  TreePreset get _preset => widget.preset ?? TreePreset.hybrid;
+  TreePreset get _preset => widget.preset ?? TreePreset.classic;
 
   int get _effectiveAncestorGens =>
       widget.ancestorGens ?? _preset.defaultAncestorGens;
@@ -1202,7 +1202,7 @@ class _PersonNodeWidget extends StatelessWidget {
 
   const _PersonNodeWidget({
     required this.person, required this.colorScheme,
-    this.preset = TreePreset.hybrid,
+    this.preset = TreePreset.classic,
     required this.isHighlighted, required this.isSelected,
     this.hasHiddenAncestors = false,
     this.hasHiddenDescendants = false,
