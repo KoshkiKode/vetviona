@@ -8,6 +8,10 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+env:
+  IOS_DEPLOYMENT_TARGET: '15.5'
+  MACOS_DEPLOYMENT_TARGET: '10.15'
+
 jobs:
   android:
     name: Android APK + AAB
@@ -57,7 +61,7 @@ jobs:
         with: { channel: stable, cache: true }
       - working-directory: app
         run: flutter create --platforms=ios --org com.koshkikode .
-      - run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '15.5'/" app/ios/Podfile
+      - run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '${IOS_DEPLOYMENT_TARGET}'/" app/ios/Podfile
       - working-directory: app
         run: |
           flutter pub get
@@ -154,7 +158,7 @@ jobs:
       - run: flutter config --enable-macos-desktop
       - working-directory: app
         run: flutter create --platforms=macos --org com.koshkikode .
-      - run: sed -i '' "s/.*platform :osx, .*/platform :osx, '10.15'/" app/macos/Podfile
+      - run: sed -i '' "s/.*platform :osx, .*/platform :osx, '${MACOS_DEPLOYMENT_TARGET}'/" app/macos/Podfile
       - run: |
           cp packaging/macos/entitlements.plist app/macos/Runner/Release.entitlements
           cp packaging/macos/entitlements.plist app/macos/Runner/DebugProfile.entitlements
