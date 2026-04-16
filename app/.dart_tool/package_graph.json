@@ -42,7 +42,8 @@
       "devDependencies": [
         "flutter_launcher_icons",
         "flutter_lints",
-        "flutter_test"
+        "flutter_test",
+        "msix"
       ]
     },
     {
@@ -1585,6 +1586,37 @@
       "name": "lists",
       "version": "1.0.1",
       "dependencies": [
+        "meta"
+      ]
+    },
+    {
+      "name": "msix",
+      "version": "3.16.13",
+      "dependencies": [
+        "args",
+        "cli_util",
+        "console",
+        "get_it",
+        "image",
+        "package_config",
+        "path",
+        "pub_semver",
+        "yaml"
+      ]
+    },
+    {
+      "name": "console",
+      "version": "4.1.0",
+      "dependencies": [
+        "vector_math"
+      ]
+    },
+    {
+      "name": "get_it",
+      "version": "9.2.1",
+      "dependencies": [
+        "async",
+        "collection",
         "meta"
       ]
     }
