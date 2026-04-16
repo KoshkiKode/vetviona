@@ -784,10 +784,19 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     final anchorPerson = personMap[anchorId];
     if (anchorNode == null || anchorPerson == null) return const [];
 
+    // Determine which parent genders the anchor already has so we don't show
+    // a ghost "Add mom?" / "Add dad?" slot when that parent already exists.
+    final existingParentGenders = anchorPerson.parentIds
+        .map((pid) => personMap[pid]?.gender?.toLowerCase())
+        .whereType<String>()
+        .toSet();
+    final hasMom = existingParentGenders.contains('female');
+    final hasDad = existingParentGenders.contains('male');
+
     final slots = <Widget>[];
     final relations = <_AddSlotSpec>[
-      const _AddSlotSpec(_TreeQuickRelation.mom, -1, -1),
-      const _AddSlotSpec(_TreeQuickRelation.dad, 1, -1),
+      if (!hasMom) const _AddSlotSpec(_TreeQuickRelation.mom, -1, -1),
+      if (!hasDad) const _AddSlotSpec(_TreeQuickRelation.dad, 1, -1),
       const _AddSlotSpec(_TreeQuickRelation.sibling, -1, 0),
       const _AddSlotSpec(_TreeQuickRelation.spouse, 1, 0),
       const _AddSlotSpec(_TreeQuickRelation.son, -1, 1),
