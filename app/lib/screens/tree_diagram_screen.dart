@@ -28,9 +28,15 @@ const double _kGenLabelTopOffset = 20.0;
 /// as the control-point offset from each end of the edge.
 const double _kEdgeTensionFactor = 0.5;
 
-/// Maximum tension as a fraction of [kTreeRowGap], capping how much the
+/// Maximum tension as a fraction of the active row gap, capping how much the
 /// curve can bow when rows are very far apart.
 const double _kMaxTensionRatio = 0.6;
+
+/// Radius (px) of the couple-knot circle widget (half of its 28 px diameter).
+/// All edge geometry that touches the knot uses this value so that the
+/// connector lines start/end exactly at the circle boundary.
+const double _kCoupleKnotRadius = 14.0;
+
 const double _kEmptySlotTier1Opacity = 0.28;
 const double _kEmptySlotOpacityBase = 0.18;
 const double _kEmptySlotOpacityMin = 0.08;
@@ -45,6 +51,10 @@ class _EdgePainter extends CustomPainter {
   final double nodeWidth;
   final double nodeHeight;
 
+  /// Actual row gap from the active preset — used to scale the bezier tension
+  /// cap so curves look proportional at every density setting.
+  final double rowGap;
+
   _EdgePainter({
     required this.nodes,
     required this.edges,
@@ -53,6 +63,7 @@ class _EdgePainter extends CustomPainter {
     this.edgeStyle = TreeEdgeStyle.bezier,
     this.nodeWidth = kTreeNodeW,
     this.nodeHeight = kTreeNodeH,
+    this.rowGap = kTreeRowGap,
   });
 
   @override
@@ -74,27 +85,43 @@ class _EdgePainter extends CustomPainter {
       if (fromNode == null || toNode == null) continue;
 
       if (edge.isCouple) {
-        // Straight line between couple nodes / knot (all styles).
-        canvas.drawLine(
-          Offset(fromNode.x + nodeWidth / 2, fromNode.y + nodeHeight / 2),
-          Offset(toNode.x + nodeWidth / 2, toNode.y + nodeHeight / 2),
-          couplePaint,
-        );
+        // Couple connector: run from the partner card's nearest horizontal
+        // edge to the knot circle's nearest edge — nothing passes through a
+        // widget.  `toNode` is always the knot; `fromNode` is the partner.
+        final knotCx = toNode.x + nodeWidth / 2;
+        final knotCy = toNode.y + nodeHeight / 2;
+        final fromCy = fromNode.y + nodeHeight / 2;
+        final Offset startPt;
+        final Offset endPt;
+        if (fromNode.x + nodeWidth / 2 < knotCx) {
+          // Partner is to the left of the knot.
+          startPt = Offset(fromNode.x + nodeWidth, fromCy);
+          endPt = Offset(knotCx - _kCoupleKnotRadius, knotCy);
+        } else {
+          // Partner is to the right of the knot.
+          startPt = Offset(fromNode.x, fromCy);
+          endPt = Offset(knotCx + _kCoupleKnotRadius, knotCy);
+        }
+        canvas.drawLine(startPt, endPt, couplePaint);
       } else {
         final fromCx = fromNode.x + nodeWidth / 2;
+        // For knot nodes the connector exits from the bottom of the visible
+        // 28 px circle (centre + radius), not from the centre of the
+        // allocation box, so the line is never hidden inside the circle.
         final fromBot = fromNode.isCoupleKnot
-            ? fromNode.y + nodeHeight / 2
+            ? fromNode.y + nodeHeight / 2 + _kCoupleKnotRadius
             : fromNode.y + nodeHeight;
         final toCx = toNode.x + nodeWidth / 2;
         final toTop = toNode.y;
 
         switch (edgeStyle) {
           case TreeEdgeStyle.bezier:
-            // Smooth S-curve (default).
+            // Smooth S-curve — tension capped relative to the *active* row
+            // gap so the curve looks proportional at every density setting.
             final dy = (toTop - fromBot).abs();
             final tension = (dy * _kEdgeTensionFactor).clamp(
               0,
-              kTreeRowGap * _kMaxTensionRatio,
+              rowGap * _kMaxTensionRatio,
             );
             final path = Path()
               ..moveTo(fromCx, fromBot)
@@ -136,7 +163,10 @@ class _EdgePainter extends CustomPainter {
       old.edges.length != edges.length ||
       old.edgeColor != edgeColor ||
       old.coupleColor != coupleColor ||
-      old.edgeStyle != edgeStyle;
+      old.edgeStyle != edgeStyle ||
+      old.nodeWidth != nodeWidth ||
+      old.nodeHeight != nodeHeight ||
+      old.rowGap != rowGap;
 }
 
 // Main Screen
@@ -1115,6 +1145,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                             edgeStyle: _preset.edgeStyle,
                             nodeWidth: _preset.nodeWidth,
                             nodeHeight: _preset.nodeHeight,
+                            rowGap: _preset.rowGap,
                           ),
                         ),
                       ),
