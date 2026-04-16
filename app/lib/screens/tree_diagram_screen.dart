@@ -942,10 +942,21 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       colGap: _preset.colGap,
       rowGap: _preset.rowGap,
     );
+    // Resolve the focal person for layout centering: prefer home person, fall
+    // back to the selected person, then the first visible person.
+    final focalId =
+        (provider.homePersonId != null &&
+                visibleIds.contains(provider.homePersonId))
+            ? provider.homePersonId
+            : (_selectedPersonId != null &&
+                    visibleIds.contains(_selectedPersonId))
+                ? _selectedPersonId
+                : (visiblePersons.isNotEmpty ? visiblePersons.first.id : null);
     final layout = TreeLayout(
       visiblePersons,
       visiblePartnerships,
       layoutConfig,
+      focalId,
     );
     layout.compute();
     _lastLayout = layout;

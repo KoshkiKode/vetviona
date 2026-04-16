@@ -92,9 +92,12 @@ class TreeGenRow {
 ///
 ///  * each generation occupies its own horizontal row,
 ///  * couples appear side-by-side with a union knot between them,
-///  * parent → child edges are routed through the knot when possible, and
+///  * parent → child edges are routed through the knot when possible,
 ///  * an iterative refinement pass centres parents over their children and
-///    resolves any horizontal overlaps.
+///    resolves any horizontal overlaps, and
+///  * when [focalPersonId] is provided the entire layout is shifted
+///    horizontally so that person is at the centre of the canvas (tree grows
+///    outward from the home person).
 ///
 /// Pass an optional [TreeLayoutConfig] to override the default node dimensions
 /// and gap sizes (used by the preset system to change the visual density).
@@ -106,8 +109,13 @@ class TreeLayout {
   /// so that callers that don't supply a config are unaffected.
   final TreeLayoutConfig config;
 
+  /// When set, the layout is horizontally centred on this person after the
+  /// normal refinement pass.  This makes the home person the visual anchor
+  /// from which the family grows outward.
+  final String? focalPersonId;
+
   TreeLayout(this.persons, this.partnerships,
-      [this.config = const TreeLayoutConfig()]);
+      [this.config = const TreeLayoutConfig(), this.focalPersonId]);
 
   final Map<String, TreeNodeInfo> nodes = {};
   final List<TreeEdgeInfo> edges = [];
@@ -261,6 +269,35 @@ class TreeLayout {
 
     // ── Refine layout ────────────────────────────────────────────────────────
     _refineLayout(byGen);
+
+    // ── Centre on focal person ────────────────────────────────────────────────
+    // When a focal person is given (home person in the interactive tree),
+    // shift all nodes horizontally so that person sits at the midpoint of the
+    // content bounding box.  This makes the tree grow outward from the home
+    // person rather than being left-aligned.
+    if (focalPersonId != null && nodes.containsKey(focalPersonId)) {
+      final currentMinX =
+          nodes.values.map((n) => n.x).reduce(math.min);
+      final currentMaxRight =
+          nodes.values.map((n) => n.x + config.nodeWidth).reduce(math.max);
+      final totalSpan = currentMaxRight - currentMinX;
+      final desiredFocalCenterX = currentMinX + totalSpan / 2.0;
+      final actualFocalCenterX =
+          nodes[focalPersonId]!.x + config.nodeWidth / 2.0;
+      final shift = desiredFocalCenterX - actualFocalCenterX;
+      if (shift.abs() > 0.5) {
+        for (final n in nodes.values) {
+          n.x += shift;
+        }
+        // Re-normalise: ensure no node sits at a negative x.
+        final newMinX = nodes.values.map((n) => n.x).reduce(math.min);
+        if (newMinX < 0) {
+          for (final n in nodes.values) {
+            n.x -= newMinX;
+          }
+        }
+      }
+    }
 
     // ── Canvas bounds ────────────────────────────────────────────────────────
     double maxX = 0, maxY = 0;
