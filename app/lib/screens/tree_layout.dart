@@ -92,9 +92,12 @@ class TreeGenRow {
 ///
 ///  * each generation occupies its own horizontal row,
 ///  * couples appear side-by-side with a union knot between them,
-///  * parent → child edges are routed through the knot when possible, and
+///  * parent → child edges are routed through the knot when possible,
 ///  * an iterative refinement pass centres parents over their children and
-///    resolves any horizontal overlaps.
+///    resolves any horizontal overlaps, and
+///  * when [focalPersonId] is provided the entire layout is shifted
+///    horizontally so that person is at the centre of the canvas (tree grows
+///    outward from the home person).
 ///
 /// Pass an optional [TreeLayoutConfig] to override the default node dimensions
 /// and gap sizes (used by the preset system to change the visual density).
@@ -106,8 +109,13 @@ class TreeLayout {
   /// so that callers that don't supply a config are unaffected.
   final TreeLayoutConfig config;
 
+  /// When set, the layout is horizontally centred on this person after the
+  /// normal refinement pass.  This makes the home person the visual anchor
+  /// from which the family grows outward.
+  final String? focalPersonId;
+
   TreeLayout(this.persons, this.partnerships,
-      [this.config = const TreeLayoutConfig()]);
+      [this.config = const TreeLayoutConfig(), this.focalPersonId]);
 
   final Map<String, TreeNodeInfo> nodes = {};
   final List<TreeEdgeInfo> edges = [];
@@ -259,8 +267,47 @@ class TreeLayout {
       }
     }
 
+    // ── Pre-sort each generation row by mean parent x ────────────────────────
+    // The BFS-derived insertion order scatters siblings randomly across each
+    // row.  Since the push-apart sweep can only move nodes *right* and never
+    // swaps order, siblings that start on the wrong side of each other can
+    // never be corrected by refinement alone.  Sorting each row top-down by
+    // the mean x-position of known parents before refinement begins gives the
+    // algorithm a near-optimal starting point and prevents the cascading
+    // rightward drift seen in large trees.
+    _sortRowsByParentX(byGen);
+
     // ── Refine layout ────────────────────────────────────────────────────────
     _refineLayout(byGen);
+
+    // ── Centre on focal person ────────────────────────────────────────────────
+    // When a focal person is given (home person in the interactive tree),
+    // shift all nodes horizontally so that person sits at the midpoint of the
+    // content bounding box.  This makes the tree grow outward from the home
+    // person rather than being left-aligned.
+    if (focalPersonId != null && nodes.containsKey(focalPersonId)) {
+      final currentMinX =
+          nodes.values.map((n) => n.x).reduce(math.min);
+      final currentMaxRight =
+          nodes.values.map((n) => n.x + config.nodeWidth).reduce(math.max);
+      final totalSpan = currentMaxRight - currentMinX;
+      final desiredFocalCenterX = currentMinX + totalSpan / 2.0;
+      final actualFocalCenterX =
+          nodes[focalPersonId]!.x + config.nodeWidth / 2.0;
+      final shift = desiredFocalCenterX - actualFocalCenterX;
+      if (shift.abs() > 0.5) {
+        for (final n in nodes.values) {
+          n.x += shift;
+        }
+        // Re-normalise: ensure no node sits at a negative x.
+        final newMinX = nodes.values.map((n) => n.x).reduce(math.min);
+        if (newMinX < 0) {
+          for (final n in nodes.values) {
+            n.x -= newMinX;
+          }
+        }
+      }
+    }
 
     // ── Canvas bounds ────────────────────────────────────────────────────────
     double maxX = 0, maxY = 0;
@@ -283,7 +330,8 @@ class TreeLayout {
   ///   1. Bottom-up: centre each non-knot parent node over its children.
   ///   2. Push apart overlapping nodes in each generation row.
   ///   3. Re-centre couple knots between their two partners.
-  /// Three passes are enough for typical genealogy trees while remaining fast.
+  /// Eight passes give good convergence even for wide trees with many
+  /// generations and large sibling groups.
   void _refineLayout(Map<int, List<String>> byGen) {
     // Map: layoutParent → [layoutChildren] using non-couple edges only.
     final childrenOf = <String, List<String>>{};
@@ -294,7 +342,7 @@ class TreeLayout {
     final sortedGens = byGen.keys.toList()..sort();
     final step = config.nodeWidth + config.colGap;
 
-    for (int iter = 0; iter < 3; iter++) {
+    for (int iter = 0; iter < 8; iter++) {
       // Pass A: bottom-up centering of parents over their children.
       for (final gen in sortedGens.reversed) {
         for (final id in (byGen[gen] ?? [])) {
@@ -340,6 +388,82 @@ class TreeLayout {
         for (final n in nodes.values) {
           n.x -= minX;
         }
+      }
+    }
+  }
+
+  /// Sorts each generation row (top-down, skipping gen 0) by the mean
+  /// x-position of each node's parents, then re-assigns sequential x values.
+  ///
+  /// This gives the refinement loop a near-correct starting order so siblings
+  /// are already grouped under their common parent.  Without this, the
+  /// push-apart sweep can never fix cross-sibling ordering because it only
+  /// moves nodes *right* and never swaps them — leading to cascading
+  /// rightward drift and edge crossings in large trees.
+  void _sortRowsByParentX(Map<int, List<String>> byGen) {
+    // Build parent map once: child id → list of parent node ids.
+    final parentsOf = <String, List<String>>{};
+    for (final e in edges) {
+      if (!e.isCouple && nodes.containsKey(e.from) && nodes.containsKey(e.to)) {
+        parentsOf.putIfAbsent(e.to, () => []).add(e.from);
+      }
+    }
+
+    final sortedGens = byGen.keys.toList()..sort();
+    final step = config.nodeWidth + config.colGap;
+
+    // Process gen 1, 2, 3 … top-down so each generation uses the already-
+    // sorted x-positions of the generation above it.
+    for (int gi = 1; gi < sortedGens.length; gi++) {
+      final gen = sortedGens[gi];
+      final rowIds = byGen[gen]!;
+
+      // Sort person nodes by mean parent cx; knots are re-inserted after.
+      // Pre-compute each node's sort key so the comparator is O(1) per call.
+      final personIds =
+          rowIds.where((id) => !nodes[id]!.isCoupleKnot).toList();
+      final sortKey = <String, double>{};
+      for (final id in personIds) {
+        final pars = parentsOf[id];
+        if (pars == null || pars.isEmpty) {
+          sortKey[id] = nodes[id]!.x + config.nodeWidth / 2;
+        } else {
+          final sum = pars.fold(
+            0.0,
+            (s, pid) => s + nodes[pid]!.x + config.nodeWidth / 2,
+          );
+          sortKey[id] = sum / pars.length;
+        }
+      }
+      personIds.sort((a, b) => sortKey[a]!.compareTo(sortKey[b]!));
+
+      // Re-insert knots between their partners (mirrors the logic in compute).
+      final ordered = List<String>.from(personIds);
+      for (final knotId
+          in rowIds.where((id) => nodes[id]!.isCoupleKnot)) {
+        final node = nodes[knotId]!;
+        final p1 = node.knotPartner1!;
+        final p2 = node.knotPartner2!;
+        final i1 = ordered.indexOf(p1);
+        final i2 = ordered.indexOf(p2);
+        if (i1 >= 0 && i2 >= 0) {
+          if ((i2 - i1).abs() > 1) {
+            ordered.remove(p2);
+            final pi = ordered.indexOf(p1);
+            ordered.insert(pi + 1, p2);
+          }
+          final pi = ordered.indexOf(p1);
+          final qi = ordered.indexOf(p2);
+          ordered.insert(math.min(pi, qi) + 1, knotId);
+        } else {
+          // Only one (or neither) partner in this row — append the knot.
+          ordered.add(knotId);
+        }
+      }
+
+      // Re-assign x positions based on the new sorted order.
+      for (int i = 0; i < ordered.length; i++) {
+        nodes[ordered[i]]!.x = i * step;
       }
     }
   }

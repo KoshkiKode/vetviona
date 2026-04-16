@@ -24,6 +24,7 @@
         "intl",
         "latlong2",
         "mobile_scanner",
+        "package_info_plus",
         "path",
         "path_provider",
         "pdf",
@@ -42,7 +43,23 @@
       "devDependencies": [
         "flutter_launcher_icons",
         "flutter_lints",
-        "flutter_test"
+        "flutter_test",
+        "msix"
+      ]
+    },
+    {
+      "name": "msix",
+      "version": "3.16.13",
+      "dependencies": [
+        "args",
+        "cli_util",
+        "console",
+        "get_it",
+        "image",
+        "package_config",
+        "path",
+        "pub_semver",
+        "yaml"
       ]
     },
     {
@@ -330,6 +347,22 @@
       ]
     },
     {
+      "name": "package_info_plus",
+      "version": "8.3.1",
+      "dependencies": [
+        "clock",
+        "ffi",
+        "flutter",
+        "flutter_web_plugins",
+        "http",
+        "meta",
+        "package_info_plus_platform_interface",
+        "path",
+        "web",
+        "win32"
+      ]
+    },
+    {
       "name": "shared_preferences",
       "version": "2.5.5",
       "dependencies": [
@@ -444,19 +477,25 @@
       ]
     },
     {
-      "name": "yaml",
-      "version": "3.1.3",
+      "name": "cli_util",
+      "version": "0.4.2",
       "dependencies": [
-        "collection",
-        "source_span",
-        "string_scanner"
+        "meta",
+        "path"
       ]
     },
     {
-      "name": "json_annotation",
-      "version": "4.11.0",
+      "name": "console",
+      "version": "4.1.0",
       "dependencies": [
-        "meta"
+        "vector_math"
+      ]
+    },
+    {
+      "name": "pub_semver",
+      "version": "2.2.0",
+      "dependencies": [
+        "collection"
       ]
     },
     {
@@ -469,11 +508,40 @@
       ]
     },
     {
-      "name": "cli_util",
-      "version": "0.4.2",
+      "name": "get_it",
+      "version": "9.2.1",
       "dependencies": [
-        "meta",
+        "async",
+        "collection",
+        "meta"
+      ]
+    },
+    {
+      "name": "package_config",
+      "version": "2.2.0",
+      "dependencies": [
         "path"
+      ]
+    },
+    {
+      "name": "yaml",
+      "version": "3.1.3",
+      "dependencies": [
+        "collection",
+        "source_span",
+        "string_scanner"
+      ]
+    },
+    {
+      "name": "args",
+      "version": "2.7.0",
+      "dependencies": []
+    },
+    {
+      "name": "json_annotation",
+      "version": "4.11.0",
+      "dependencies": [
+        "meta"
       ]
     },
     {
@@ -484,11 +552,6 @@
         "source_span",
         "yaml"
       ]
-    },
-    {
-      "name": "args",
-      "version": "2.7.0",
-      "dependencies": []
     },
     {
       "name": "lints",
@@ -1114,6 +1177,15 @@
       ]
     },
     {
+      "name": "package_info_plus_platform_interface",
+      "version": "3.2.1",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
+      ]
+    },
+    {
       "name": "shared_preferences_windows",
       "version": "2.4.1",
       "dependencies": [
@@ -1552,23 +1624,9 @@
       ]
     },
     {
-      "name": "pub_semver",
-      "version": "2.2.0",
-      "dependencies": [
-        "collection"
-      ]
-    },
-    {
       "name": "logging",
       "version": "1.3.0",
       "dependencies": []
-    },
-    {
-      "name": "package_config",
-      "version": "2.2.0",
-      "dependencies": [
-        "path"
-      ]
     },
     {
       "name": "glob",

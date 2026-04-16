@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -28,9 +30,15 @@ const double _kGenLabelTopOffset = 20.0;
 /// as the control-point offset from each end of the edge.
 const double _kEdgeTensionFactor = 0.5;
 
-/// Maximum tension as a fraction of [kTreeRowGap], capping how much the
+/// Maximum tension as a fraction of the active row gap, capping how much the
 /// curve can bow when rows are very far apart.
 const double _kMaxTensionRatio = 0.6;
+
+/// Radius (px) of the couple-knot circle widget (half of its 28 px diameter).
+/// All edge geometry that touches the knot uses this value so that the
+/// connector lines start/end exactly at the circle boundary.
+const double _kCoupleKnotRadius = 14.0;
+
 const double _kEmptySlotTier1Opacity = 0.28;
 const double _kEmptySlotOpacityBase = 0.18;
 const double _kEmptySlotOpacityMin = 0.08;
@@ -45,6 +53,14 @@ class _EdgePainter extends CustomPainter {
   final double nodeWidth;
   final double nodeHeight;
 
+  /// Actual row gap from the active preset — used to scale the bezier tension
+  /// cap so curves look proportional at every density setting.
+  final double rowGap;
+
+  /// Line thickness for parent→child connectors.  Reads directly from the
+  /// active preset so every layout's own stroke weight is honoured.
+  final double edgeStrokeWidth;
+
   _EdgePainter({
     required this.nodes,
     required this.edges,
@@ -53,18 +69,20 @@ class _EdgePainter extends CustomPainter {
     this.edgeStyle = TreeEdgeStyle.bezier,
     this.nodeWidth = kTreeNodeW,
     this.nodeHeight = kTreeNodeH,
+    this.rowGap = kTreeRowGap,
+    this.edgeStrokeWidth = 1.8,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final parentPaint = Paint()
       ..color = edgeColor
-      ..strokeWidth = 1.8
+      ..strokeWidth = edgeStrokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final couplePaint = Paint()
       ..color = coupleColor
-      ..strokeWidth = 2.0
+      ..strokeWidth = edgeStrokeWidth + 0.4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -74,27 +92,43 @@ class _EdgePainter extends CustomPainter {
       if (fromNode == null || toNode == null) continue;
 
       if (edge.isCouple) {
-        // Straight line between couple nodes / knot (all styles).
-        canvas.drawLine(
-          Offset(fromNode.x + nodeWidth / 2, fromNode.y + nodeHeight / 2),
-          Offset(toNode.x + nodeWidth / 2, toNode.y + nodeHeight / 2),
-          couplePaint,
-        );
+        // Couple connector: run from the partner card's nearest horizontal
+        // edge to the knot circle's nearest edge — nothing passes through a
+        // widget.  `toNode` is always the knot; `fromNode` is the partner.
+        final knotCx = toNode.x + nodeWidth / 2;
+        final knotCy = toNode.y + nodeHeight / 2;
+        final fromCy = fromNode.y + nodeHeight / 2;
+        final Offset startPt;
+        final Offset endPt;
+        if (fromNode.x + nodeWidth / 2 < knotCx) {
+          // Partner is to the left of the knot.
+          startPt = Offset(fromNode.x + nodeWidth, fromCy);
+          endPt = Offset(knotCx - _kCoupleKnotRadius, knotCy);
+        } else {
+          // Partner is to the right of the knot.
+          startPt = Offset(fromNode.x, fromCy);
+          endPt = Offset(knotCx + _kCoupleKnotRadius, knotCy);
+        }
+        canvas.drawLine(startPt, endPt, couplePaint);
       } else {
         final fromCx = fromNode.x + nodeWidth / 2;
+        // For knot nodes the connector exits from the bottom of the visible
+        // 28 px circle (centre + radius), not from the centre of the
+        // allocation box, so the line is never hidden inside the circle.
         final fromBot = fromNode.isCoupleKnot
-            ? fromNode.y + nodeHeight / 2
+            ? fromNode.y + nodeHeight / 2 + _kCoupleKnotRadius
             : fromNode.y + nodeHeight;
         final toCx = toNode.x + nodeWidth / 2;
         final toTop = toNode.y;
 
         switch (edgeStyle) {
           case TreeEdgeStyle.bezier:
-            // Smooth S-curve (default).
+            // Smooth S-curve — tension capped relative to the *active* row
+            // gap so the curve looks proportional at every density setting.
             final dy = (toTop - fromBot).abs();
             final tension = (dy * _kEdgeTensionFactor).clamp(
               0,
-              kTreeRowGap * _kMaxTensionRatio,
+              rowGap * _kMaxTensionRatio,
             );
             final path = Path()
               ..moveTo(fromCx, fromBot)
@@ -109,14 +143,32 @@ class _EdgePainter extends CustomPainter {
             canvas.drawPath(path, parentPaint);
 
           case TreeEdgeStyle.orthogonal:
-            // Right-angle elbow: down → horizontal → down (structured style).
-            final midY = fromBot + (toTop - fromBot) * 0.45;
-            final path = Path()
-              ..moveTo(fromCx, fromBot)
-              ..lineTo(fromCx, midY)
-              ..lineTo(toCx, midY)
-              ..lineTo(toCx, toTop);
-            canvas.drawPath(path, parentPaint);
+            // Right-angle elbow: down → horizontal → down, with rounded
+            // corners for a professional finish.  The horizontal rung sits
+            // exactly midway between the two rows (0.5 fraction).
+            final midY = fromBot + (toTop - fromBot) * 0.5;
+            final dx = (toCx - fromCx).abs();
+            if (dx < 1.0) {
+              // Nodes are directly above each other — plain vertical line.
+              canvas.drawLine(
+                Offset(fromCx, fromBot),
+                Offset(toCx, toTop),
+                parentPaint,
+              );
+            } else {
+              // Rounded-elbow path: clamp radius so it never exceeds 1/3 of
+              // the available vertical space or the horizontal distance.
+              final r = math.min(6.0, math.min((toTop - fromBot) / 3, dx / 3));
+              final hDir = toCx > fromCx ? r : -r;
+              final path = Path()
+                ..moveTo(fromCx, fromBot)
+                ..lineTo(fromCx, midY - r)
+                ..quadraticBezierTo(fromCx, midY, fromCx + hDir, midY)
+                ..lineTo(toCx - hDir, midY)
+                ..quadraticBezierTo(toCx, midY, toCx, midY + r)
+                ..lineTo(toCx, toTop);
+              canvas.drawPath(path, parentPaint);
+            }
 
           case TreeEdgeStyle.straight:
             // Diagonal straight line (minimal style).
@@ -136,7 +188,11 @@ class _EdgePainter extends CustomPainter {
       old.edges.length != edges.length ||
       old.edgeColor != edgeColor ||
       old.coupleColor != coupleColor ||
-      old.edgeStyle != edgeStyle;
+      old.edgeStyle != edgeStyle ||
+      old.nodeWidth != nodeWidth ||
+      old.nodeHeight != nodeHeight ||
+      old.rowGap != rowGap ||
+      old.edgeStrokeWidth != edgeStrokeWidth;
 }
 
 // Main Screen
@@ -177,6 +233,26 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String _searchQuery = '';
   String? _selectedPersonId;
   bool _showLegend = false;
+
+  // ── Layout cache ─────────────────────────────────────────────────────────────
+  // The layout computation (BFS + 8 refinement passes) is expensive for large
+  // trees.  We cache the result and only recompute when the inputs actually
+  // change — primarily when the visible set, person/partnership data, focal
+  // person, or active preset changes.  This prevents unnecessary recomputes
+  // triggered by SyncService status changes or other unrelated provider pings.
+  TreeLayout? _cachedLayout;
+  Set<String>? _cachedVisibleIds;
+  int _cachedPersonsLen = -1;
+  int _cachedPartnershipsLen = -1;
+  String? _cachedFocalId;
+  TreePreset? _cachedPreset;
+
+  /// Returns true if [newIds] differs from the previously cached visible set.
+  bool _visibleIdsChanged(Set<String> newIds) {
+    final prev = _cachedVisibleIds;
+    if (prev == null || prev.length != newIds.length) return true;
+    return !prev.containsAll(newIds);
+  }
 
   // ── Preset / settings ───────────────────────────────────────────────────────
   /// Returns the effective preset: the one passed in by FamilyTreeScreen (if
@@ -330,7 +406,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         descendantGens: _effectiveDescendantGens,
       );
     });
-    _resetView();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Makes all persons in the tree visible at once.
@@ -349,7 +425,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     setState(() => _engine!.expandParents(person.id));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Adds [person]'s children (and their partners) to the visible set.
@@ -359,7 +434,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     setState(() => _engine!.expandChildren(person.id));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Adds [person]'s siblings to the visible set.
@@ -369,7 +443,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     setState(() => _engine!.expandSiblings(person.id));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// BFS-expands ALL ancestors of [person] (and each ancestor's partners).
@@ -764,7 +837,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         _selectedPersonId = current.id;
         _engine!.addVisibleId(created.id);
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     } on StateError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -942,13 +1014,42 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       colGap: _preset.colGap,
       rowGap: _preset.rowGap,
     );
-    final layout = TreeLayout(
-      visiblePersons,
-      visiblePartnerships,
-      layoutConfig,
-    );
-    layout.compute();
-    _lastLayout = layout;
+    // Resolve the focal person for layout centering: prefer home person, fall
+    // back to the selected person, then the first visible person.
+    final focalId =
+        (provider.homePersonId != null &&
+                visibleIds.contains(provider.homePersonId))
+            ? provider.homePersonId
+            : (_selectedPersonId != null &&
+                    visibleIds.contains(_selectedPersonId))
+                ? _selectedPersonId
+                : (visiblePersons.isNotEmpty ? visiblePersons.first.id : null);
+
+    // Only recompute the layout when the inputs actually changed.  This avoids
+    // running the expensive BFS + 8-pass refinement on every SyncService ping
+    // or other unrelated provider notification that rebuilds this widget.
+    if (_cachedLayout == null ||
+        _visibleIdsChanged(visibleIds) ||
+        _cachedPersonsLen != persons.length ||
+        _cachedPartnershipsLen != partnerships.length ||
+        _cachedFocalId != focalId ||
+        _cachedPreset != _preset) {
+      final fresh = TreeLayout(
+        visiblePersons,
+        visiblePartnerships,
+        layoutConfig,
+        focalId,
+      );
+      fresh.compute();
+      _cachedLayout = fresh;
+      _cachedVisibleIds = Set<String>.from(visibleIds);
+      _cachedPersonsLen = persons.length;
+      _cachedPartnershipsLen = partnerships.length;
+      _cachedFocalId = focalId;
+      _cachedPreset = _preset;
+      _lastLayout = fresh;
+    }
+    final layout = _cachedLayout!;
     final searchLower = _searchQuery.toLowerCase();
 
     // Live collaboration: show how many peers are currently synced/syncing.
@@ -1104,6 +1205,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                             edgeStyle: _preset.edgeStyle,
                             nodeWidth: _preset.nodeWidth,
                             nodeHeight: _preset.nodeHeight,
+                            rowGap: _preset.rowGap,
+                            edgeStrokeWidth: _preset.edgeStrokeWidth,
                           ),
                         ),
                       ),
@@ -1470,6 +1573,14 @@ class _PersonNodeWidget extends StatelessWidget {
     return colorScheme.secondary;
   }
 
+  /// Returns the text colour that contrasts with [_accentColor()] according to
+  /// the active colour scheme — so the avatar initial is always legible.
+  Color _onAccentColor() {
+    if (person.gender?.toLowerCase() == 'male') return colorScheme.onPrimary;
+    if (person.gender?.toLowerCase() == 'female') return colorScheme.onError;
+    return colorScheme.onSecondary;
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (preset.cardStyle) {
@@ -1486,6 +1597,7 @@ class _PersonNodeWidget extends StatelessWidget {
   Widget _buildCard(BuildContext context) {
     final borderColor = _borderColor();
     final accentColor = _accentColor();
+    final onAccentColor = _onAccentColor();
     final bool isDead = person.deathDate != null;
     final card = GestureDetector(
       onTap: onTap,
@@ -1536,7 +1648,7 @@ class _PersonNodeWidget extends StatelessWidget {
                                 ? person.name[0].toUpperCase()
                                 : '?',
                             style: TextStyle(
-                              color: colorScheme.onPrimary,
+                              color: onAccentColor,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
