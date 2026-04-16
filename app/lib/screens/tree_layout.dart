@@ -418,25 +418,24 @@ class TreeLayout {
       final gen = sortedGens[gi];
       final rowIds = byGen[gen]!;
 
-      // Compute mean parent cx for each person node in this row.
-      double meanParentCx(String id) {
-        final pars = parentsOf[id];
-        if (pars == null || pars.isEmpty) {
-          return nodes[id]!.x + config.nodeWidth / 2;
-        }
-        final sum = pars.fold(
-          0.0,
-          (s, pid) => s + nodes[pid]!.x + config.nodeWidth / 2,
-        );
-        return sum / pars.length;
-      }
-
       // Sort person nodes by mean parent cx; knots are re-inserted after.
+      // Pre-compute each node's sort key so the comparator is O(1) per call.
       final personIds =
           rowIds.where((id) => !nodes[id]!.isCoupleKnot).toList();
-      personIds.sort(
-        (a, b) => meanParentCx(a).compareTo(meanParentCx(b)),
-      );
+      final sortKey = <String, double>{};
+      for (final id in personIds) {
+        final pars = parentsOf[id];
+        if (pars == null || pars.isEmpty) {
+          sortKey[id] = nodes[id]!.x + config.nodeWidth / 2;
+        } else {
+          final sum = pars.fold(
+            0.0,
+            (s, pid) => s + nodes[pid]!.x + config.nodeWidth / 2,
+          );
+          sortKey[id] = sum / pars.length;
+        }
+      }
+      personIds.sort((a, b) => sortKey[a]!.compareTo(sortKey[b]!));
 
       // Re-insert knots between their partners (mirrors the logic in compute).
       final ordered = List<String>.from(personIds);

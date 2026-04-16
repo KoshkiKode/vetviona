@@ -234,6 +234,26 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String? _selectedPersonId;
   bool _showLegend = false;
 
+  // ── Layout cache ─────────────────────────────────────────────────────────────
+  // The layout computation (BFS + 8 refinement passes) is expensive for large
+  // trees.  We cache the result and only recompute when the inputs actually
+  // change — primarily when the visible set, person/partnership data, focal
+  // person, or active preset changes.  This prevents unnecessary recomputes
+  // triggered by SyncService status changes or other unrelated provider pings.
+  TreeLayout? _cachedLayout;
+  Set<String>? _cachedVisibleIds;
+  int _cachedPersonsLen = -1;
+  int _cachedPartnershipsLen = -1;
+  String? _cachedFocalId;
+  TreePreset? _cachedPreset;
+
+  /// Returns true if [newIds] differs from the previously cached visible set.
+  bool _visibleIdsChanged(Set<String> newIds) {
+    final prev = _cachedVisibleIds;
+    if (prev == null || prev.length != newIds.length) return true;
+    return !prev.containsAll(newIds);
+  }
+
   // ── Preset / settings ───────────────────────────────────────────────────────
   /// Returns the effective preset: the one passed in by FamilyTreeScreen (if
   /// any), otherwise the Hybrid default (standalone usage).
@@ -386,7 +406,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         descendantGens: _effectiveDescendantGens,
       );
     });
-    _resetView();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Makes all persons in the tree visible at once.
@@ -405,7 +425,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     setState(() => _engine!.expandParents(person.id));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Adds [person]'s children (and their partners) to the visible set.
@@ -415,7 +434,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     setState(() => _engine!.expandChildren(person.id));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// Adds [person]'s siblings to the visible set.
@@ -425,7 +443,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     List<Partnership> partnerships,
   ) {
     setState(() => _engine!.expandSiblings(person.id));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
   /// BFS-expands ALL ancestors of [person] (and each ancestor's partners).
@@ -820,7 +837,6 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         _selectedPersonId = current.id;
         _engine!.addVisibleId(created.id);
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
     } on StateError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -1008,14 +1024,32 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                     visibleIds.contains(_selectedPersonId))
                 ? _selectedPersonId
                 : (visiblePersons.isNotEmpty ? visiblePersons.first.id : null);
-    final layout = TreeLayout(
-      visiblePersons,
-      visiblePartnerships,
-      layoutConfig,
-      focalId,
-    );
-    layout.compute();
-    _lastLayout = layout;
+
+    // Only recompute the layout when the inputs actually changed.  This avoids
+    // running the expensive BFS + 8-pass refinement on every SyncService ping
+    // or other unrelated provider notification that rebuilds this widget.
+    if (_cachedLayout == null ||
+        _visibleIdsChanged(visibleIds) ||
+        _cachedPersonsLen != persons.length ||
+        _cachedPartnershipsLen != partnerships.length ||
+        _cachedFocalId != focalId ||
+        _cachedPreset != _preset) {
+      final fresh = TreeLayout(
+        visiblePersons,
+        visiblePartnerships,
+        layoutConfig,
+        focalId,
+      );
+      fresh.compute();
+      _cachedLayout = fresh;
+      _cachedVisibleIds = Set<String>.from(visibleIds);
+      _cachedPersonsLen = persons.length;
+      _cachedPartnershipsLen = partnerships.length;
+      _cachedFocalId = focalId;
+      _cachedPreset = _preset;
+      _lastLayout = fresh;
+    }
+    final layout = _cachedLayout!;
     final searchLower = _searchQuery.toLowerCase();
 
     // Live collaboration: show how many peers are currently synced/syncing.
