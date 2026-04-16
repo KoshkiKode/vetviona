@@ -22,6 +22,7 @@ dependencies:
   intl: ^0.20.0
   file_picker: ^11.0.0
   shared_preferences: ^2.0.0
+  package_info_plus: ^8.0.0
   flutter_colorpicker: ^1.1.0
   flutter_blue_plus: ^2.0.0
   encrypt: ^5.0.0
@@ -63,7 +64,6 @@ msix_config:
   publisher_display_name: KoshkiKode
   identity_name: com.koshkikode.vetviona
   publisher: CN=KoshkiKode
-  msix_version: 1.0.0.0
   logo_path: assets/icon/app_icon.png
   capabilities: runFullTrust
   sign_msix: false

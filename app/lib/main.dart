@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app.dart';
 import 'config/app_config.dart';
@@ -15,6 +16,8 @@ import 'utils/platform_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final packageInfo = await PackageInfo.fromPlatform();
+  BuildMetadata.appVersion = packageInfo.version;
   // Android: draw behind the system navigation bar so the app is truly
   // edge-to-edge and the nav bar blends with the scaffold background.
   if (isAndroid) {
