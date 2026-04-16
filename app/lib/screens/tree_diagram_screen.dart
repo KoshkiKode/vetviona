@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -55,6 +57,10 @@ class _EdgePainter extends CustomPainter {
   /// cap so curves look proportional at every density setting.
   final double rowGap;
 
+  /// Line thickness for parent→child connectors.  Reads directly from the
+  /// active preset so every layout's own stroke weight is honoured.
+  final double edgeStrokeWidth;
+
   _EdgePainter({
     required this.nodes,
     required this.edges,
@@ -64,18 +70,19 @@ class _EdgePainter extends CustomPainter {
     this.nodeWidth = kTreeNodeW,
     this.nodeHeight = kTreeNodeH,
     this.rowGap = kTreeRowGap,
+    this.edgeStrokeWidth = 1.8,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final parentPaint = Paint()
       ..color = edgeColor
-      ..strokeWidth = 1.8
+      ..strokeWidth = edgeStrokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final couplePaint = Paint()
       ..color = coupleColor
-      ..strokeWidth = 2.0
+      ..strokeWidth = edgeStrokeWidth + 0.4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -136,14 +143,32 @@ class _EdgePainter extends CustomPainter {
             canvas.drawPath(path, parentPaint);
 
           case TreeEdgeStyle.orthogonal:
-            // Right-angle elbow: down → horizontal → down (structured style).
-            final midY = fromBot + (toTop - fromBot) * 0.45;
-            final path = Path()
-              ..moveTo(fromCx, fromBot)
-              ..lineTo(fromCx, midY)
-              ..lineTo(toCx, midY)
-              ..lineTo(toCx, toTop);
-            canvas.drawPath(path, parentPaint);
+            // Right-angle elbow: down → horizontal → down, with rounded
+            // corners for a professional finish.  The horizontal rung sits
+            // exactly midway between the two rows (0.5 fraction).
+            final midY = fromBot + (toTop - fromBot) * 0.5;
+            final dx = (toCx - fromCx).abs();
+            if (dx < 1.0) {
+              // Nodes are directly above each other — plain vertical line.
+              canvas.drawLine(
+                Offset(fromCx, fromBot),
+                Offset(toCx, toTop),
+                parentPaint,
+              );
+            } else {
+              // Rounded-elbow path: clamp radius so it never exceeds 1/3 of
+              // the available vertical space or the horizontal distance.
+              final r = math.min(6.0, math.min((toTop - fromBot) / 3, dx / 3));
+              final hDir = toCx > fromCx ? r : -r;
+              final path = Path()
+                ..moveTo(fromCx, fromBot)
+                ..lineTo(fromCx, midY - r)
+                ..quadraticBezierTo(fromCx, midY, fromCx + hDir, midY)
+                ..lineTo(toCx - hDir, midY)
+                ..quadraticBezierTo(toCx, midY, toCx, midY + r)
+                ..lineTo(toCx, toTop);
+              canvas.drawPath(path, parentPaint);
+            }
 
           case TreeEdgeStyle.straight:
             // Diagonal straight line (minimal style).
@@ -166,7 +191,8 @@ class _EdgePainter extends CustomPainter {
       old.edgeStyle != edgeStyle ||
       old.nodeWidth != nodeWidth ||
       old.nodeHeight != nodeHeight ||
-      old.rowGap != rowGap;
+      old.rowGap != rowGap ||
+      old.edgeStrokeWidth != edgeStrokeWidth;
 }
 
 // Main Screen
@@ -1146,6 +1172,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                             nodeWidth: _preset.nodeWidth,
                             nodeHeight: _preset.nodeHeight,
                             rowGap: _preset.rowGap,
+                            edgeStrokeWidth: _preset.edgeStrokeWidth,
                           ),
                         ),
                       ),
@@ -1512,6 +1539,14 @@ class _PersonNodeWidget extends StatelessWidget {
     return colorScheme.secondary;
   }
 
+  /// Returns the text colour that contrasts with [_accentColor()] according to
+  /// the active colour scheme — so the avatar initial is always legible.
+  Color _onAccentColor() {
+    if (person.gender?.toLowerCase() == 'male') return colorScheme.onPrimary;
+    if (person.gender?.toLowerCase() == 'female') return colorScheme.onError;
+    return colorScheme.onSecondary;
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (preset.cardStyle) {
@@ -1528,6 +1563,7 @@ class _PersonNodeWidget extends StatelessWidget {
   Widget _buildCard(BuildContext context) {
     final borderColor = _borderColor();
     final accentColor = _accentColor();
+    final onAccentColor = _onAccentColor();
     final bool isDead = person.deathDate != null;
     final card = GestureDetector(
       onTap: onTap,
@@ -1578,7 +1614,7 @@ class _PersonNodeWidget extends StatelessWidget {
                                 ? person.name[0].toUpperCase()
                                 : '?',
                             style: TextStyle(
-                              color: colorScheme.onPrimary,
+                              color: onAccentColor,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
