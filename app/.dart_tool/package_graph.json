@@ -47,6 +47,21 @@
       ]
     },
     {
+      "name": "msix",
+      "version": "3.16.13",
+      "dependencies": [
+        "args",
+        "cli_util",
+        "console",
+        "get_it",
+        "image",
+        "package_config",
+        "path",
+        "pub_semver",
+        "yaml"
+      ]
+    },
+    {
       "name": "flutter_launcher_icons",
       "version": "0.14.4",
       "dependencies": [
@@ -445,19 +460,25 @@
       ]
     },
     {
-      "name": "yaml",
-      "version": "3.1.3",
+      "name": "cli_util",
+      "version": "0.4.2",
       "dependencies": [
-        "collection",
-        "source_span",
-        "string_scanner"
+        "meta",
+        "path"
       ]
     },
     {
-      "name": "json_annotation",
-      "version": "4.11.0",
+      "name": "console",
+      "version": "4.1.0",
       "dependencies": [
-        "meta"
+        "vector_math"
+      ]
+    },
+    {
+      "name": "pub_semver",
+      "version": "2.2.0",
+      "dependencies": [
+        "collection"
       ]
     },
     {
@@ -470,11 +491,40 @@
       ]
     },
     {
-      "name": "cli_util",
-      "version": "0.4.2",
+      "name": "get_it",
+      "version": "9.2.1",
       "dependencies": [
-        "meta",
+        "async",
+        "collection",
+        "meta"
+      ]
+    },
+    {
+      "name": "package_config",
+      "version": "2.2.0",
+      "dependencies": [
         "path"
+      ]
+    },
+    {
+      "name": "yaml",
+      "version": "3.1.3",
+      "dependencies": [
+        "collection",
+        "source_span",
+        "string_scanner"
+      ]
+    },
+    {
+      "name": "args",
+      "version": "2.7.0",
+      "dependencies": []
+    },
+    {
+      "name": "json_annotation",
+      "version": "4.11.0",
+      "dependencies": [
+        "meta"
       ]
     },
     {
@@ -485,11 +535,6 @@
         "source_span",
         "yaml"
       ]
-    },
-    {
-      "name": "args",
-      "version": "2.7.0",
-      "dependencies": []
     },
     {
       "name": "lints",
@@ -1553,23 +1598,9 @@
       ]
     },
     {
-      "name": "pub_semver",
-      "version": "2.2.0",
-      "dependencies": [
-        "collection"
-      ]
-    },
-    {
       "name": "logging",
       "version": "1.3.0",
       "dependencies": []
-    },
-    {
-      "name": "package_config",
-      "version": "2.2.0",
-      "dependencies": [
-        "path"
-      ]
     },
     {
       "name": "glob",
@@ -1586,37 +1617,6 @@
       "name": "lists",
       "version": "1.0.1",
       "dependencies": [
-        "meta"
-      ]
-    },
-    {
-      "name": "msix",
-      "version": "3.16.13",
-      "dependencies": [
-        "args",
-        "cli_util",
-        "console",
-        "get_it",
-        "image",
-        "package_config",
-        "path",
-        "pub_semver",
-        "yaml"
-      ]
-    },
-    {
-      "name": "console",
-      "version": "4.1.0",
-      "dependencies": [
-        "vector_math"
-      ]
-    },
-    {
-      "name": "get_it",
-      "version": "9.2.1",
-      "dependencies": [
-        "async",
-        "collection",
         "meta"
       ]
     }
