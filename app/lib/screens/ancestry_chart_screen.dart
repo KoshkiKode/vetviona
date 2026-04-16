@@ -429,11 +429,14 @@ class _AncEdgePainter extends CustomPainter {
               ..lineTo(toCx, toBot);
             canvas.drawPath(path, parentPaint);
           case TreeEdgeStyle.straight:
-            canvas.drawLine(
-              Offset(fromCx, fromTop),
-              Offset(toCx, toBot),
-              parentPaint,
-            );
+            // Never draw oblique diagonals; use elbow routing instead.
+            final midY = toBot + (fromTop - toBot) * 0.5;
+            final path = Path()
+              ..moveTo(fromCx, fromTop)
+              ..lineTo(fromCx, midY)
+              ..lineTo(toCx, midY)
+              ..lineTo(toCx, toBot);
+            canvas.drawPath(path, parentPaint);
         }
       }
     }

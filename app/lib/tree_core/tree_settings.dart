@@ -32,8 +32,8 @@ class TreeViewSettings {
 
   TreeViewSettings({
     this.preset = TreePresetType.classic,
-    this.ancestorGenerations = 2,
-    this.descendantGenerations = 2,
+    this.ancestorGenerations = 1,
+    this.descendantGenerations = 1,
     this.showEmptyAddSlots = true,
     this.emptyAddSlotTiers = 1,
   });
@@ -62,8 +62,8 @@ class TreeViewSettings {
     }
     return TreeViewSettings(
       preset: preset,
-      ancestorGenerations: prefs.getInt(_kAncestorGens) ?? 2,
-      descendantGenerations: prefs.getInt(_kDescendantGens) ?? 2,
+      ancestorGenerations: prefs.getInt(_kAncestorGens) ?? 1,
+      descendantGenerations: prefs.getInt(_kDescendantGens) ?? 1,
       showEmptyAddSlots: prefs.getBool(_kEmptySlots) ?? true,
       emptyAddSlotTiers: prefs.getInt(_kEmptyTiers) ?? 1,
     );

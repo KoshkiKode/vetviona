@@ -377,11 +377,14 @@ class _DescEdgePainter extends CustomPainter {
             canvas.drawPath(path, parentPaint);
 
           case TreeEdgeStyle.straight:
-            canvas.drawLine(
-              Offset(fromCx, fromBot),
-              Offset(toCx, toTop),
-              parentPaint,
-            );
+            // Never draw oblique diagonals; use elbow routing instead.
+            final midY = fromBot + (toTop - fromBot) * 0.4;
+            final path = Path()
+              ..moveTo(fromCx, fromBot)
+              ..lineTo(fromCx, midY)
+              ..lineTo(toCx, midY)
+              ..lineTo(toCx, toTop);
+            canvas.drawPath(path, parentPaint);
         }
       }
     }

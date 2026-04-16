@@ -171,12 +171,28 @@ class _EdgePainter extends CustomPainter {
             }
 
           case TreeEdgeStyle.straight:
-            // Diagonal straight line (minimal style).
-            canvas.drawLine(
-              Offset(fromCx, fromBot),
-              Offset(toCx, toTop),
-              parentPaint,
-            );
+            // Never draw oblique diagonals in family lines; keep right-angle
+            // routing even when "straight" is requested.
+            final midY = fromBot + (toTop - fromBot) * 0.5;
+            final dx = (toCx - fromCx).abs();
+            if (dx < 1.0) {
+              canvas.drawLine(
+                Offset(fromCx, fromBot),
+                Offset(toCx, toTop),
+                parentPaint,
+              );
+            } else {
+              final r = math.min(6.0, math.min((toTop - fromBot) / 3, dx / 3));
+              final hDir = toCx > fromCx ? r : -r;
+              final path = Path()
+                ..moveTo(fromCx, fromBot)
+                ..lineTo(fromCx, midY - r)
+                ..quadraticBezierTo(fromCx, midY, fromCx + hDir, midY)
+                ..lineTo(toCx - hDir, midY)
+                ..quadraticBezierTo(toCx, midY, toCx, midY + r)
+                ..lineTo(toCx, toTop);
+              canvas.drawPath(path, parentPaint);
+            }
         }
       }
     }
@@ -260,9 +276,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   TreePreset get _preset => widget.preset ?? TreePreset.classic;
 
   int get _effectiveAncestorGens =>
-      widget.ancestorGens ?? _preset.defaultAncestorGens;
+      math.min(widget.ancestorGens ?? _preset.defaultAncestorGens, 1);
   int get _effectiveDescendantGens =>
-      widget.descendantGens ?? _preset.defaultDescendantGens;
+      math.min(widget.descendantGens ?? _preset.defaultDescendantGens, 1);
 
   // Local toggles that start from the widget params (or defaults) and can be
   // changed in the standalone AppBar.  When hosted in FamilyTreeScreen these
