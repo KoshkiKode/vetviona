@@ -49,6 +49,7 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
+  msix: ^3.16.4
 
 flutter:
   uses-material-design: true
@@ -56,3 +57,14 @@ flutter:
     - assets/
     - assets/sounds/
     - assets/icon/
+
+msix_config:
+  display_name: Vetviona
+  publisher_display_name: KoshkiKode
+  identity_name: com.koshkikode.vetviona
+  publisher: CN=KoshkiKode
+  msix_version: 1.0.0.0
+  logo_path: assets/icon/app_icon.png
+  capabilities: runFullTrust
+  sign_msix: false
+  output_name: vetviona-setup
