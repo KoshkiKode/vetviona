@@ -681,7 +681,7 @@ void main() {
       expect(prefs.getBool('license_backend_email_verified'), isTrue);
     });
 
-    test('resendVerification returns true with success message', () async {
+    test('resendVerification returns true for signed-in accounts', () async {
       final service = LicenseBackendService(
         client: MockClient((req) async {
           if (req.url.path == '/v1/license/verify') {
@@ -718,7 +718,7 @@ void main() {
       final ok = await service.resendVerification();
 
       expect(ok, isTrue);
-      expect(service.errorMessage, 'Verification email sent.');
+      expect(service.errorMessage, isNull);
     });
 
     test('claimGift by giftId path updates incoming gifts list', () async {
