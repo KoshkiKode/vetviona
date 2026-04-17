@@ -56,6 +56,10 @@ class PurchaseService extends ChangeNotifier {
   ProductDetails? get product => _product;
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  bool _isInitialized = false;
+
+  /// True once [init] has finished its startup checks.
+  bool get isInitialized => _isInitialized;
 
   // ── Initialisation ──────────────────────────────────────────────────────────
 
@@ -72,6 +76,7 @@ class PurchaseService extends ChangeNotifier {
 
     if (!await InAppPurchase.instance.isAvailable()) {
       _errorMessage = 'In-app purchases are not available on this device.';
+      _isInitialized = true;
       notifyListeners();
       return;
     }
@@ -89,6 +94,8 @@ class PurchaseService extends ChangeNotifier {
     // Ask the store to restore any previous purchases so the user is not
     // required to buy again after reinstalling.
     await InAppPurchase.instance.restorePurchases();
+    _isInitialized = true;
+    notifyListeners();
   }
 
   // ── Product loading ─────────────────────────────────────────────────────────
@@ -102,9 +109,9 @@ class PurchaseService extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final response = await InAppPurchase.instance.queryProductDetails(
-      {kMobilePaidProductId},
-    );
+    final response = await InAppPurchase.instance.queryProductDetails({
+      kMobilePaidProductId,
+    });
 
     _isLoading = false;
 
@@ -142,9 +149,7 @@ class PurchaseService extends ChangeNotifier {
     notifyListeners();
 
     final purchaseParam = PurchaseParam(productDetails: _product!);
-    await InAppPurchase.instance.buyNonConsumable(
-      purchaseParam: purchaseParam,
-    );
+    await InAppPurchase.instance.buyNonConsumable(purchaseParam: purchaseParam);
     // Purchase result arrives via purchaseStream → _onPurchaseUpdate.
   }
 

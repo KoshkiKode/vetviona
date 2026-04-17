@@ -6,10 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/tree_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/license_verification_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/splash_screen.dart';
 import 'config/build_metadata.dart';
 import 'services/bluetooth_sync_service.dart';
+import 'services/license_backend_service.dart';
 import 'services/purchase_service.dart';
 import 'services/sync_service.dart';
 import 'utils/platform_utils.dart';
@@ -65,6 +67,14 @@ class VetvionaApp extends StatelessWidget {
             return service;
           },
         ),
+        // License backend verification for paid tiers.
+        ChangeNotifierProvider(
+          create: (_) {
+            final service = LicenseBackendService();
+            service.init();
+            return service;
+          },
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -88,10 +98,13 @@ class VetvionaApp extends StatelessWidget {
                     label: 'About ${BuildMetadata.appName}',
                     onSelected: () {},
                   ),
-                  const PlatformMenuItemGroup(members: [
-                    PlatformProvidedMenuItem(
-                        type: PlatformProvidedMenuItemType.quit),
-                  ]),
+                  const PlatformMenuItemGroup(
+                    members: [
+                      PlatformProvidedMenuItem(
+                        type: PlatformProvidedMenuItemType.quit,
+                      ),
+                    ],
+                  ),
                 ],
               ),
               PlatformMenu(
@@ -109,10 +122,7 @@ class VetvionaApp extends StatelessWidget {
                       // navigator avoids tight coupling to HomeScreen state.
                     },
                   ),
-                  PlatformMenuItem(
-                    label: 'Import GEDCOM…',
-                    onSelected: () {},
-                  ),
+                  PlatformMenuItem(label: 'Import GEDCOM…', onSelected: () {}),
                   PlatformMenuItem(
                     label: 'Settings…',
                     shortcut: const SingleActivator(
@@ -143,7 +153,6 @@ class VetvionaApp extends StatelessWidget {
     );
   }
 }
-
 
 class _StartupRouter extends StatefulWidget {
   const _StartupRouter();
@@ -177,16 +186,25 @@ class _StartupRouterState extends State<_StartupRouter> {
     if (!_onboardingDone!) {
       return const OnboardingScreen(key: ValueKey('onboarding'));
     }
+    if (!context.read<LicenseBackendService>().isCurrentTierVerified) {
+      return const LicenseVerificationScreen(key: ValueKey('license-verify'));
+    }
     return const HomeScreen(key: ValueKey('home'));
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TreeProvider>();
+    final purchaseService = context.watch<PurchaseService>();
+    final licenseService = context.watch<LicenseBackendService>();
 
     // Show the splash screen until both the tree data AND the onboarding
     // check have finished.
-    final ready = provider.isLoaded && _onboardingDone != null;
+    final ready =
+        provider.isLoaded &&
+        _onboardingDone != null &&
+        purchaseService.isInitialized &&
+        licenseService.isInitialized;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
