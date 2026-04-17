@@ -95,5 +95,18 @@ void main() {
       final result = InputSanitizer.mediumField(long)!;
       expect(result.length, InputSanitizer.maxMediumField);
     });
+
+    test('authField() sanitizes and returns required string', () {
+      expect(InputSanitizer.authField('admin\x00pass'), 'adminpass');
+    });
+
+    test('authField() returns empty string for null', () {
+      expect(InputSanitizer.authField(null), '');
+    });
+
+    test('authField() truncates to maxAuthField', () {
+      final long = 'p' * (InputSanitizer.maxAuthField + 100);
+      expect(InputSanitizer.authField(long).length, InputSanitizer.maxAuthField);
+    });
   });
 }

@@ -9,8 +9,16 @@ import '../models/geo_coord.dart';
 /// Nominatim usage policy: https://operations.osmfoundation.org/policies/nominatim/
 /// — no bulk requests, always include a descriptive User-Agent.
 class NominatimService {
-  NominatimService._();
+  NominatimService._({http.Client? client}) : _client = client ?? http.Client();
+
+  /// Singleton used by the app.
   static final NominatimService instance = NominatimService._();
+
+  /// Creates an instance with an injected HTTP client (for testing).
+  factory NominatimService.withClient(http.Client client) =>
+      NominatimService._(client: client);
+
+  final http.Client _client;
 
   static const _baseUrl = 'https://nominatim.openstreetmap.org';
   static const _userAgent = 'Vetviona/1.0 (genealogy app; contact@vetviona.app)';
@@ -27,7 +35,7 @@ class NominatimService {
         '&format=json'
         '&addressdetails=1',
       );
-      final response = await http
+      final response = await _client
           .get(uri, headers: {'User-Agent': _userAgent})
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
@@ -55,7 +63,7 @@ class NominatimService {
           'limit': '10',
         },
       );
-      final response = await http
+      final response = await _client
           .get(uri, headers: {'User-Agent': _userAgent})
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return [];

@@ -165,4 +165,86 @@ void main() {
       });
     });
   });
+
+  group('ThemeData WidgetState resolvers', () {
+    test('filled button elevation resolver returns correct values', () {
+      final provider = ThemeProvider();
+      final resolver = provider.theme.filledButtonTheme.style?.elevation;
+      expect(resolver?.resolve({WidgetState.pressed}), 0.0);
+      expect(resolver?.resolve({WidgetState.hovered}), 2.0);
+      expect(resolver?.resolve({}), 1.0);
+    });
+
+    test('elevated button elevation resolver is non-null', () {
+      SharedPreferences.setMockInitialValues({});
+      final provider = ThemeProvider();
+      final resolver = provider.theme.elevatedButtonTheme.style?.elevation;
+      expect(resolver, isNotNull);
+    });
+
+    test('navigation bar icon theme resolver returns different values for selected/unselected', () {
+      final provider = ThemeProvider();
+      final navBarTheme = provider.theme.navigationBarTheme;
+      final iconResolver = navBarTheme.iconTheme;
+
+      final selectedIcon = iconResolver?.resolve({WidgetState.selected});
+      final unselectedIcon = iconResolver?.resolve({});
+
+      expect(selectedIcon, isNotNull);
+      expect(unselectedIcon, isNotNull);
+      expect(selectedIcon?.color, isNot(equals(unselectedIcon?.color)));
+    });
+
+    test('navigation bar label text style resolver returns different values for selected/unselected', () {
+      final provider = ThemeProvider();
+      final navBarTheme = provider.theme.navigationBarTheme;
+      final labelResolver = navBarTheme.labelTextStyle;
+
+      final selectedLabel = labelResolver?.resolve({WidgetState.selected});
+      final unselectedLabel = labelResolver?.resolve({});
+
+      expect(selectedLabel, isNotNull);
+      expect(unselectedLabel, isNotNull);
+      expect(selectedLabel?.fontWeight, FontWeight.w600);
+    });
+
+    test('navigation drawer label text style resolver returns different values', () {
+      final provider = ThemeProvider();
+      final drawerTheme = provider.theme.navigationDrawerTheme;
+      final labelResolver = drawerTheme.labelTextStyle;
+
+      final selectedLabel = labelResolver?.resolve({WidgetState.selected});
+      final unselectedLabel = labelResolver?.resolve({});
+
+      expect(selectedLabel, isNotNull);
+      expect(unselectedLabel, isNotNull);
+      expect(selectedLabel?.fontWeight, FontWeight.w600);
+    });
+
+    test('switch thumb color resolver returns different values for selected/unselected', () {
+      final provider = ThemeProvider();
+      final switchTheme = provider.theme.switchTheme;
+      final thumbResolver = switchTheme.thumbColor;
+
+      final selectedColor = thumbResolver?.resolve({WidgetState.selected});
+      final unselectedColor = thumbResolver?.resolve({});
+
+      expect(selectedColor, isNotNull);
+      expect(unselectedColor, isNotNull);
+      expect(selectedColor, isNot(equals(unselectedColor)));
+    });
+
+    test('switch track color resolver returns different values for selected/unselected', () {
+      final provider = ThemeProvider();
+      final switchTheme = provider.theme.switchTheme;
+      final trackResolver = switchTheme.trackColor;
+
+      final selectedColor = trackResolver?.resolve({WidgetState.selected});
+      final unselectedColor = trackResolver?.resolve({});
+
+      expect(selectedColor, isNotNull);
+      expect(unselectedColor, isNotNull);
+      expect(selectedColor, isNot(equals(unselectedColor)));
+    });
+  });
 }

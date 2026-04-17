@@ -57,4 +57,29 @@ void main() {
       expect(isProTier, isA<bool>());
     });
   });
+
+  group('isPaidDesktop', () {
+    test('returns a bool', () {
+      expect(isPaidDesktop, isA<bool>());
+    });
+  });
+
+  group('setMobilePaidUnlocked', () {
+    // The test runner executes on a desktop platform so currentAppTier is
+    // always desktopPro regardless of the unlock flag.  We still exercise the
+    // setter to ensure it doesn't throw and the call path is covered.
+    test('can be called with true without throwing', () {
+      expect(() => setMobilePaidUnlocked(true), returnsNormally);
+    });
+
+    test('can be called with false without throwing', () {
+      expect(() => setMobilePaidUnlocked(false), returnsNormally);
+    });
+
+    test('isProTier remains true on desktop after unlock=false', () {
+      setMobilePaidUnlocked(false);
+      // On the test host (Linux desktop) the tier is always desktopPro.
+      expect(isProTier, isTrue);
+    });
+  });
 }

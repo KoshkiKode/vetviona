@@ -48,8 +48,17 @@ class FindAGraveMemorial {
 /// All fetches are made on **explicit user demand only** — never in the
 /// background or in bulk — to stay within reasonable usage limits.
 class FindAGraveService {
-  FindAGraveService._();
+  FindAGraveService._({http.Client? client})
+      : _client = client ?? http.Client();
+
+  /// Singleton used by the app.
   static final FindAGraveService instance = FindAGraveService._();
+
+  /// Creates an instance with an injected HTTP client (for testing).
+  factory FindAGraveService.withClient(http.Client client) =>
+      FindAGraveService._(client: client);
+
+  final http.Client _client;
 
   static const _ua =
       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
@@ -81,7 +90,7 @@ class FindAGraveService {
   Future<FindAGraveMemorial?> fetchMemorial(String memorialId) async {
     final url = memorialUrl(memorialId);
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'User-Agent': _ua,
