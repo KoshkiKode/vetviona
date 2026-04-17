@@ -367,6 +367,97 @@ void main() {
       expect(service.outgoingGifts.first.toEmail, 'bob@example.com');
     });
 
+    test('initiateGift sends requested licenseType for each license kind', () async {
+      const licenseTypes = <String>['apple', 'android', 'desktop'];
+
+      for (final licenseType in licenseTypes) {
+        String? seenLicenseType;
+        final service = LicenseBackendService(
+          client: MockClient((req) async {
+            if (req.url.path == '/v1/license/verify') {
+              return http.Response(
+                jsonEncode({
+                  'ok': true,
+                  'entitlements': {
+                    'apple': true,
+                    'android': true,
+                    'desktop': true,
+                  },
+                  'emailVerified': true,
+                  'licensesDetail': {
+                    'apple': 'active',
+                    'android': 'active',
+                    'desktop': 'active',
+                  },
+                  'devices': [],
+                }),
+                200,
+              );
+            }
+
+            final payload = jsonDecode(req.body) as Map<String, dynamic>;
+            seenLicenseType = payload['licenseType']?.toString();
+            expect(payload['toEmail'], 'target@example.com');
+
+            final giftedOut = seenLicenseType;
+            final entitlements = {
+              'apple': giftedOut != 'apple',
+              'android': giftedOut != 'android',
+              'desktop': giftedOut != 'desktop',
+            };
+            final licensesDetail = {
+              'apple': giftedOut == 'apple' ? 'gifted_out' : 'active',
+              'android': giftedOut == 'android' ? 'gifted_out' : 'active',
+              'desktop': giftedOut == 'desktop' ? 'gifted_out' : 'active',
+            };
+
+            return http.Response(
+              jsonEncode({
+                'ok': true,
+                'gift': {
+                  'id': 'gift-$giftedOut',
+                  'licenseType': giftedOut,
+                  'toEmail': 'target@example.com',
+                  'expiresAt': '2026-04-20T00:00:00.000Z',
+                },
+                'account': _fullAccount(
+                  entitlements: entitlements,
+                  licensesDetail: licensesDetail,
+                  outgoingGifts: [
+                    {
+                      'id': 'gift-$giftedOut',
+                      'licenseType': giftedOut,
+                      'toEmail': 'target@example.com',
+                      'expiresAt': '2026-04-20T00:00:00.000Z',
+                      'createdAt': '2026-04-17T00:00:00.000Z',
+                    },
+                  ],
+                ),
+                'incomingGifts': [],
+              }),
+              200,
+            );
+          }),
+          baseUrl: 'http://license.example',
+        );
+
+        await service.init();
+        await service.verifyLicense(
+          email: 'alice@example.com',
+          password: 'Password!1',
+        );
+        final ok = await service.initiateGift(
+          licenseType: licenseType,
+          toEmail: 'target@example.com',
+        );
+
+        expect(ok, isTrue);
+        expect(seenLicenseType, licenseType);
+        expect(service.outgoingGifts, hasLength(1));
+        expect(service.outgoingGifts.first.licenseType, licenseType);
+      }
+    });
+
     test('claimGift by token succeeds', () async {
       final service = LicenseBackendService(
         client: MockClient((req) async {
@@ -427,6 +518,72 @@ void main() {
       expect(ok, isTrue);
       expect(service.appleLicenseStatus, 'active');
       expect(service.appleEntitled, isTrue);
+    });
+
+    test('cancelGift forwards provided licenseType for each license kind', () async {
+      const licenseTypes = <String>['apple', 'android', 'desktop'];
+
+      for (final licenseType in licenseTypes) {
+        String? seenLicenseType;
+        final service = LicenseBackendService(
+          client: MockClient((req) async {
+            if (req.url.path == '/v1/license/verify') {
+              return http.Response(
+                jsonEncode({
+                  'ok': true,
+                  'entitlements': {
+                    'apple': true,
+                    'android': true,
+                    'desktop': true,
+                  },
+                  'emailVerified': true,
+                  'licensesDetail': {
+                    'apple': 'active',
+                    'android': 'active',
+                    'desktop': 'active',
+                  },
+                  'devices': [],
+                }),
+                200,
+              );
+            }
+
+            final payload = jsonDecode(req.body) as Map<String, dynamic>;
+            seenLicenseType = payload['licenseType']?.toString();
+            return http.Response(
+              jsonEncode({
+                'ok': true,
+                'account': _fullAccount(
+                  entitlements: {
+                    'apple': true,
+                    'android': true,
+                    'desktop': true,
+                  },
+                  licensesDetail: {
+                    'apple': 'active',
+                    'android': 'active',
+                    'desktop': 'active',
+                  },
+                  outgoingGifts: [],
+                ),
+                'incomingGifts': [],
+              }),
+              200,
+            );
+          }),
+          baseUrl: 'http://license.example',
+        );
+
+        await service.init();
+        await service.verifyLicense(
+          email: 'alice@example.com',
+          password: 'Password!1',
+        );
+        final ok = await service.cancelGift(licenseType: licenseType);
+
+        expect(ok, isTrue);
+        expect(seenLicenseType, licenseType);
+      }
     });
   });
 
