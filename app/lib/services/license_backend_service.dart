@@ -43,6 +43,7 @@ class LicenseDeviceRecord {
 }
 
 class LicenseBackendService extends ChangeNotifier {
+  static const Uuid _uuid = Uuid();
   static const String _configuredBaseUrl = String.fromEnvironment(
     'LICENSE_BACKEND_URL',
     defaultValue: 'http://127.0.0.1:8080',
@@ -214,8 +215,9 @@ class LicenseBackendService extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
       return true;
-    } catch (_) {
+    } catch (e) {
       _isLoading = false;
+      debugPrint('License verification failed: $e');
       _errorMessage =
           'Could not reach the license server. Check your internet or backend URL.';
       notifyListeners();
@@ -227,8 +229,7 @@ class LicenseBackendService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final existing = prefs.getString(_kDeviceIdKey);
     if (existing != null && existing.isNotEmpty) return existing;
-    const uuid = Uuid();
-    final created = uuid.v4();
+    final created = _uuid.v4();
     await prefs.setString(_kDeviceIdKey, created);
     return created;
   }

@@ -37,7 +37,12 @@ function readDb() {
 
 function writeDb(db) {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), { mode: 0o600 });
+  const fd = fs.openSync(DB_PATH, 'w', 0o600);
+  try {
+    fs.writeFileSync(fd, JSON.stringify(db, null, 2), 'utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function hashPassword(password, salt) {
