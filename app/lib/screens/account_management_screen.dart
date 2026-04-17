@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../services/license_backend_service.dart';
 import '../utils/page_routes.dart';
+import 'claim_gift_screen.dart';
+import 'gift_license_wizard.dart';
 import 'license_verification_screen.dart';
 
 /// The full-featured License Account management screen.
@@ -523,84 +525,23 @@ class _LicenseTile extends StatelessWidget {
             icon: const Icon(Icons.card_giftcard_outlined, size: 16),
             label: const Text('Gift'),
             onPressed: svc.emailVerified
-                ? () => _showGiftDialog(context)
-                : () => _showVerifyEmailRequired(context),
+                ? () => Navigator.push(
+                    context,
+                    fadeSlideRoute(
+                      builder: (_) =>
+                          GiftLicenseWizard(preselectedType: licenseType),
+                    ),
+                  )
+                : () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Verify your email first to transfer licenses.',
+                      ),
+                    ),
+                  ),
           ),
       ],
     );
-  }
-
-  void _showVerifyEmailRequired(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Verify your email first to transfer licenses.'),
-      ),
-    );
-  }
-
-  Future<void> _showGiftDialog(BuildContext context) async {
-    final emailCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog.adaptive(
-        title: Text('Gift $label License'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Transfer your $label license to another Vetviona account. '
-              'You will lose access until the transfer is claimed or cancelled.',
-              style: Theme.of(ctx).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: emailCtrl,
-              decoration: const InputDecoration(
-                labelText: "Recipient's email address",
-                prefixIcon: Icon(Icons.alternate_email),
-              ),
-              keyboardType: TextInputType.emailAddress,
-              autocorrect: false,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (emailCtrl.text.trim().contains('@')) {
-                Navigator.pop(ctx, true);
-              }
-            },
-            child: const Text('Transfer'),
-          ),
-        ],
-      ),
-    );
-
-    if (ok == true && context.mounted) {
-      final success = await context.read<LicenseBackendService>().initiateGift(
-        licenseType: licenseType,
-        toEmail: emailCtrl.text.trim(),
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? 'Transfer initiated — a claim email has been sent to ${emailCtrl.text.trim()}.'
-                  : context.read<LicenseBackendService>().errorMessage ??
-                        'Transfer failed.',
-            ),
-          ),
-        );
-      }
-    }
-    emailCtrl.dispose();
   }
 }
 
@@ -755,72 +696,32 @@ class _IncomingGiftTile extends StatelessWidget {
   }
 }
 
-class _ClaimSection extends StatefulWidget {
+class _ClaimSection extends StatelessWidget {
   final LicenseBackendService svc;
   const _ClaimSection({required this.svc});
 
   @override
-  State<_ClaimSection> createState() => _ClaimSectionState();
-}
-
-class _ClaimSectionState extends State<_ClaimSection> {
-  final _tokenCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _tokenCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return _SectionCard(
       icon: Icons.redeem_outlined,
       title: 'Claim a License Gift',
       children: [
         Text(
-          'If you received a claim token by email, enter it below.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          'Have a claim token from a gift email or a voucher code? '
+          'Tap below for guided steps.',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _tokenCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Claim token (e.g. AB12CD34)',
-                  isDense: true,
-                ),
-                autocorrect: false,
-                textCapitalization: TextCapitalization.characters,
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: widget.svc.isLoading
-                  ? null
-                  : () async {
-                      final tok = _tokenCtrl.text.trim();
-                      if (tok.isEmpty) return;
-                      final ok = await widget.svc.claimGift(token: tok);
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            ok
-                                ? 'License claimed successfully!'
-                                : widget.svc.errorMessage ?? 'Claim failed.',
-                          ),
-                        ),
-                      );
-                      if (ok) _tokenCtrl.clear();
-                    },
-              child: const Text('Claim'),
-            ),
-          ],
+        FilledButton.tonalIcon(
+          icon: const Icon(Icons.redeem_outlined, size: 18),
+          label: const Text('Claim a License Gift'),
+          onPressed: () => Navigator.push(
+            context,
+            fadeSlideRoute(builder: (_) => const ClaimGiftScreen()),
+          ),
         ),
       ],
     );

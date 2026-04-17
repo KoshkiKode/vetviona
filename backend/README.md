@@ -44,6 +44,7 @@ Optional env vars:
 - `POST /v1/license/gift/initiate`
 - `POST /v1/license/gift/claim`
 - `POST /v1/license/gift/cancel`
+- `POST /v1/license/voucher/create` *(admin-protected)*
 
 ### Register account
 
@@ -106,7 +107,39 @@ curl -X POST http://127.0.0.1:8080/v1/license/verify \
   }'
 ```
 
-### Initiate a license gift / transfer
+### Create vouchers (admin — "buy for others")
+
+Vouchers are open gift tokens — any authenticated account can redeem them.
+Use this to sell/distribute license codes without tying them to a specific email.
+
+Protect with `ADMIN_SECRET` env var. In dev mode the secret is printed at startup.
+
+```bash
+# Create 3 desktop vouchers (send confirmation to purchaser@example.com)
+curl -X POST http://127.0.0.1:8080/v1/license/voucher/create \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "adminSecret": "<your-admin-secret>",
+    "licenseType": "desktop",
+    "quantity": 3,
+    "fromEmail": "purchaser@example.com",
+    "notes": "Order #1234"
+  }'
+```
+
+Response: `{ ok: true, vouchers: [{ id, token, licenseType, expiresAt }, ...] }`
+
+The purchaser receives a confirmation email listing all tokens.
+Share each token with the intended recipient — they can redeem it in the app
+under **Settings → License Account → Claim a License Gift**.
+
+```bash
+# Redeem a voucher (any authenticated account)
+curl -X POST http://127.0.0.1:8080/v1/license/gift/claim \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"recipient@example.com","password":"MyPassword!","token":"ABCD1234"}'
+```
+
 
 Transfers one of your licenses to another email address.  Requires email verification.
 The license is put in escrow — the sender cannot use it until the gift is claimed or cancelled.

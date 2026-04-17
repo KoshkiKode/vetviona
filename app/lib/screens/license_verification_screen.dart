@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../config/app_config.dart';
 import '../services/license_backend_service.dart';
+import '../utils/page_routes.dart';
+import 'claim_gift_screen.dart';
 
 class LicenseVerificationScreen extends StatefulWidget {
   const LicenseVerificationScreen({super.key});
@@ -127,6 +129,20 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
                               )
                             : const Icon(Icons.verified_outlined),
                         label: const Text('Verify license'),
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 10),
+                      // ── Gift / voucher claim entry ─────────────────────
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.redeem_outlined, size: 18),
+                        label: const Text('Received a license gift? Claim it'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          fadeSlideRoute(
+                            builder: (_) => const ClaimGiftScreen(),
+                          ),
+                        ),
                       ),
                     ],
                   ),

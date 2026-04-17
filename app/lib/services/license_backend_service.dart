@@ -420,6 +420,7 @@ class LicenseBackendService extends ChangeNotifier {
   }
 
   /// Claims an incoming gift using a [token] (from email) or [giftId] (from sync).
+  /// Also redeems open vouchers (tokens not tied to a specific email).
   Future<bool> claimGift({String? token, String? giftId}) async {
     assert(token != null || giftId != null, 'Provide token or giftId');
     final extra = <String, dynamic>{};
@@ -430,6 +431,59 @@ class LicenseBackendService extends ChangeNotifier {
       extraFields: extra,
       onSuccess: (body) => _applySyncResponse(body),
     );
+  }
+
+  /// Creates one or more open voucher tokens (admin only).
+  /// Callers must supply the [adminSecret] configured on the backend.
+  /// Returns the list of generated tokens on success, or null on failure.
+  Future<List<String>?> createVoucher({
+    required String adminSecret,
+    required String licenseType,
+    int quantity = 1,
+    String? fromEmail,
+    String? notes,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/v1/license/voucher/create'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'adminSecret': adminSecret,
+              'licenseType': licenseType,
+              'quantity': quantity,
+              'fromEmail': ?fromEmail,
+              'notes': ?notes,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decodeJsonMap(response.body);
+      _isLoading = false;
+      if (response.statusCode == 200 && body['ok'] == true) {
+        final rawVouchers = body['vouchers'] as List?;
+        final tokens = rawVouchers
+            ?.whereType<Map>()
+            .map((v) => v['token']?.toString() ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+        _errorMessage = null;
+        notifyListeners();
+        return tokens ?? [];
+      }
+      _errorMessage = body['message']?.toString() ?? 'Voucher creation failed.';
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Could not reach the server.';
+      notifyListeners();
+      return null;
+    }
   }
 
   // ── Email verification ────────────────────────────────────────────────────────

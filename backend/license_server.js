@@ -63,6 +63,11 @@ const LICENSE_TYPES = new Set(['apple', 'android', 'desktop']);
 const TOKEN_EXPIRY_HOURS = 48;
 const GIFT_EXPIRY_HOURS = 72;
 
+// ADMIN_SECRET protects the voucher-creation endpoint.
+// In dev mode (no ADMIN_SECRET set) the server prints a one-time secret at
+// startup so operators can still call the endpoint during development.
+const _devAdminSecret = crypto.randomBytes(8).toString('hex');
+
 // ── Utilities ────────────────────────────────────────────────────────────────
 function nowIso() { return new Date().toISOString(); }
 function addHours(hours) { return new Date(Date.now() + hours * 3_600_000).toISOString(); }
@@ -586,16 +591,24 @@ function handleGiftClaim(db, payload, res) {
 
   let gift;
   if (payload.giftId) {
-    gift = db.pendingGifts.find((g) => g.id === payload.giftId && g.toEmail === account.email);
+    // Directed gift by ID — must be addressed to this account.
+    gift = db.pendingGifts.find(
+      (g) => g.id === payload.giftId && (g.toEmail === account.email || g.toEmail === null),
+    );
   } else if (payload.token) {
     const tok = String(payload.token).trim().toUpperCase();
+    // First look for a directed gift for this email.
     gift = db.pendingGifts.find((g) => g.token === tok && g.toEmail === account.email);
+    // Fall back to open vouchers (toEmail === null — redeemable by anyone).
+    if (!gift) {
+      gift = db.pendingGifts.find((g) => g.token === tok && g.toEmail === null);
+    }
   }
 
   if (!gift) {
     return sendJson(res, 404, {
       ok: false,
-      message: 'Gift not found or does not belong to your account.',
+      message: 'Gift or voucher not found, or the code does not match your account.',
     });
   }
   if (new Date(gift.expiresAt) < new Date()) {
@@ -606,11 +619,10 @@ function handleGiftClaim(db, payload, res) {
 
   const licenseType = gift.licenseType;
 
-  // Release escrow on sender and remove their license.
-  const sender = db.accounts.find((a) => a.email === gift.fromEmail);
-  if (sender) {
-    sender.giftedOut = sender.giftedOut || {};
-    if (sender.giftedOut[licenseType] === gift.id) {
+  // Release escrow on sender (only directed gifts lock the sender's license).
+  if (gift.fromEmail) {
+    const sender = db.accounts.find((a) => a.email === gift.fromEmail);
+    if (sender && sender.giftedOut && sender.giftedOut[licenseType] === gift.id) {
       sender.giftedOut[licenseType] = null;
       sender.licenses[licenseType] = false;
       sender.updatedAt = nowIso();
@@ -671,6 +683,65 @@ function handleGiftCancel(db, payload, res) {
   });
 }
 
+// ── Voucher (open gift) creation — admin-only ─────────────────────────────────
+//
+// Creates a pending gift with `toEmail: null` so that ANY authenticated
+// account can redeem the claim token.  This enables the "buy a license for
+// someone else" workflow: the operator/admin creates a voucher, hands the
+// token to the purchaser, and the recipient redeems it with their account.
+//
+// Protect this endpoint by setting the ADMIN_SECRET env var.  In dev mode
+// (no env var) a one-time secret is logged at startup.
+function handleVoucherCreate(db, payload, res) {
+  const configuredSecret = process.env.ADMIN_SECRET || _devAdminSecret;
+  if (!payload.adminSecret || payload.adminSecret !== configuredSecret) {
+    return sendJson(res, 403, { ok: false, message: 'Invalid admin secret.' });
+  }
+
+  const licenseType = String(payload.licenseType || '').toLowerCase();
+  if (!LICENSE_TYPES.has(licenseType)) {
+    return sendJson(res, 400, {
+      ok: false,
+      message: 'licenseType must be "apple", "android", or "desktop".',
+    });
+  }
+
+  const quantity = Math.min(Math.max(Number(payload.quantity) || 1, 1), 50);
+  const fromEmail = payload.fromEmail ? sanitizeEmail(payload.fromEmail) : null;
+  const notes = payload.notes ? String(payload.notes).slice(0, 200) : null;
+  const expiry = addHours(GIFT_EXPIRY_HOURS);
+
+  const vouchers = [];
+  for (let i = 0; i < quantity; i++) {
+    const token = generateToken();
+    const voucher = {
+      id: crypto.randomUUID(),
+      fromEmail,
+      toEmail: null,          // open — any authenticated account may claim
+      licenseType,
+      token,
+      notes,
+      createdAt: nowIso(),
+      expiresAt: expiry,
+    };
+    db.pendingGifts.push(voucher);
+    vouchers.push({ id: voucher.id, token, licenseType, expiresAt: expiry });
+  }
+  writeDb(db);
+
+  if (fromEmail) {
+    sendEmail(
+      fromEmail,
+      `Your Vetviona ${licenseType} voucher${quantity > 1 ? 's' : ''}`,
+      `Your Vetviona ${licenseType} license voucher${quantity > 1 ? 's have' : ' has'} been created.\n\n${vouchers.map((v, i) => `Voucher ${i + 1}: ${v.token}`).join('\n')}\n\nShare each token with the intended recipient. They can redeem it in the Vetviona app under Settings → License Account → Claim a License Gift.\n\nEach voucher expires in ${GIFT_EXPIRY_HOURS} hours.`,
+    );
+  }
+
+  const response = { ok: true, vouchers };
+  if (EMAIL_DEV_MODE) response._devTokens = vouchers.map((v) => v.token);
+  return sendJson(res, 200, response);
+}
+
 // ── HTTP Server ───────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   if (!req.url) {
@@ -710,6 +781,7 @@ const server = http.createServer(async (req, res) => {
     '/v1/license/gift/initiate': handleGiftInitiate,
     '/v1/license/gift/claim': handleGiftClaim,
     '/v1/license/gift/cancel': handleGiftCancel,
+    '/v1/license/voucher/create': handleVoucherCreate,
   };
 
   const handler = routes[url.pathname];
@@ -728,5 +800,11 @@ server.listen(PORT, () => {
       ? 'Email: DEV MODE — tokens logged to console. Set SMTP_HOST to use real email.'
       : `Email: SMTP via ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 587}`,
   );
+  if (!process.env.ADMIN_SECRET) {
+    // eslint-disable-next-line no-console
+    console.log(`\n[DEV] Admin secret (voucher creation): ${_devAdminSecret}`);
+    // eslint-disable-next-line no-console
+    console.log('[DEV] Set ADMIN_SECRET env var to use a permanent admin secret.\n');
+  }
 });
 
