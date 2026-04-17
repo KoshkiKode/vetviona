@@ -29,9 +29,9 @@ jobs:
           flutter create --platforms=android --org com.koshkikode .
           flutter pub get
           if [ -f android/app/build.gradle.kts ]; then
-            sed -i -E 's/minSdk(Version)?( =)? flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts
+            sed -i -E 's/minSdk([[:space:]]*Version)?([[:space:]]*=[[:space:]]*)?flutter\.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts
           elif [ -f android/app/build.gradle ]; then
-            sed -i -E 's/minSdk(Version)?( =)? flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
+            sed -i -E 's/minSdk([[:space:]]*Version)?([[:space:]]*=[[:space:]]*)?flutter\.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
           else
             echo "Android Gradle build file not found." >&2
             exit 1
@@ -77,10 +77,10 @@ jobs:
           dart run flutter_launcher_icons -f icons_ios.yaml
           flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
       - run: |
-          rm -rf /tmp/Payload
-          mkdir -p /tmp/Payload
-          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
-          cd /tmp && zip -r vetviona-paid.ipa Payload
+          rm -rf /tmp/Payload-paid
+          mkdir -p /tmp/Payload-paid
+          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload-paid/Runner.app
+          cd /tmp && zip -r vetviona-paid.ipa Payload-paid
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-ios-paid
@@ -91,10 +91,10 @@ jobs:
           flutter pub get
           flutter build ios --release --no-codesign
       - run: |
-          rm -rf /tmp/Payload
-          mkdir -p /tmp/Payload
-          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
-          cd /tmp && zip -r vetviona-free.ipa Payload
+          rm -rf /tmp/Payload-free
+          mkdir -p /tmp/Payload-free
+          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload-free/Runner.app
+          cd /tmp && zip -r vetviona-free.ipa Payload-free
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-ios-free
