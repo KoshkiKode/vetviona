@@ -176,13 +176,13 @@ class _FactConflictTile extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isResolved
-              ? colorScheme.primaryContainer.withOpacity(0.3)
-              : colorScheme.errorContainer.withOpacity(0.3),
+              ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : colorScheme.errorContainer.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isResolved
-                ? colorScheme.primary.withOpacity(0.3)
-                : colorScheme.error.withOpacity(0.3),
+                ? colorScheme.primary.withValues(alpha: 0.3)
+                : colorScheme.error.withValues(alpha: 0.3),
           ),
         ),
         child: Column(
@@ -212,7 +212,7 @@ class _FactConflictTile extends StatelessWidget {
                     Chip(
                       label: const Text('Resolved'),
                       backgroundColor:
-                          colorScheme.primary.withOpacity(0.12),
+                          colorScheme.primary.withValues(alpha: 0.12),
                       labelStyle: TextStyle(
                           color: colorScheme.primary, fontSize: 11),
                       side: BorderSide.none,
@@ -224,7 +224,7 @@ class _FactConflictTile extends StatelessWidget {
                     Chip(
                       label: const Text('Conflict'),
                       backgroundColor:
-                          colorScheme.error.withOpacity(0.12),
+                          colorScheme.error.withValues(alpha: 0.12),
                       labelStyle: TextStyle(
                           color: colorScheme.error, fontSize: 11),
                       side: BorderSide.none,
@@ -297,13 +297,13 @@ class _SourceOption extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isPreferred
-            ? colorScheme.primary.withOpacity(0.08)
+            ? colorScheme.primary.withValues(alpha: 0.08)
             : colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isPreferred
-              ? colorScheme.primary.withOpacity(0.4)
-              : colorScheme.outlineVariant.withOpacity(0.5),
+              ? colorScheme.primary.withValues(alpha: 0.4)
+              : colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: ListTile(

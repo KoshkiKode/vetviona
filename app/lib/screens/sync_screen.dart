@@ -1266,9 +1266,9 @@ class _StatusBanner extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -1294,9 +1294,9 @@ class _StatusBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: cs.primaryContainer.withOpacity(0.5),
+              color: cs.primaryContainer.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.primary.withOpacity(0.3)),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -1462,9 +1462,9 @@ class _TierBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,
@@ -1492,9 +1492,9 @@ class _ProGateBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: cs.secondaryContainer.withOpacity(0.5),
+        color: cs.secondaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.secondary.withOpacity(0.3)),
+        border: Border.all(color: cs.secondary.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -1561,7 +1561,7 @@ class _TailscaleCard extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: cs.primaryContainer.withOpacity(0.4),
+              color: cs.primaryContainer.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(

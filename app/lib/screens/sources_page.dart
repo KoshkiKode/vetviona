@@ -44,7 +44,7 @@ class SourcesPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.source_outlined,
-                      size: 64, color: colorScheme.primary.withOpacity(0.3)),
+                      size: 64, color: colorScheme.primary.withValues(alpha: 0.3)),
                   const SizedBox(height: 16),
                   Text('No sources added yet.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(

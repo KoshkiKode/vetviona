@@ -78,7 +78,7 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
                       width: 36,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: colorScheme.outline.withOpacity(0.4),
+                        color: colorScheme.outline.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -257,12 +257,12 @@ class _PresetTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected
                   ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: selected
                     ? colorScheme.primary
-                    : colorScheme.outline.withOpacity(0.2),
+                    : colorScheme.outline.withValues(alpha: 0.2),
                 width: selected ? 1.5 : 1.0,
               ),
             ),
@@ -296,7 +296,7 @@ class _PresetTile extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: selected
-                              ? colorScheme.onPrimaryContainer.withOpacity(0.75)
+                              ? colorScheme.onPrimaryContainer.withValues(alpha: 0.75)
                               : colorScheme.onSurfaceVariant,
                         ),
                       ),

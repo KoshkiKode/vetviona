@@ -463,14 +463,14 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
     final tx = (vp.width - scaledW) / 2;
     final ty = (vp.height - scaledH) / 2;
     _transformCtrl.value = Matrix4.identity()
-      ..translate(tx, ty)
-      ..scale(scale);
+      ..translateByDouble(tx, ty, 0.0, 1.0)
+      ..scaleByDouble(scale, scale, scale, 1.0);
   }
 
   void _changeScale(double factor) {
     final s = _transformCtrl.value.getMaxScaleOnAxis();
     final ns = (s * factor).clamp(0.1, 5.0);
-    _transformCtrl.value = _transformCtrl.value.clone()..scale(ns / s);
+    _transformCtrl.value = _transformCtrl.value.clone()..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
   }
 
   void _resetView() {
@@ -634,8 +634,8 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
                           painter: _DescEdgePainter(
                             nodes: layout.nodes,
                             edges: layout.edges,
-                            edgeColor: colorScheme.outline.withOpacity(0.5),
-                            coupleColor: colorScheme.tertiary.withOpacity(0.7),
+                            edgeColor: colorScheme.outline.withValues(alpha: 0.5),
+                            coupleColor: colorScheme.tertiary.withValues(alpha: 0.7),
                             edgeStyle: effectiveEdgeStyle,
                             cardW: effectiveCardW,
                             cardH: effectiveCardH,
@@ -850,7 +850,7 @@ class _DescCard extends StatelessWidget {
           border: Border.all(color: accent, width: isRoot ? 2.0 : 1.5),
           boxShadow: [
             BoxShadow(
-              color: accent.withOpacity(isRoot ? 0.25 : 0.12),
+              color: accent.withValues(alpha: isRoot ? 0.25 : 0.12),
               blurRadius: isRoot ? 8 : 4,
               offset: const Offset(0, 2),
             ),
@@ -862,7 +862,7 @@ class _DescCard extends StatelessWidget {
             Container(
               width: 6,
               decoration: BoxDecoration(
-                color: accent.withOpacity(0.85),
+                color: accent.withValues(alpha: 0.85),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(10),
                   bottomLeft: Radius.circular(10),
@@ -873,7 +873,7 @@ class _DescCard extends StatelessWidget {
             // Avatar circle
             CircleAvatar(
               radius: 14,
-              backgroundColor: accent.withOpacity(0.15),
+              backgroundColor: accent.withValues(alpha: 0.15),
               child: Text(
                 person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
                 style: TextStyle(
@@ -938,7 +938,7 @@ class _DescCard extends StatelessWidget {
                         person.birthPlace!,
                         style: TextStyle(
                           fontSize: 9,
-                          color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

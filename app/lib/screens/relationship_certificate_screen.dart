@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import '../models/person.dart';
 import '../models/source.dart';
 import '../providers/tree_provider.dart';
 import '../screens/relationship_finder_screen.dart'
@@ -26,7 +25,6 @@ class _RelationshipCertificateScreenState
     extends State<RelationshipCertificateScreen> {
   String? _fromId;
   String? _toId;
-  List<String>? _path;
   String? _certificateText;
   bool _searched = false;
 
@@ -34,7 +32,6 @@ class _RelationshipCertificateScreenState
     if (_fromId == null || _toId == null) return;
     final path = provider.findRelationshipPath(_fromId!, _toId!);
     setState(() {
-      _path = path;
       _searched = true;
       _certificateText = path.isEmpty
           ? null

@@ -363,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: AppBar(
-            backgroundColor: primary.withOpacity(0.92),
+            backgroundColor: primary.withValues(alpha: 0.92),
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -406,10 +406,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     hintText: 'Search people\u2026',
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
-                    fillColor: colorScheme.onPrimary.withOpacity(0.13),
+                    fillColor: colorScheme.onPrimary.withValues(alpha: 0.13),
                     hintStyle: TextStyle(
-                        color: colorScheme.onPrimary.withOpacity(0.7)),
-                    prefixIconColor: colorScheme.onPrimary.withOpacity(0.8),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.7)),
+                    prefixIconColor: colorScheme.onPrimary.withValues(alpha: 0.8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(28),
                       borderSide: BorderSide.none,
@@ -421,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(28),
                       borderSide: BorderSide(
-                          color: colorScheme.onPrimary.withOpacity(0.5)),
+                          color: colorScheme.onPrimary.withValues(alpha: 0.5)),
                     ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   ),
@@ -492,7 +492,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ? '${provider.persons.length} / $freeMobilePersonLimit people'
         : '${provider.persons.length} people';
     return Container(
-      color: colorScheme.primaryContainer.withOpacity(0.3),
+      color: colorScheme.primaryContainer.withValues(alpha: 0.3),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Wrap(
         spacing: 8,
@@ -522,10 +522,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withOpacity(0.12),
+                    color: colorScheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: colorScheme.primary.withOpacity(0.4)),
+                        color: colorScheme.primary.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -653,7 +653,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: colorScheme.onPrimary.withOpacity(0.2),
+                    color: colorScheme.onPrimary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(Icons.account_tree,
@@ -671,13 +671,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     provider.currentUser ?? '',
                     style: TextStyle(
-                        color: colorScheme.onPrimary.withOpacity(0.8)),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.8)),
                   )
                 else
                   Text(
                     'Not signed in',
                     style: TextStyle(
-                        color: colorScheme.onPrimary.withOpacity(0.6),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.6),
                         fontSize: 12),
                   ),
               ],
@@ -1306,7 +1306,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         Divider(
             height: 1,
-            color: colorScheme.outlineVariant.withOpacity(0.5)),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ],
     );
   }
@@ -1319,9 +1319,9 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withOpacity(0.6),
+        color: colorScheme.errorContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colorScheme.error.withOpacity(0.3)),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -1779,7 +1779,7 @@ class _UpgradeTierRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 20),
@@ -1820,7 +1820,7 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -2042,7 +2042,7 @@ class _PersonCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: avatarBg.withOpacity(0.12),
+                            color: avatarBg.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -2058,7 +2058,7 @@ class _PersonCard extends StatelessWidget {
                 ),
               ),
               Icon(Icons.chevron_right,
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
             ],
           ),
         ),

@@ -121,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: themeProvider.primaryColor,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                          color: colorScheme.outline.withOpacity(0.3)),
+                          color: colorScheme.outline.withValues(alpha: 0.3)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -833,9 +833,9 @@ class _DeviceTierBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,

@@ -627,7 +627,7 @@ class _PartnershipTile extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: statusColor.withOpacity(0.15),
+                  backgroundColor: statusColor.withValues(alpha: 0.15),
                   child: Text(
                     _partnersName().isNotEmpty
                         ? _partnersName()[0].toUpperCase()
@@ -786,7 +786,6 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
     final others = widget.provider.persons
         .where((p) => p.id != widget.currentPersonId)
         .toList();
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1070,9 +1069,9 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(label,
           style: TextStyle(
@@ -1104,9 +1103,9 @@ class _DatePickerTile extends StatelessWidget {
         padding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [

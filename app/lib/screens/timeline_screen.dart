@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../models/life_event.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
@@ -170,7 +169,7 @@ extension _EventKindStyle on _EventKind {
         _EventKind.endedUnion => cs.outline,
         _EventKind.death => cs.error,
         _EventKind.source => cs.primary,
-        _EventKind.lifeEvent => cs.tertiary.withOpacity(0.8),
+        _EventKind.lifeEvent => cs.tertiary.withValues(alpha: 0.8),
       };
 }
 
@@ -215,7 +214,7 @@ class _TimelineEvent extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                     border: Border.all(color: color, width: 2),
                   ),
@@ -225,7 +224,7 @@ class _TimelineEvent extends StatelessWidget {
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: colorScheme.outlineVariant.withOpacity(0.4),
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.4),
                     ),
                   ),
               ],
