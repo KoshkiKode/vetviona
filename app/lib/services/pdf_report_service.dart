@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
@@ -16,16 +17,19 @@ import '../models/source.dart';
 class PdfReportService {
   static const _pageFormat = PdfPageFormat.a4;
 
-  static String _fmt(DateTime? d) {
+  // @visibleForTesting
+  static String formatDate(DateTime? d) {
     if (d == null) return '';
     return DateFormat('d MMM yyyy').format(d);
   }
 
-  static String _nameForId(String id, List<Person> persons) =>
+  // @visibleForTesting
+  static String nameForId(String id, List<Person> persons) =>
       persons.where((p) => p.id == id).firstOrNull?.name ?? id;
 
   /// Builds a prose narrative paragraph for one person.
-  static String _buildNarrative(
+  // @visibleForTesting
+  static String buildNarrative(
     Person p,
     List<Partnership> partnerships,
     List<LifeEvent> lifeEvents,
@@ -37,7 +41,7 @@ class PdfReportService {
 
     // Opening sentence
     buf.write('${p.name} was born');
-    if (p.birthDate != null) buf.write(' on ${_fmt(p.birthDate)}');
+    if (p.birthDate != null) buf.write(' on ${formatDate(p.birthDate)}');
     if (p.birthPlace != null && p.birthPlace!.isNotEmpty) {
       buf.write(' in ${p.birthPlace}');
     }
@@ -46,7 +50,7 @@ class PdfReportService {
     // Parents
     if (p.parentIds.isNotEmpty) {
       final parentNames =
-          p.parentIds.map((id) => _nameForId(id, allPersons)).join(' and ');
+          p.parentIds.map((id) => nameForId(id, allPersons)).join(' and ');
       buf.write(' $firstName is the child of $parentNames.');
     }
 
@@ -89,10 +93,10 @@ class PdfReportService {
     for (final pt in myPartnerships) {
       final partnerId =
           pt.person1Id == p.id ? pt.person2Id : pt.person1Id;
-      final partnerName = _nameForId(partnerId, allPersons);
+      final partnerName = nameForId(partnerId, allPersons);
       buf.write(
           ' $firstName ${pt.statusLabel.toLowerCase()} $partnerName');
-      if (pt.startDate != null) buf.write(' on ${_fmt(pt.startDate)}');
+      if (pt.startDate != null) buf.write(' on ${formatDate(pt.startDate)}');
       if (pt.startPlace != null && pt.startPlace!.isNotEmpty) {
         buf.write(' in ${pt.startPlace}');
       }
@@ -102,7 +106,7 @@ class PdfReportService {
     // Children
     if (p.childIds.isNotEmpty) {
       final childNames =
-          p.childIds.map((id) => _nameForId(id, allPersons)).join(', ');
+          p.childIds.map((id) => nameForId(id, allPersons)).join(', ');
       final count = p.childIds.length;
       buf.write(
           ' $firstName had $count ${count == 1 ? 'child' : 'children'}: $childNames.');
@@ -111,7 +115,7 @@ class PdfReportService {
     // Life events
     for (final e in lifeEvents.where((e) => e.personId == p.id)) {
       buf.write(' ${e.title}');
-      if (e.date != null) buf.write(' on ${_fmt(e.date)}');
+      if (e.date != null) buf.write(' on ${formatDate(e.date)}');
       if (e.place != null && e.place!.isNotEmpty) {
         buf.write(' in ${e.place}');
       }
@@ -133,7 +137,7 @@ class PdfReportService {
     // Death
     if (p.deathDate != null || p.deathPlace != null) {
       buf.write(' $firstName died');
-      if (p.deathDate != null) buf.write(' on ${_fmt(p.deathDate)}');
+      if (p.deathDate != null) buf.write(' on ${formatDate(p.deathDate)}');
       if (p.deathPlace != null && p.deathPlace!.isNotEmpty) {
         buf.write(' in ${p.deathPlace}');
       }
@@ -145,7 +149,7 @@ class PdfReportService {
 
     if (p.burialPlace != null && p.burialPlace!.isNotEmpty) {
       buf.write(' Buried at ${p.burialPlace}');
-      if (p.burialDate != null) buf.write(' on ${_fmt(p.burialDate)}');
+      if (p.burialDate != null) buf.write(' on ${formatDate(p.burialDate)}');
       buf.write('.');
     }
 
@@ -273,7 +277,7 @@ class PdfReportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: chunk.map((p) {
-                    final narrative = _buildNarrative(
+                    final narrative = buildNarrative(
                       p,
                       partnerships,
                       lifeEvents,

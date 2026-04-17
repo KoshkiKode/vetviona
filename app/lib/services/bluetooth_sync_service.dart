@@ -135,7 +135,7 @@ class BluetoothSyncService extends ChangeNotifier {
       return;
     }
 
-    final payload = _buildAdvertisementPayload(
+    final payload = buildAdvertisementPayload(
       host: host,
       port: serverPort,
       deviceId: deviceId,
@@ -298,7 +298,8 @@ class BluetoothSyncService extends ChangeNotifier {
   }
 
   /// Builds the 18-byte payload for BLE manufacturer data.
-  static Uint8List _buildAdvertisementPayload({
+  // @visibleForTesting
+  static Uint8List buildAdvertisementPayload({
     required String host,
     required int port,
     required String deviceId,
