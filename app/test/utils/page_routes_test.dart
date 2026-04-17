@@ -51,6 +51,28 @@ void main() {
       expect(slide.position.value, Offset.zero);
       debugDefaultTargetPlatformOverride = null;
     });
+
+    testWidgets('pageBuilder builds the provided widget on Android', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+      final route = fadeSlideRoute<void>(builder: (_) => const Text('hello'));
+      final pageRoute = route as PageRouteBuilder<void>;
+
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: SizedBox(key: ValueKey('host')),
+        ),
+      );
+      final context = tester.element(find.byKey(const ValueKey('host')));
+      final widget = pageRoute.pageBuilder(
+        context,
+        const AlwaysStoppedAnimation<double>(1),
+        const AlwaysStoppedAnimation<double>(0),
+      );
+      expect(widget, isA<Text>());
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 
   group('fadeRoute', () {
@@ -93,6 +115,25 @@ void main() {
       expect(transition, isA<FadeTransition>());
       final fade = transition as FadeTransition;
       expect(fade.child, isA<SizedBox>());
+    });
+
+    testWidgets('pageBuilder builds the provided widget', (tester) async {
+      final route = fadeRoute<void>(builder: (_) => const Text('world'));
+      final pageRoute = route as PageRouteBuilder<void>;
+
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: SizedBox(key: ValueKey('host')),
+        ),
+      );
+      final context = tester.element(find.byKey(const ValueKey('host')));
+      final widget = pageRoute.pageBuilder(
+        context,
+        const AlwaysStoppedAnimation<double>(1),
+        const AlwaysStoppedAnimation<double>(0),
+      );
+      expect(widget, isA<Text>());
     });
   });
 }

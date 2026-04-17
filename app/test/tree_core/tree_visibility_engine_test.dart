@@ -125,6 +125,18 @@ void main() {
       engine.resetToHome();
       expect(engine.visibleIds, containsAll(['Home', 'Spouse']));
     });
+
+    test("partner is visible when home person is person2 in partnership", () {
+      final home = _p('Home');
+      final partner = _p('Spouse');
+      final engine = TreeVisibilityEngine(
+        persons: [home, partner],
+        partnerships: [_couple('p1', 'Spouse', 'Home')],  // reversed order
+        homePersonId: 'Home',
+      );
+      engine.resetToHome();
+      expect(engine.visibleIds, containsAll(['Home', 'Spouse']));
+    });
   });
 
   // ── expandParents ────────────────────────────────────────────────────────────

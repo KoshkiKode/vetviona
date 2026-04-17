@@ -1235,4 +1235,149 @@ void main() {
       expect(content, isNot(contains('_FINDAGRAVEID')));
     });
   });
+
+  group('GEDCOMParser.parse — NATI, EDUC, _MARN, _ALIAS, NOTE tags', () {
+    test('parses NATI (nationality) tag', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 NATI Ukrainian
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.nationality, 'Ukrainian');
+    });
+
+    test('parses EDUC (education) tag', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 EDUC Oxford University
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.education, 'Oxford University');
+    });
+
+    test('parses _MARN (maiden name) tag', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Jane /Smith/
+1 _MARN Jones
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.maidenName, 'Jones');
+    });
+
+    test('parses _ALIAS tag and adds to aliases list', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME John /Doe/
+1 _ALIAS Johnny
+1 _ALIAS JD
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.aliases, containsAll(['Johnny', 'JD']));
+    });
+
+    test('parses NOTE tag (inline text)', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 NOTE Came from Ireland in 1850.
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.notes, contains('Ireland'));
+    });
+
+    test('ignores NOTE pointer form (@N1@)', () async {
+      final path = await writeGedcom('''
+0 HEAD
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 NOTE @N1@
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons.first.notes, isNull);
+    });
+  });
+
+  group('GEDCOMParser.export — nationality, education, aliases, maiden name, notes', () {
+    test('exports nationality (NATI)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', nationality: 'French')];
+      final path = '${tempDir.path}/out_nati.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 NATI French'));
+    });
+
+    test('exports education (EDUC)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', education: 'MIT')];
+      final path = '${tempDir.path}/out_educ.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 EDUC MIT'));
+    });
+
+    test('exports alias (_ALIAS)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', aliases: ['Ali', 'Al'])];
+      final path = '${tempDir.path}/out_alias.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _ALIAS Ali'));
+      expect(content, contains('1 _ALIAS Al'));
+    });
+
+    test('exports maiden name (_MARN)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice Smith', maidenName: 'Jones')];
+      final path = '${tempDir.path}/out_marn.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _MARN Jones'));
+    });
+
+    test('exports notes (NOTE)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', notes: 'Emigrated in 1900.')];
+      final path = '${tempDir.path}/out_notes.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 NOTE Emigrated in 1900.'));
+    });
+
+    test('exports religion (RELI)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', religion: 'Catholic')];
+      final path = '${tempDir.path}/out_reli.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 RELI Catholic'));
+    });
+  });
+
+  group('GEDCOMParser.parse — source page citation', () {
+    test('parses source page citation reference', () async {
+      final path = await writeGedcom(r'''
+0 HEAD
+0 @S1@ SOUR
+1 TITL Birth Certificate
+0 @I1@ INDI
+1 NAME John /Doe/
+1 SOUR @S1@
+2 PAGE Page 42
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.sources, isNotEmpty);
+      final src = result.sources.first;
+      expect(src.volumePage, 'Page 42');
+    });
+  });
 }

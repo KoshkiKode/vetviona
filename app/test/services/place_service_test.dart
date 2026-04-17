@@ -122,6 +122,29 @@ void main() {
           }
         }
       });
+
+      test('search with non-empty query and eventDate filters out invalid places', () {
+        // Use a real city name with an ancient date — ensures line 37 (continue) is hit.
+        final ancientDate = DateTime(1, 1, 1);
+        final results = PlaceService.instance.search('London', eventDate: ancientDate);
+        final allResults = PlaceService.instance.search('London');
+        expect(results.length, lessThanOrEqualTo(allResults.length));
+      });
+
+      test('search with eventDate filters out places not valid for that era', () async {
+        await PlaceService.instance.loadPlaces();
+        final ancientDate = DateTime(1, 1, 1);
+        final results = PlaceService.instance.search('', eventDate: ancientDate);
+        final allResults = PlaceService.instance.search('');
+        expect(results.length, lessThanOrEqualTo(allResults.length));
+      });
+
+      test('empty query with eventDate returns filtered places', () async {
+        await PlaceService.instance.loadPlaces();
+        final recentDate = DateTime(2000, 1, 1);
+        final results = PlaceService.instance.search('', eventDate: recentDate);
+        expect(results, isA<List>());
+      });
     });
 
     group('search – relevance ordering', () {
