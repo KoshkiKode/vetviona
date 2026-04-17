@@ -1,15 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart' hide isMacOS;
 import 'package:vetviona_app/utils/platform_utils.dart';
 
 void main() {
-  tearDown(() {
-    debugDefaultTargetPlatformOverride = null;
-  });
-
   group('platform flags', () {
     test('iOS flags are consistent', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -20,6 +15,7 @@ void main() {
       expect(isCupertino, isTrue);
       expect(isMobile, isTrue);
       expect(isDesktop, isFalse);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     test('macOS flags are consistent', () {
@@ -31,6 +27,7 @@ void main() {
       expect(isCupertino, isTrue);
       expect(isMobile, isFalse);
       expect(isDesktop, isTrue);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     test('Android flags are consistent', () {
@@ -42,6 +39,7 @@ void main() {
       expect(isCupertino, isFalse);
       expect(isMobile, isTrue);
       expect(isDesktop, isFalse);
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 
@@ -52,6 +50,7 @@ void main() {
 
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       expect(adaptiveScrollPhysics(), isA<BouncingScrollPhysics>());
+      debugDefaultTargetPlatformOverride = null;
     });
 
     test('uses clamping physics on non-Cupertino platforms', () {
@@ -60,6 +59,7 @@ void main() {
 
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       expect(adaptiveScrollPhysics(), isA<ClampingScrollPhysics>());
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 
@@ -122,6 +122,7 @@ void main() {
 
       final picked = await pickedFuture;
       expect(picked, DateTime(2024, 6, 15));
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('uses Cupertino date picker on iOS and returns chosen value', (
@@ -159,6 +160,7 @@ void main() {
 
       final picked = await pickedFuture;
       expect(picked, DateTime(2025, 1, 2));
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('uses default min/max bounds when omitted on iOS', (tester) async {
@@ -192,6 +194,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(await pickedFuture, isNull);
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 }

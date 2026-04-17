@@ -1,14 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vetviona_app/utils/page_routes.dart';
 
 void main() {
-  tearDown(() {
-    debugDefaultTargetPlatformOverride = null;
-  });
-
   group('fadeSlideRoute', () {
     test('uses CupertinoPageRoute on iOS', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -16,6 +11,7 @@ void main() {
       final route = fadeSlideRoute<void>(builder: (_) => const SizedBox());
 
       expect(route, isA<CupertinoPageRoute<void>>());
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('uses PageRouteBuilder with fade+slide transition on Android', (
@@ -53,6 +49,7 @@ void main() {
       expect(fade.child, isA<SlideTransition>());
       final slide = fade.child as SlideTransition;
       expect(slide.position.value, Offset.zero);
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 
@@ -63,6 +60,7 @@ void main() {
       final route = fadeRoute<void>(builder: (_) => const SizedBox());
 
       expect(route, isA<PageRouteBuilder<void>>());
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('uses pure fade transition with expected timings', (
