@@ -27,7 +27,7 @@
 
     body {
       margin: 0;
-      font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: "Avenir Next", Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: var(--text);
       background:
         radial-gradient(circle at 15% 0%, #2d5a4f 0%, transparent 40%),
@@ -70,13 +70,14 @@
     }
 
     .brand-mark {
-      width: 30px;
-      height: 30px;
-      border-radius: 9px;
+      width: 32px;
+      height: 32px;
+      border-radius: 99px;
       display: grid;
       place-items: center;
       background: linear-gradient(145deg, var(--brand), var(--brand-2));
-      color: #05253d;
+      color: #f8f7f3;
+      border: 1px solid rgba(201, 168, 110, 0.5);
       font-weight: 900;
       font-size: 0.95rem;
     }
@@ -107,7 +108,7 @@
     }
 
     .hero {
-      padding: 4.2rem 0 2.2rem;
+      padding: 4.2rem 0 1.6rem;
     }
 
     .hero-grid {
@@ -204,6 +205,16 @@
       background: rgba(255, 255, 255, 0.05);
       border-radius: 999px;
       padding: 0.26rem 0.63rem;
+    }
+
+    .manifesto {
+      margin-top: 0.95rem;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 0.75rem;
+      color: #efe7d8;
+      font-size: 0.84rem;
     }
 
     .hero-preview {
@@ -378,6 +389,38 @@
       margin-top: 0.7rem;
     }
 
+    .production-gaps {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(92, 45, 46, 0.24), rgba(7, 16, 29, 0.4));
+      padding: 1rem;
+    }
+
+    .gap-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+      margin-top: 0.7rem;
+    }
+
+    .gap {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .gap h3 {
+      margin: 0 0 0.2rem;
+      font-size: 0.92rem;
+    }
+
+    .gap p {
+      margin: 0;
+      color: #efe7d8;
+      font-size: 0.82rem;
+    }
+
     footer {
       padding: 2.3rem 0;
       border-top: 1px solid var(--line);
@@ -393,6 +436,7 @@
       .downloads { grid-template-columns: 1fr; }
       .rootloop-grid { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gap-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 720px) {
@@ -413,6 +457,7 @@
         <a href="#features">Features</a>
         <a href="#rootloop">RootLoop</a>
         <a href="#pricing">Pricing</a>
+        <a href="#production">Roadmap</a>
         <a href="#download" class="cta">Get the App</a>
       </nav>
     </div>
@@ -422,19 +467,23 @@
     <section class="hero">
       <div class="hero-grid">
         <div class="hero-copy">
-          <span class="badge">Private. Local-first. Built for family historians.</span>
-          <h1>Your family history,<br>beautifully organized.</h1>
+          <span class="badge">Private. Local-first. Rooted in real family research.</span>
+          <h1>Roots, records, and stories<br>in true Vetviona style.</h1>
           <p class="subtitle">
-            Vetviona helps you build interactive family trees, attach sources, and sync securely across your own devices without a hosted server.
+            Vetviona is a warm, archival-first genealogy app where beautiful tree design meets serious evidence tracking and zero-knowledge sync.
           </p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#download">Download options</a>
             <a class="btn btn-secondary" href="https://github.com/KoshkiKode/vetviona" target="_blank" rel="noopener noreferrer">View on GitHub</a>
           </div>
           <div class="chips">
+            <span class="chip">No subscription traps</span>
             <span class="chip">GEDCOM import/export</span>
             <span class="chip">Encrypted RootLoop sync</span>
             <span class="chip">Windows macOS Linux iOS Android</span>
+          </div>
+          <div class="manifesto">
+            <strong>The Vetviona vibe:</strong> brass-and-botanical visuals, clean timeline storytelling, and privacy-by-default for every generation in your tree.
           </div>
         </div>
 
@@ -451,7 +500,7 @@
           </div>
           <div class="stats">
             <div class="stat"><strong>0</strong><span>Cloud servers</span></div>
-            <div class="stat"><strong>5</strong><span>Platforms</span></div>
+            <div class="stat"><strong>5</strong><span>Core platforms</span></div>
             <div class="stat"><strong>100</strong><span>Free tier cap</span></div>
             <div class="stat"><strong>∞</strong><span>Paid people limit</span></div>
           </div>
@@ -461,7 +510,7 @@
 
     <section id="features">
       <h2>Everything you need for real research</h2>
-      <p class="lead">Built to feel like a modern app, not a spreadsheet with a logo.</p>
+      <p class="lead">Built to feel like a living archive, not a spreadsheet with a logo.</p>
       <div class="feature-grid">
         <article class="feature"><h3>Interactive Tree Builder</h3><p>Pan, zoom, and edit parent/child/spouse relationships with a smooth graph view.</p></article>
         <article class="feature"><h3>Source Citations</h3><p>Attach evidence to life events so every claim has an audit trail.</p></article>
@@ -469,6 +518,31 @@
         <article class="feature"><h3>GEDCOM Import and Export</h3><p>Move your family data in and out of Vetviona without lock-in.</p></article>
         <article class="feature"><h3>Life Timelines</h3><p>Review an ancestor's life in chronological context with linked sources.</p></article>
         <article class="feature"><h3>Relationship Finder</h3><p>Find how two people connect using graph-based relationship paths.</p></article>
+      </div>
+    </section>
+
+    <section id="production">
+      <div class="production-gaps">
+        <h2>Production roadmap</h2>
+        <p class="lead">The app is production-capable, but this public site still needs a few pieces to feel complete.</p>
+        <div class="gap-grid">
+          <article class="gap">
+            <h3>Storefront links by platform</h3>
+            <p>Direct Google Play and App Store links should live beside GitHub releases so mobile users can install faster.</p>
+          </article>
+          <article class="gap">
+            <h3>Real product visuals</h3>
+            <p>High-quality screenshots and short walkthrough clips are needed to show the full in-app Vetviona experience.</p>
+          </article>
+          <article class="gap">
+            <h3>Trust and migration detail</h3>
+            <p>A dedicated section should explain backup workflows, encrypted sync boundaries, and migration from older tools.</p>
+          </article>
+          <article class="gap">
+            <h3>Release highlights on the homepage</h3>
+            <p>Surface the latest version notes directly here so visitors can see what changed without opening GitHub first.</p>
+          </article>
+        </div>
       </div>
     </section>
 
