@@ -3,7 +3,7 @@
 This backend handles only:
 
 - Vetviona paid-license account registration
-- paid-license verification for **mobile** (`android`/`ios`) and **desktop** (`windows`/`macos`/`linux`)
+- paid-license verification for **apple** (`ios`), **android** (`android`), and **desktop** (`windows`/`macos`/`linux`)
 - account license sync (entitlements + verified devices)
 
 It does **not** store genealogy data.
@@ -11,7 +11,7 @@ It does **not** store genealogy data.
 ## Run
 
 ```bash
-cd /home/runner/work/vetviona/vetviona/backend
+cd backend
 node license_server.js
 ```
 
@@ -29,20 +29,50 @@ Optional env vars:
 
 ### Register account
 
+All three license flags are optional — set the ones you want to sell:
+
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/account/register \
   -H 'Content-Type: application/json' \
   -d '{
     "email":"owner@example.com",
     "password":"ChangeMe123!",
-    "mobileLicense":true,
+    "appleLicense":true,
+    "androidLicense":true,
     "desktopLicense":true
   }'
 ```
 
 ### Verify a paid app install
 
+`appType` must be `"apple"`, `"android"`, or `"desktop"`.
+
 ```bash
+# iOS device
+curl -X POST http://127.0.0.1:8080/v1/license/verify \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email":"owner@example.com",
+    "password":"ChangeMe123!",
+    "appType":"apple",
+    "os":"ios",
+    "deviceId":"example-device-1",
+    "appVersion":"1.0.0"
+  }'
+
+# Android device
+curl -X POST http://127.0.0.1:8080/v1/license/verify \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email":"owner@example.com",
+    "password":"ChangeMe123!",
+    "appType":"android",
+    "os":"android",
+    "deviceId":"example-device-2",
+    "appVersion":"1.0.0"
+  }'
+
+# Desktop (linux/windows/macos)
 curl -X POST http://127.0.0.1:8080/v1/license/verify \
   -H 'Content-Type: application/json' \
   -d '{
@@ -50,7 +80,7 @@ curl -X POST http://127.0.0.1:8080/v1/license/verify \
     "password":"ChangeMe123!",
     "appType":"desktop",
     "os":"linux",
-    "deviceId":"example-device-1",
+    "deviceId":"example-device-3",
     "appVersion":"1.0.0"
   }'
 ```

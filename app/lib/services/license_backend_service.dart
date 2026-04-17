@@ -51,9 +51,11 @@ class LicenseBackendService extends ChangeNotifier {
 
   static const _kDeviceIdKey = 'license_backend_device_id';
   static const _kAccountEmailKey = 'license_backend_account_email';
-  static const _kMobileVerifiedKey = 'license_backend_mobile_verified';
+  static const _kAppleVerifiedKey = 'license_backend_apple_verified';
+  static const _kAndroidVerifiedKey = 'license_backend_android_verified';
   static const _kDesktopVerifiedKey = 'license_backend_desktop_verified';
-  static const _kMobileEntitlementKey = 'license_backend_mobile_entitled';
+  static const _kAppleEntitlementKey = 'license_backend_apple_entitled';
+  static const _kAndroidEntitlementKey = 'license_backend_android_entitled';
   static const _kDesktopEntitlementKey = 'license_backend_desktop_entitled';
   static const _kDevicesKey = 'license_backend_devices';
 
@@ -79,10 +81,12 @@ class LicenseBackendService extends ChangeNotifier {
   String? _accountEmail;
   String? get accountEmail => _accountEmail;
 
-  bool _mobileVerified = false;
+  bool _appleVerified = false;
+  bool _androidVerified = false;
   bool _desktopVerified = false;
 
-  bool _mobileEntitled = false;
+  bool _appleEntitled = false;
+  bool _androidEntitled = false;
   bool _desktopEntitled = false;
 
   List<LicenseDeviceRecord> _devices = const [];
@@ -93,14 +97,21 @@ class LicenseBackendService extends ChangeNotifier {
       case AppTier.mobileFree:
         return true;
       case AppTier.mobilePaid:
-        return _mobileVerified;
+        // iOS devices require an apple license; Android devices require android.
+        return defaultTargetPlatform == TargetPlatform.iOS
+            ? _appleVerified
+            : _androidVerified;
       case AppTier.desktopPro:
         return _desktopVerified;
     }
   }
 
-  String get _currentAppType =>
-      currentAppTier == AppTier.desktopPro ? 'desktop' : 'mobile';
+  /// The license type key sent to the backend for this device/platform.
+  /// `'apple'` for iOS, `'android'` for Android, `'desktop'` for all desktop OSes.
+  String get _currentAppType {
+    if (currentAppTier == AppTier.desktopPro) return 'desktop';
+    return defaultTargetPlatform == TargetPlatform.iOS ? 'apple' : 'android';
+  }
 
   String get _currentOs {
     switch (defaultTargetPlatform) {
@@ -122,9 +133,11 @@ class LicenseBackendService extends ChangeNotifier {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _accountEmail = prefs.getString(_kAccountEmailKey);
-    _mobileVerified = prefs.getBool(_kMobileVerifiedKey) ?? false;
+    _appleVerified = prefs.getBool(_kAppleVerifiedKey) ?? false;
+    _androidVerified = prefs.getBool(_kAndroidVerifiedKey) ?? false;
     _desktopVerified = prefs.getBool(_kDesktopVerifiedKey) ?? false;
-    _mobileEntitled = prefs.getBool(_kMobileEntitlementKey) ?? false;
+    _appleEntitled = prefs.getBool(_kAppleEntitlementKey) ?? false;
+    _androidEntitled = prefs.getBool(_kAndroidEntitlementKey) ?? false;
     _desktopEntitled = prefs.getBool(_kDesktopEntitlementKey) ?? false;
     _devices = _decodeDevices(prefs.getString(_kDevicesKey));
     _isInitialized = true;
@@ -167,11 +180,18 @@ class LicenseBackendService extends ChangeNotifier {
 
       final entitlements = (body['entitlements'] as Map?)
           ?.cast<String, dynamic>();
-      _mobileEntitled = entitlements?['mobile'] == true;
+      _appleEntitled = entitlements?['apple'] == true;
+      _androidEntitled = entitlements?['android'] == true;
       _desktopEntitled = entitlements?['desktop'] == true;
 
-      if (_currentAppType == 'mobile' && !_mobileEntitled) {
-        _errorMessage = 'This account does not include a mobile paid license.';
+      if (_currentAppType == 'apple' && !_appleEntitled) {
+        _errorMessage = 'This account does not include an Apple (iOS) license.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      if (_currentAppType == 'android' && !_androidEntitled) {
+        _errorMessage = 'This account does not include an Android license.';
         _isLoading = false;
         notifyListeners();
         return false;
@@ -183,8 +203,10 @@ class LicenseBackendService extends ChangeNotifier {
         return false;
       }
 
-      if (_currentAppType == 'mobile') {
-        _mobileVerified = true;
+      if (_currentAppType == 'apple') {
+        _appleVerified = true;
+      } else if (_currentAppType == 'android') {
+        _androidVerified = true;
       } else {
         _desktopVerified = true;
       }
@@ -202,9 +224,11 @@ class LicenseBackendService extends ChangeNotifier {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kAccountEmailKey, _accountEmail!);
-      await prefs.setBool(_kMobileVerifiedKey, _mobileVerified);
+      await prefs.setBool(_kAppleVerifiedKey, _appleVerified);
+      await prefs.setBool(_kAndroidVerifiedKey, _androidVerified);
       await prefs.setBool(_kDesktopVerifiedKey, _desktopVerified);
-      await prefs.setBool(_kMobileEntitlementKey, _mobileEntitled);
+      await prefs.setBool(_kAppleEntitlementKey, _appleEntitled);
+      await prefs.setBool(_kAndroidEntitlementKey, _androidEntitled);
       await prefs.setBool(_kDesktopEntitlementKey, _desktopEntitled);
       await prefs.setString(
         _kDevicesKey,

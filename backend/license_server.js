@@ -12,7 +12,8 @@ const PBKDF2_ITERATIONS = 120000;
 const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = 'sha256';
 
-const MOBILE_OSES = new Set(['android', 'ios']);
+const APPLE_OSES = new Set(['ios']);
+const ANDROID_OSES = new Set(['android']);
 const DESKTOP_OSES = new Set(['windows', 'macos', 'linux']);
 
 function nowIso() {
@@ -93,7 +94,8 @@ function publicAccount(account) {
     id: account.id,
     email: account.email,
     entitlements: {
-      mobile: account.licenses.mobile === true,
+      apple: account.licenses.apple === true,
+      android: account.licenses.android === true,
       desktop: account.licenses.desktop === true,
     },
     devices: account.devices.map((d) => ({
@@ -130,7 +132,8 @@ function requireAccountAndPassword(db, email, password) {
 function handleRegister(db, payload, res) {
   const email = sanitizeEmail(payload.email);
   const password = String(payload.password || '');
-  const mobile = payload.mobileLicense === true;
+  const apple = payload.appleLicense === true;
+  const android = payload.androidLicense === true;
   const desktop = payload.desktopLicense === true;
 
   if (!email.includes('@')) {
@@ -142,10 +145,10 @@ function handleRegister(db, payload, res) {
       message: 'Password must be at least 8 characters.',
     });
   }
-  if (!mobile && !desktop) {
+  if (!apple && !android && !desktop) {
     return sendJson(res, 400, {
       ok: false,
-      message: 'At least one paid entitlement is required.',
+      message: 'At least one paid entitlement (appleLicense, androidLicense, or desktopLicense) is required.',
     });
   }
   if (db.accounts.some((a) => a.email === email)) {
@@ -158,7 +161,7 @@ function handleRegister(db, payload, res) {
     email,
     passwordSalt,
     passwordHash: hashPassword(password, passwordSalt),
-    licenses: { mobile, desktop },
+    licenses: { apple, android, desktop },
     devices: [],
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -180,15 +183,18 @@ function handleVerify(db, payload, res) {
   const deviceId = String(payload.deviceId || '').trim();
   const appVersion = String(payload.appVersion || '');
 
-  if (appType !== 'mobile' && appType !== 'desktop') {
-    return sendJson(res, 400, { ok: false, message: 'appType must be "mobile" or "desktop".' });
+  if (appType !== 'apple' && appType !== 'android' && appType !== 'desktop') {
+    return sendJson(res, 400, { ok: false, message: 'appType must be "apple", "android", or "desktop".' });
   }
   if (deviceId.length < 4 || deviceId.length > 128) {
     return sendJson(res, 400, { ok: false, message: 'deviceId must be 4-128 characters.' });
   }
 
-  if (appType === 'mobile' && !MOBILE_OSES.has(os)) {
-    return sendJson(res, 400, { ok: false, message: 'Mobile verification requires android or ios.' });
+  if (appType === 'apple' && !APPLE_OSES.has(os)) {
+    return sendJson(res, 400, { ok: false, message: 'Apple verification requires os "ios".' });
+  }
+  if (appType === 'android' && !ANDROID_OSES.has(os)) {
+    return sendJson(res, 400, { ok: false, message: 'Android verification requires os "android".' });
   }
   if (appType === 'desktop' && !DESKTOP_OSES.has(os)) {
     return sendJson(res, 400, {
@@ -197,7 +203,11 @@ function handleVerify(db, payload, res) {
     });
   }
 
-  const entitled = appType === 'mobile' ? account.licenses.mobile === true : account.licenses.desktop === true;
+  let entitled = false;
+  if (appType === 'apple') entitled = account.licenses.apple === true;
+  else if (appType === 'android') entitled = account.licenses.android === true;
+  else entitled = account.licenses.desktop === true;
+
   if (!entitled) {
     return sendJson(res, 403, { ok: false, message: `No ${appType} paid entitlement on this account.` });
   }
@@ -226,7 +236,8 @@ function handleVerify(db, payload, res) {
     ok: true,
     message: 'License verified.',
     entitlements: {
-      mobile: account.licenses.mobile === true,
+      apple: account.licenses.apple === true,
+      android: account.licenses.android === true,
       desktop: account.licenses.desktop === true,
     },
     devices: publicAccount(account).devices,
