@@ -177,11 +177,16 @@ enum WikiTreeLoginResult { success, wrongPassword, notFound, networkError }
 /// libsecret on Linux).  Only the non-sensitive username is kept in regular
 /// SharedPreferences.
 class WikiTreeService extends ChangeNotifier {
-  WikiTreeService._();
+  WikiTreeService._({http.Client? client}) : _client = client ?? http.Client();
   static final WikiTreeService instance = WikiTreeService._();
+
+  factory WikiTreeService.withClient(http.Client client) =>
+      WikiTreeService._(client: client);
 
   static const _base = 'https://api.wikitree.com/api.php';
   static const _ua = 'Vetviona/1.0 (genealogy; contact@vetviona.app)';
+
+  final http.Client _client;
 
   /// Platform secure storage for the session cookie.
   static const _secureStorage = FlutterSecureStorage();
@@ -210,7 +215,7 @@ class WikiTreeService extends ChangeNotifier {
   /// success.  Returns a [WikiTreeLoginResult] describing the outcome.
   Future<WikiTreeLoginResult> login(String email, String password) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(_base),
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -315,7 +320,7 @@ class WikiTreeService extends ChangeNotifier {
   /// Does **not** require authentication — any public profile can be read.
   Future<WikiTreeProfile?> getProfile(String wikiTreeId) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(_base),
         headers: _authHeaders(),
         body: {
@@ -359,7 +364,7 @@ class WikiTreeService extends ChangeNotifier {
         'limit': '$limit',
         if (birthYear != null) 'birth_date': '$birthYear',
       };
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(_base),
         headers: _authHeaders(),
         body: body,
@@ -409,7 +414,7 @@ class WikiTreeService extends ChangeNotifier {
     int depth = 4,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(_base),
         headers: _authHeaders(),
         body: {
@@ -463,7 +468,7 @@ class WikiTreeService extends ChangeNotifier {
   Future<String?> exportGedcom(String wikiTreeId) async {
     if (!isLoggedIn) return null;
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(_base),
         headers: _authHeaders(),
         body: {
@@ -503,22 +508,22 @@ class WikiTreeService extends ChangeNotifier {
 
     return Person(
       id: id,
-      name: take(existing?.name.isEmpty ?? true)
+      name: take(existing?.name.isNotEmpty ?? false)
           ? profile.displayName
           : existing!.name,
       birthDate:
-          take(existing?.birthDate == null) ? profile.birthDate : existing?.birthDate,
+          take(existing?.birthDate != null) ? profile.birthDate : existing?.birthDate,
       birthPlace:
-          take(existing?.birthPlace == null) ? profile.birthPlace : existing?.birthPlace,
+          take(existing?.birthPlace != null) ? profile.birthPlace : existing?.birthPlace,
       deathDate:
-          take(existing?.deathDate == null) ? profile.deathDate : existing?.deathDate,
+          take(existing?.deathDate != null) ? profile.deathDate : existing?.deathDate,
       deathPlace:
-          take(existing?.deathPlace == null) ? profile.deathPlace : existing?.deathPlace,
+          take(existing?.deathPlace != null) ? profile.deathPlace : existing?.deathPlace,
       gender: gender,
-      occupation: take(existing?.occupation == null)
+      occupation: take(existing?.occupation != null)
           ? profile.occupation
           : existing?.occupation,
-      notes: take(existing?.notes == null)
+      notes: take(existing?.notes != null)
           ? _stripWikiMarkup(profile.bio)
           : existing?.notes,
       wikitreeId: profile.wikiTreeId,
@@ -591,9 +596,10 @@ class WikiTreeService extends ChangeNotifier {
   String? _stripWikiMarkup(String? bio) {
     if (bio == null || bio.trim().isEmpty) return null;
     var text = bio
-        .replaceAll(RegExp(r'\[\[([^\]|]+\|)?([^\]]+)\]\]'), r'$2')
-        .replaceAll(RegExp(r"'''(.+?)'''"), r'$1')
-        .replaceAll(RegExp(r"''(.+?)''"), r'$1')
+        .replaceAllMapped(
+            RegExp(r'\[\[([^\]|]+\|)?([^\]]+)\]\]'), (m) => m[2] ?? '')
+        .replaceAllMapped(RegExp(r"'''(.+?)'''"), (m) => m[1] ?? '')
+        .replaceAllMapped(RegExp(r"''(.+?)''"), (m) => m[1] ?? '')
         .replaceAll(RegExp(r'={2,}[^=]+=+'), '')
         .replaceAll(RegExp(r'<[^>]+>'), '')
         .replaceAll(RegExp(r'\{\{[^}]+\}\}'), '')
