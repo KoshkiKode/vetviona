@@ -15,10 +15,12 @@ import '../config/build_metadata.dart';
 import '../models/person.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
+import '../services/license_backend_service.dart';
 import '../services/purchase_service.dart';
 import '../services/sound_service.dart';
 import '../services/sync_service.dart';
 import '../services/wikitree_service.dart';
+import 'account_management_screen.dart';
 import 'sync_screen.dart';
 import 'wikitree_screen.dart';
 
@@ -460,6 +462,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           const SizedBox(height: 12),
+
+          // ── License Account ───────────────────────────────────
+          if (currentAppTier != AppTier.mobileFree) ...[
+            _SectionCard(
+              icon: Icons.manage_accounts_outlined,
+              title: 'Vetviona License Account',
+              children: [
+                Consumer<LicenseBackendService>(
+                  builder: (ctx, svc, _) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (svc.accountEmail != null) ...[
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.alternate_email,
+                                size: 14,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  svc.accountEmail!,
+                                  style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              if (!svc.emailVerified)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.errorContainer,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Unverified',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: colorScheme.onErrorContainer,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        FilledButton.icon(
+                          icon: const Icon(Icons.manage_accounts, size: 16),
+                          label: const Text('Manage License Account'),
+                          onPressed: () => Navigator.push(
+                            context,
+                            fadeSlideRoute(
+                              builder: (_) =>
+                                  const AccountManagementScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // ── Purchases (mobile only) ───────────────────────────
           if (currentAppTier != AppTier.desktopPro)

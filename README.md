@@ -57,15 +57,18 @@ On-demand sync you trigger inside the app, over Bluetooth or any local connectio
 
 ## Pricing
 
-| Tier | Price | Platforms | Person Limit | Sync |
-|------|-------|-----------|--------------|------|
-| **Mobile Free** | Free, always | Android & iOS | 100 per tree | RootLoop™ Manual only |
-| **Mobile Paid** | One-time purchase | Android & iOS | Unlimited | RootLoop™ Auto + Manual |
-| **Desktop Pro** | One-time purchase | Windows · macOS · Linux | Unlimited | Both tiers; respects connected device's tier |
+| Tier | Price | Platforms | License key | Person Limit | Sync |
+|------|-------|-----------|-------------|--------------|------|
+| **Mobile Free** | Free, always | Android & iOS | — | 100 per tree | RootLoop™ Manual only |
+| **Mobile Paid (Apple)** | One-time purchase | iOS | `apple` | Unlimited | RootLoop™ Auto + Manual |
+| **Mobile Paid (Android)** | One-time purchase | Android | `android` | Unlimited | RootLoop™ Auto + Manual |
+| **Desktop Pro** | One-time purchase | Windows · macOS · Linux | `desktop` | Unlimited | Both tiers; respects connected device's tier |
 
 No subscriptions. No recurring fees. Desktop Pro unlocks GEDCOM import/export, WiFi auto-sync (RootLoop™ Auto), multiple family trees, and unlimited people.
 
 > **Note:** There is no desktop free version. Desktop always requires a Pro purchase (`--dart-define=PAID=true`).
+> **License verification:** Paid tiers now require one successful account verification against the Vetviona license backend before app usage.
+> **Three license types:** Apple (iOS), Android, and Desktop are tracked separately — one Vetviona account can hold any combination.
 
 ---
 
@@ -163,6 +166,16 @@ flutter build windows --release --dart-define=PAID=true
 flutter build macos  --release --dart-define=PAID=true
 flutter build linux  --release --dart-define=PAID=true
 ```
+
+### License backend URL
+
+For paid-tier verification, point the app at your backend:
+
+```bash
+--dart-define=LICENSE_BACKEND_URL=http://127.0.0.1:8080
+```
+
+Backend setup: [`backend/README.md`](backend/README.md)
 
 ### Package — Windows MSI (WiX)
 
