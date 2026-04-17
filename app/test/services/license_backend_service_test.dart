@@ -261,37 +261,9 @@ void main() {
 
   // ── gift flows ────────────────────────────────────────────────────────────
   group('LicenseBackendService gift flows', () {
-    Future<LicenseBackendService> _signedInService({
-      required Map<String, dynamic> Function(String path) handler,
-    }) async {
-      final service = LicenseBackendService(
-        client: MockClient((req) async {
-          final body = handler(req.url.path);
-          return http.Response(
-            jsonEncode(body),
-            body['ok'] == true ? 200 : 400,
-          );
-        }),
-        baseUrl: 'http://license.example',
-      );
-      await service.init();
-      // Fake a prior verifyLicense to populate email+cached password.
-      SharedPreferences.setMockInitialValues({
-        'license_backend_account_email': 'alice@example.com',
-        'license_backend_desktop_verified': true,
-        'license_backend_desktop_entitled': true,
-        'license_backend_email_verified': true,
-      });
-      await service.init();
-      // Manually set the cached password via verifyLicense mock response.
-      return service;
-    }
-
     test('initiateGift updates outgoing gifts on success', () async {
-      int callCount = 0;
       final service = LicenseBackendService(
         client: MockClient((req) async {
-          callCount++;
           if (req.url.path == '/v1/license/verify') {
             return http.Response(
               jsonEncode({
@@ -584,6 +556,282 @@ void main() {
         expect(ok, isTrue);
         expect(seenLicenseType, licenseType);
       }
+    });
+  });
+
+  // ── email verification / voucher helpers ─────────────────────────────────
+  group('LicenseBackendService email + voucher flows', () {
+    test('createVoucher returns sanitized token list on success', () async {
+      final service = LicenseBackendService(
+        client: MockClient((req) async {
+          expect(req.url.path, '/v1/license/voucher/create');
+          final payload = jsonDecode(req.body) as Map<String, dynamic>;
+          expect(payload['adminSecret'], 'top-secret');
+          expect(payload['licenseType'], 'desktop');
+          expect(payload['quantity'], 3);
+          expect(payload['fromEmail'], 'admin@example.com');
+          expect(payload['notes'], 'promo');
+          return http.Response(
+            jsonEncode({
+              'ok': true,
+              'vouchers': [
+                {'token': 'ONE'},
+                {'token': ''},
+                {'token': 'TWO'},
+                {'token': null},
+              ],
+            }),
+            200,
+          );
+        }),
+        baseUrl: 'http://license.example',
+      );
+
+      await service.init();
+      final tokens = await service.createVoucher(
+        adminSecret: 'top-secret',
+        licenseType: 'desktop',
+        quantity: 3,
+        fromEmail: 'admin@example.com',
+        notes: 'promo',
+      );
+
+      expect(tokens, ['ONE', 'TWO']);
+      expect(service.errorMessage, isNull);
+      expect(service.isLoading, isFalse);
+    });
+
+    test('createVoucher surfaces backend error message on failure', () async {
+      final service = LicenseBackendService(
+        client: MockClient((_) async {
+          return http.Response(
+            jsonEncode({'ok': false, 'message': 'Admin secret invalid.'}),
+            403,
+          );
+        }),
+        baseUrl: 'http://license.example',
+      );
+
+      await service.init();
+      final tokens = await service.createVoucher(
+        adminSecret: 'wrong',
+        licenseType: 'desktop',
+      );
+
+      expect(tokens, isNull);
+      expect(service.errorMessage, 'Admin secret invalid.');
+      expect(service.isLoading, isFalse);
+    });
+
+    test('verifyEmail fails while signed out', () async {
+      final service = LicenseBackendService(
+        client: MockClient((_) async => http.Response('{}', 200)),
+        baseUrl: 'http://license.example',
+      );
+      await service.init();
+
+      final ok = await service.verifyEmail(token: 'abcd1234');
+
+      expect(ok, isFalse);
+      expect(service.errorMessage, 'Not signed in.');
+    });
+
+    test('verifyEmail uppercases token and persists email-verified state', () async {
+      final service = LicenseBackendService(
+        client: MockClient((req) async {
+          if (req.url.path == '/v1/license/verify') {
+            return http.Response(
+              jsonEncode({
+                'ok': true,
+                'entitlements': {
+                  'apple': false,
+                  'android': false,
+                  'desktop': true,
+                },
+                'emailVerified': false,
+                'licensesDetail': {
+                  'apple': 'none',
+                  'android': 'none',
+                  'desktop': 'active',
+                },
+                'devices': [],
+              }),
+              200,
+            );
+          }
+          final payload = jsonDecode(req.body) as Map<String, dynamic>;
+          expect(req.url.path, '/v1/account/verify-email');
+          expect(payload['token'], 'ABCD1234');
+          expect(payload['email'], 'user@example.com');
+          return http.Response(jsonEncode({'ok': true}), 200);
+        }),
+        baseUrl: 'http://license.example',
+      );
+
+      await service.init();
+      await service.verifyLicense(
+        email: 'user@example.com',
+        password: 'OldPassword!',
+      );
+      final ok = await service.verifyEmail(token: 'abcd1234');
+
+      expect(ok, isTrue);
+      expect(service.emailVerified, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('license_backend_email_verified'), isTrue);
+    });
+
+    test('resendVerification returns true with success message', () async {
+      final service = LicenseBackendService(
+        client: MockClient((req) async {
+          if (req.url.path == '/v1/license/verify') {
+            return http.Response(
+              jsonEncode({
+                'ok': true,
+                'entitlements': {
+                  'apple': false,
+                  'android': false,
+                  'desktop': true,
+                },
+                'emailVerified': false,
+                'licensesDetail': {
+                  'apple': 'none',
+                  'android': 'none',
+                  'desktop': 'active',
+                },
+                'devices': [],
+              }),
+              200,
+            );
+          }
+          expect(req.url.path, '/v1/account/resend-verification');
+          return http.Response(jsonEncode({'ok': true}), 200);
+        }),
+        baseUrl: 'http://license.example',
+      );
+
+      await service.init();
+      await service.verifyLicense(
+        email: 'user@example.com',
+        password: 'OldPassword!',
+      );
+      final ok = await service.resendVerification();
+
+      expect(ok, isTrue);
+      expect(service.errorMessage, 'Verification email sent.');
+    });
+
+    test('claimGift by giftId path updates incoming gifts list', () async {
+      final service = LicenseBackendService(
+        client: MockClient((req) async {
+          if (req.url.path == '/v1/license/verify') {
+            return http.Response(
+              jsonEncode({
+                'ok': true,
+                'entitlements': {
+                  'apple': false,
+                  'android': false,
+                  'desktop': true,
+                },
+                'emailVerified': true,
+                'licensesDetail': {
+                  'apple': 'none',
+                  'android': 'none',
+                  'desktop': 'active',
+                },
+                'devices': [],
+              }),
+              200,
+            );
+          }
+          final payload = jsonDecode(req.body) as Map<String, dynamic>;
+          expect(req.url.path, '/v1/license/gift/claim');
+          expect(payload['giftId'], 'gift-42');
+          return http.Response(
+            jsonEncode({
+              'ok': true,
+              'account': _fullAccount(
+                entitlements: {'apple': true, 'android': false, 'desktop': true},
+                licensesDetail: {
+                  'apple': 'active',
+                  'android': 'none',
+                  'desktop': 'active',
+                },
+              ),
+              'incomingGifts': [
+                {
+                  'id': 'gift-99',
+                  'licenseType': 'android',
+                  'fromEmail': 'friend@example.com',
+                  'expiresAt': '2026-04-20T00:00:00.000Z',
+                  'createdAt': '2026-04-17T00:00:00.000Z',
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+        baseUrl: 'http://license.example',
+      );
+
+      await service.init();
+      await service.verifyLicense(
+        email: 'user@example.com',
+        password: 'OldPassword!',
+      );
+      final ok = await service.claimGift(giftId: 'gift-42');
+
+      expect(ok, isTrue);
+      expect(service.incomingGifts, hasLength(1));
+      expect(service.incomingGifts.first.fromEmail, 'friend@example.com');
+    });
+
+    test('cancelGift by giftId sends gift identifier', () async {
+      final service = LicenseBackendService(
+        client: MockClient((req) async {
+          if (req.url.path == '/v1/license/verify') {
+            return http.Response(
+              jsonEncode({
+                'ok': true,
+                'entitlements': {
+                  'apple': false,
+                  'android': false,
+                  'desktop': true,
+                },
+                'emailVerified': true,
+                'licensesDetail': {
+                  'apple': 'none',
+                  'android': 'none',
+                  'desktop': 'active',
+                },
+                'devices': [],
+              }),
+              200,
+            );
+          }
+          final payload = jsonDecode(req.body) as Map<String, dynamic>;
+          expect(req.url.path, '/v1/license/gift/cancel');
+          expect(payload['giftId'], 'gift-42');
+          return http.Response(
+            jsonEncode({
+              'ok': true,
+              'account': _fullAccount(),
+              'incomingGifts': [],
+            }),
+            200,
+          );
+        }),
+        baseUrl: 'http://license.example',
+      );
+
+      await service.init();
+      await service.verifyLicense(
+        email: 'user@example.com',
+        password: 'OldPassword!',
+      );
+      final ok = await service.cancelGift(giftId: 'gift-42');
+
+      expect(ok, isTrue);
     });
   });
 
