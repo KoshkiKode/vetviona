@@ -186,7 +186,6 @@ class _AncestryLayout {
     // number) and are drawn at a lower Y value (higher on screen).
     // We draw edges from child (gen N) to parent/knot (gen N+1).
     for (final p in persons) {
-      final childGen = genMap[p.id] ?? 0;
       for (final part in partnerships) {
         // Find the knot that connects two parents of this child.
         final isChild1 =
@@ -481,12 +480,12 @@ class _AncCard extends StatelessWidget {
           color: isRoot ? colorScheme.primaryContainer : colorScheme.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isRoot ? colorScheme.primary : accentColor.withOpacity(0.6),
+            color: isRoot ? colorScheme.primary : accentColor.withValues(alpha: 0.6),
             width: isRoot ? 2.0 : 1.4,
           ),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withOpacity(isRoot ? 0.25 : 0.1),
+              color: accentColor.withValues(alpha: isRoot ? 0.25 : 0.1),
               blurRadius: isRoot ? 8 : 4,
               offset: const Offset(0, 2),
             ),
@@ -497,7 +496,7 @@ class _AncCard extends StatelessWidget {
             Container(
               width: 5,
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.8),
+                color: accentColor.withValues(alpha: 0.8),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(9),
                   bottomLeft: Radius.circular(9),
@@ -534,7 +533,7 @@ class _AncCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 9,
                           color: isRoot
-                              ? colorScheme.onPrimaryContainer.withOpacity(0.75)
+                              ? colorScheme.onPrimaryContainer.withValues(alpha: 0.75)
                               : colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -543,7 +542,7 @@ class _AncCard extends StatelessWidget {
                         person.birthPlace!,
                         style: TextStyle(
                           fontSize: 9,
-                          color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -572,7 +571,7 @@ class _AncCoupleKnot extends StatelessWidget {
         width: 12,
         height: 12,
         decoration: BoxDecoration(
-          color: colorScheme.tertiary.withOpacity(0.9),
+          color: colorScheme.tertiary.withValues(alpha: 0.9),
           shape: BoxShape.circle,
           border: Border.all(color: colorScheme.onTertiary, width: 1.5),
         ),
@@ -730,14 +729,14 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
     final tx = (vp.width - scaledW) / 2;
     final ty = (vp.height - scaledH) / 2;
     _transformCtrl.value = Matrix4.identity()
-      ..translate(tx, ty)
-      ..scale(scale);
+      ..translateByDouble(tx, ty, 0.0, 1.0)
+      ..scaleByDouble(scale, scale, scale, 1.0);
   }
 
   void _changeScale(double factor) {
     final s = _transformCtrl.value.getMaxScaleOnAxis();
     final ns = (s * factor).clamp(0.1, 5.0);
-    _transformCtrl.value = _transformCtrl.value.clone()..scale(ns / s);
+    _transformCtrl.value = _transformCtrl.value.clone()..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
   }
 
   void _resetView() {
@@ -897,8 +896,8 @@ class _AncestryChartScreenState extends State<AncestryChartScreen> {
                           painter: _AncEdgePainter(
                             nodes: layout.nodes,
                             edges: layout.edges,
-                            edgeColor: colorScheme.outline.withOpacity(0.5),
-                            coupleColor: colorScheme.tertiary.withOpacity(0.7),
+                            edgeColor: colorScheme.outline.withValues(alpha: 0.5),
+                            coupleColor: colorScheme.tertiary.withValues(alpha: 0.7),
                             nodeW: nodeW,
                             nodeH: nodeH,
                             edgeStyle: edgeStyle,

@@ -204,7 +204,7 @@ class _LayoutStyleStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 46,
-      color: colorScheme.surfaceContainerHighest.withOpacity(0.45),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
       child: Row(
         children: [
           const SizedBox(width: 10),

@@ -10,7 +10,6 @@ import '../services/find_a_grave_service.dart';
 import '../services/wikitree_service.dart';
 import '../utils/page_routes.dart';
 import 'gedcom_import_screen.dart';
-import 'person_detail_screen.dart';
 
 /// Full-screen WikiTree + Find A Grave integration hub.
 ///
@@ -1069,7 +1068,7 @@ class _MemorialCardState extends State<_MemorialCard> {
     final colorScheme = Theme.of(context).colorScheme;
     final m = widget.memorial;
     return Card(
-      color: colorScheme.primaryContainer.withOpacity(0.3),
+      color: colorScheme.primaryContainer.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(

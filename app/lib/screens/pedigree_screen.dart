@@ -235,22 +235,22 @@ class _PedigreeBox extends StatelessWidget {
       return Container(
         constraints: const BoxConstraints(minWidth: 100, maxWidth: 140),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: colorScheme.outlineVariant.withOpacity(0.5), width: 1),
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5), width: 1),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.person_outline,
-                size: 28, color: colorScheme.onSurfaceVariant.withOpacity(0.4)),
+                size: 28, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
             const SizedBox(height: 4),
             Text(
               'Unknown',
               style: TextStyle(
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   fontSize: 11),
               textAlign: TextAlign.center,
             ),
@@ -278,12 +278,12 @@ class _PedigreeBox extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [color, color.withOpacity(0.8)],
+            colors: [color, color.withValues(alpha: 0.8)],
           ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.3),
+              color: color.withValues(alpha: 0.3),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -295,7 +295,7 @@ class _PedigreeBox extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: colorScheme.onPrimary.withOpacity(0.2),
+              backgroundColor: colorScheme.onPrimary.withValues(alpha: 0.2),
               child: Text(
                 person!.name.isNotEmpty ? person!.name[0].toUpperCase() : '?',
                 style: TextStyle(
@@ -322,7 +322,7 @@ class _PedigreeBox extends StatelessWidget {
               Text(
                 'b. ${person!.birthDate!.year}',
                 style: TextStyle(
-                  color: textColor.withOpacity(0.8),
+                  color: textColor.withValues(alpha: 0.8),
                   fontSize: 10,
                 ),
               ),

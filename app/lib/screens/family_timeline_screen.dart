@@ -43,7 +43,7 @@ class _FamilyTimelineScreenState extends State<FamilyTimelineScreen> {
                   color: Theme.of(context)
                       .colorScheme
                       .primary
-                      .withOpacity(0.3)),
+                      .withValues(alpha: 0.3)),
               const SizedBox(height: 16),
               const Text('Add people to see the family timeline.'),
             ],
@@ -96,11 +96,11 @@ class _FamilyTimelineScreenState extends State<FamilyTimelineScreen> {
                                 setState(() => _search = ''))
                         : null,
                     filled: true,
-                    fillColor: colorScheme.onPrimary.withOpacity(0.15),
+                    fillColor: colorScheme.onPrimary.withValues(alpha: 0.15),
                     hintStyle: TextStyle(
-                        color: colorScheme.onPrimary.withOpacity(0.7)),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.7)),
                     prefixIconColor:
-                        colorScheme.onPrimary.withOpacity(0.8),
+                        colorScheme.onPrimary.withValues(alpha: 0.8),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(28),
                         borderSide: BorderSide.none),
@@ -127,7 +127,7 @@ class _FamilyTimelineScreenState extends State<FamilyTimelineScreen> {
                                   setState(() => _filter = f),
                               selectedColor: colorScheme
                                   .primaryContainer
-                                  .withOpacity(0.8),
+                                  .withValues(alpha: 0.8),
                               labelStyle: TextStyle(
                                   color: _filter == f
                                       ? colorScheme.onPrimaryContainer
@@ -437,7 +437,7 @@ class _TimelineTile extends StatelessWidget {
                   child: Center(
                     child: Container(
                       width: 2,
-                      color: colorScheme.outlineVariant.withOpacity(0.5),
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -453,10 +453,10 @@ class _TimelineTile extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.12),
+                  color: iconColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                   border:
-                      Border.all(color: iconColor.withOpacity(0.5)),
+                      Border.all(color: iconColor.withValues(alpha: 0.5)),
                 ),
                 child: Icon(event.icon, size: 14, color: iconColor),
               ),
@@ -482,10 +482,10 @@ class _TimelineTile extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color:
-                        colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                        colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                        color: colorScheme.outlineVariant.withOpacity(0.3)),
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

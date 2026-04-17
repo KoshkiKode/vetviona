@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
-import '../services/sound_service.dart';
 import '../models/life_event.dart';
 import '../models/person.dart';
 import '../models/place.dart';
@@ -712,7 +711,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                     color: Theme.of(context)
                                         .colorScheme
                                         .scrim
-                                        .withOpacity(0.65),
+                                        .withValues(alpha: 0.65),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
@@ -1278,9 +1277,9 @@ class _PlaceFieldState extends State<_PlaceField> {
                     style: TextStyle(
                         fontSize: 11, color: colorScheme.error)),
                 onPressed: () => widget.onCoordChanged(null),
-                side: BorderSide(color: colorScheme.error.withOpacity(0.3)),
+                side: BorderSide(color: colorScheme.error.withValues(alpha: 0.3)),
                 backgroundColor:
-                    colorScheme.error.withOpacity(0.08),
+                    colorScheme.error.withValues(alpha: 0.08),
               ),
             ],
           ),
@@ -1306,10 +1305,10 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withOpacity(0.5),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: colorScheme.primary.withOpacity(0.2)),
+            color: colorScheme.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1355,10 +1354,10 @@ class _DatePickerTile extends StatelessWidget {
         padding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: colorScheme.outline.withOpacity(0.3)),
+              color: colorScheme.outline.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -1598,7 +1597,7 @@ class _QuickLinkCard extends StatelessWidget {
             style: TextStyle(
                 color: colorScheme.onSurfaceVariant, fontSize: 12)),
         trailing: Icon(Icons.chevron_right,
-            color: colorScheme.onSurfaceVariant.withOpacity(0.5)),
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
         onTap: onTap,
       ),
     );
@@ -1893,7 +1892,7 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 border:
-                    Border.all(color: colorScheme.outline.withOpacity(0.5)),
+                    Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -2145,7 +2144,7 @@ class _WikiTreeResultChip extends StatelessWidget {
         margin: const EdgeInsets.only(top: 4),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: colorScheme.primaryContainer.withOpacity(0.3),
+          color: colorScheme.primaryContainer.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: colorScheme.primaryContainer, width: 1),
         ),
@@ -2176,16 +2175,12 @@ class _SuggestField extends StatefulWidget {
   final InputDecoration decoration;
   final List<String> suggestions;
   final TextCapitalization textCapitalization;
-  final TextInputAction? textInputAction;
-  final String? Function(String?)? validator;
 
   const _SuggestField({
     required this.controller,
     required this.decoration,
     required this.suggestions,
     this.textCapitalization = TextCapitalization.none,
-    this.textInputAction,
-    this.validator,
   });
 
   @override
@@ -2227,8 +2222,6 @@ class _SuggestFieldState extends State<_SuggestField> {
           focusNode: focusNode,
           decoration: widget.decoration,
           textCapitalization: widget.textCapitalization,
-          textInputAction: widget.textInputAction,
-          validator: widget.validator,
           onFieldSubmitted: (_) => onSubmitted(),
         );
       },

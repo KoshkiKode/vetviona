@@ -168,7 +168,7 @@ class _TreeScreenState extends State<TreeScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
-                    color: colorScheme.primaryContainer.withOpacity(0.5),
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.5),
                     child: Row(
                       children: [
                         Icon(Icons.account_tree,
@@ -245,7 +245,7 @@ class _FamilyTableView extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: DataTable(
           headingRowColor: WidgetStateProperty.all(
-              colorScheme.primaryContainer.withOpacity(0.5)),
+              colorScheme.primaryContainer.withValues(alpha: 0.5)),
           columnSpacing: 20,
           columns: const [
             DataColumn(label: Text('Name')),
@@ -492,10 +492,10 @@ class _ActionChip extends StatelessWidget {
         padding:
             const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: chipColor.withOpacity(0.1),
+          color: chipColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
           border:
-              Border.all(color: chipColor.withOpacity(0.2)),
+              Border.all(color: chipColor.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

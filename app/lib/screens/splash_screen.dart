@@ -59,12 +59,12 @@ class _SplashScreenState extends State<SplashScreen>
                 end: Alignment.bottomRight,
                 colors: isDark
                     ? [
-                        colorScheme.primary.withOpacity(0.25),
+                        colorScheme.primary.withValues(alpha: 0.25),
                         colorScheme.surface,
                         colorScheme.surfaceContainerLow,
                       ]
                     : [
-                        colorScheme.primary.withOpacity(0.12),
+                        colorScheme.primary.withValues(alpha: 0.12),
                         colorScheme.surface,
                         colorScheme.surfaceContainerLow,
                       ],
@@ -81,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen>
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colorScheme.primary.withOpacity(isDark ? 0.18 : 0.1),
+                color: colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.1),
               ),
             ),
           ),
@@ -94,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen>
               height: 220,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colorScheme.tertiary.withOpacity(isDark ? 0.15 : 0.08),
+                color: colorScheme.tertiary.withValues(alpha: isDark ? 0.15 : 0.08),
               ),
             ),
           ),
@@ -126,20 +126,20 @@ class _SplashScreenState extends State<SplashScreen>
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      colorScheme.primary.withOpacity(0.75),
+                                      colorScheme.primary.withValues(alpha: 0.75),
                                       colorScheme.primary,
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(28),
                                   border: Border.all(
                                     color: colorScheme.onPrimary
-                                        .withOpacity(0.25),
+                                        .withValues(alpha: 0.25),
                                     width: 1.5,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: colorScheme.primary
-                                          .withOpacity(0.35),
+                                          .withValues(alpha: 0.35),
                                       blurRadius: 24,
                                       offset: const Offset(0, 8),
                                     ),
@@ -231,7 +231,7 @@ class _SplashScreenState extends State<SplashScreen>
                           .labelSmall
                           ?.copyWith(
                             color: colorScheme.onSurfaceVariant
-                                .withOpacity(0.5),
+                                .withValues(alpha: 0.5),
                             letterSpacing: 1.5,
                           ),
                     ),

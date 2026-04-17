@@ -103,9 +103,9 @@ class GEDCOMParser {
 
       if (level == 0) {
         if (currentPerson != null && currentId != null) {
-          final id = currentId!;
+          final id = currentId;
           if (pendingEvent != null) _flushPendingEvent(id);
-          persons[id] = currentPerson!;
+          persons[id] = currentPerson;
         }
         currentPerson = null;
         currentFamily = null;
@@ -137,22 +137,22 @@ class GEDCOMParser {
         currentTag = tag;
 
         if (tag == 'NAME') {
-          currentPerson!.name = value.replaceAll('/', '').trim();
+          currentPerson.name = value.replaceAll('/', '').trim();
         } else if (tag == 'SEX') {
-          currentPerson!.gender = value;
+          currentPerson.gender = value;
         } else if (tag == 'OCCU') {
-          currentPerson!.occupation = value;
+          currentPerson.occupation = value;
         } else if (tag == 'RELI') {
-          currentPerson!.religion = value;
+          currentPerson.religion = value;
         } else if (tag == '_WIKITREEID' || tag == '_WT_USER' ||
             tag == '_WIKITREE_ID') {
           // WikiTree-exported GEDCOMs include the profile page name here.
           // e.g.  1 _WIKITREEID Churchill-4
           final wtId = value.trim();
-          if (wtId.isNotEmpty) currentPerson!.wikitreeId = wtId;
+          if (wtId.isNotEmpty) currentPerson.wikitreeId = wtId;
         } else if (tag == '_FINDAGRAVEID' || tag == '_FINDAGRAVE') {
           final fagId = value.trim();
-          if (fagId.isNotEmpty) currentPerson!.findAGraveId = fagId;
+          if (fagId.isNotEmpty) currentPerson.findAGraveId = fagId;
         } else if (_gedcomEventTags.containsKey(tag) || tag == 'BURI' ||
             tag == 'DEAT' || tag == 'BIRT') {
           // We handle BIRT/DEAT/BURI at level 2; for event tags start tracking.
@@ -163,59 +163,59 @@ class GEDCOMParser {
           // Reference to a source record: value is @S1@ or inline title.
           final refId = value.replaceAll('@', '').trim();
           if (refId.isNotEmpty) {
-            pendingSourRef = {'personId': currentId!, 'sourceId': refId};
-            sourRefs.add(pendingSourRef!);
+            pendingSourRef = {'personId': currentId, 'sourceId': refId};
+            sourRefs.add(pendingSourRef);
           }
         } else if (tag == 'NATI') {
-          if (value.isNotEmpty) currentPerson!.nationality = value;
+          if (value.isNotEmpty) currentPerson.nationality = value;
         } else if (tag == 'EDUC') {
-          if (value.isNotEmpty) currentPerson!.education = value;
+          if (value.isNotEmpty) currentPerson.education = value;
         } else if (tag == '_MARN') {
-          if (value.isNotEmpty) currentPerson!.maidenName = value;
+          if (value.isNotEmpty) currentPerson.maidenName = value;
         } else if (tag == '_ALIAS') {
           final alias = value.trim();
-          if (alias.isNotEmpty && !currentPerson!.aliases.contains(alias)) {
-            currentPerson!.aliases.add(alias);
+          if (alias.isNotEmpty && !currentPerson.aliases.contains(alias)) {
+            currentPerson.aliases.add(alias);
           }
         } else if (tag == 'NOTE') {
           // Individual-level note. Skip pointer form (@N1@); accept inline text.
           final isPointer = value.startsWith('@') && value.endsWith('@');
-          if (!isPointer && value.isNotEmpty) currentPerson!.notes = value;
+          if (!isPointer && value.isNotEmpty) currentPerson.notes = value;
         }
       } else if (level == 1 && currentSourceDef != null) {
         currentTag = tag;
         if (tag == 'TITL') {
-          currentSourceDef!['title'] = value;
+          currentSourceDef['title'] = value;
         } else if (tag == 'AUTH') {
-          currentSourceDef!['auth'] = value;
+          currentSourceDef['auth'] = value;
         } else if (tag == 'PUBL') {
-          currentSourceDef!['publ'] = value;
+          currentSourceDef['publ'] = value;
         }
       } else if (level == 1 && currentFamily != null) {
         currentTag = tag;
         final id = value.replaceAll('@', '');
         if (tag == 'HUSB') {
-          currentFamily!['husb'] = id;
+          currentFamily['husb'] = id;
         } else if (tag == 'WIFE') {
-          currentFamily!['wife'] = id;
+          currentFamily['wife'] = id;
         } else if (tag == 'CHIL') {
-          (currentFamily!['children'] as List<String>).add(id);
+          (currentFamily['children'] as List<String>).add(id);
         }
       } else if (level == 2 && currentPerson != null) {
         if (currentTag == 'BIRT' && tag == 'DATE') {
-          currentPerson!.birthDate = _parseDate(value);
+          currentPerson.birthDate = _parseDate(value);
         } else if (currentTag == 'BIRT' && tag == 'PLAC') {
-          currentPerson!.birthPlace = value;
+          currentPerson.birthPlace = value;
         } else if (currentTag == 'DEAT' && tag == 'DATE') {
-          currentPerson!.deathDate = _parseDate(value);
+          currentPerson.deathDate = _parseDate(value);
         } else if (currentTag == 'DEAT' && tag == 'PLAC') {
-          currentPerson!.deathPlace = value;
+          currentPerson.deathPlace = value;
         } else if (currentTag == 'DEAT' && tag == 'CAUS') {
-          currentPerson!.causeOfDeath = value;
+          currentPerson.causeOfDeath = value;
         } else if (currentTag == 'BURI' && tag == 'DATE') {
-          currentPerson!.burialDate = _parseDate(value);
+          currentPerson.burialDate = _parseDate(value);
         } else if (currentTag == 'BURI' && tag == 'PLAC') {
-          currentPerson!.burialPlace = value;
+          currentPerson.burialPlace = value;
         } else if (pendingEvent != null) {
           // Sub-tags for a life event.
           if (tag == 'DATE') {
@@ -229,26 +229,26 @@ class GEDCOMParser {
           }
         } else if (currentTag == 'SOUR' && pendingSourRef != null && tag == 'PAGE') {
           // Page/citation reference for a source.
-          pendingSourRef!['page'] = value;
+          pendingSourRef['page'] = value;
         }
       } else if (level == 2 && currentFamily != null) {
         if (currentTag == 'MARR' && tag == 'DATE') {
-          currentFamily!['startDate'] = value;
+          currentFamily['startDate'] = value;
         } else if (currentTag == 'MARR' && tag == 'PLAC') {
-          currentFamily!['startPlace'] = value;
+          currentFamily['startPlace'] = value;
         } else if (currentTag == 'DIV' && tag == 'DATE') {
-          currentFamily!['endDate'] = value;
-          currentFamily!['status'] = 'divorced';
+          currentFamily['endDate'] = value;
+          currentFamily['status'] = 'divorced';
         } else if (currentTag == 'DIV' && tag == 'PLAC') {
-          currentFamily!['endPlace'] = value;
+          currentFamily['endPlace'] = value;
         }
       }
     }
 
     if (currentPerson != null && currentId != null) {
-      final id = currentId!;
+      final id = currentId;
       if (pendingEvent != null) _flushPendingEvent(id);
-      persons[id] = currentPerson!;
+      persons[id] = currentPerson;
     }
 
     // Build Partnership records and link parent–child data

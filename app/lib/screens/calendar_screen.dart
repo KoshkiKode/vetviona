@@ -120,7 +120,7 @@ class CalendarScreen extends StatelessWidget {
                     Icon(
                       Icons.calendar_month_outlined,
                       size: 64,
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -220,7 +220,7 @@ class _EventListView extends StatelessWidget {
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: iconColor.withOpacity(0.15),
+                    backgroundColor: iconColor.withValues(alpha: 0.15),
                     child: Icon(icon, color: iconColor, size: 20),
                   ),
                   title: Text(e.label, maxLines: 1, overflow: TextOverflow.ellipsis),

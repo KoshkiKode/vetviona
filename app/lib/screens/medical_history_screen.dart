@@ -389,7 +389,7 @@ class _DisclaimerBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: colorScheme.tertiaryContainer.withOpacity(0.6),
+      color: colorScheme.tertiaryContainer.withValues(alpha: 0.6),
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -610,10 +610,10 @@ class _ConditionCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: colorScheme.outlineVariant.withOpacity(0.5)),
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
         ),
         child: ListTile(
           leading: Icon(_categoryIcon(condition.category),
@@ -929,7 +929,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: colorScheme.tertiaryContainer.withOpacity(0.5),
+                color: colorScheme.tertiaryContainer.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -1136,10 +1136,10 @@ class _AttachmentsSection extends StatelessWidget {
             return Container(
               margin: const EdgeInsets.only(bottom: 6),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: colorScheme.outlineVariant.withOpacity(0.5)),
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
               ),
               child: ListTile(
                 dense: true,
@@ -1242,10 +1242,10 @@ class _AttachmentChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: colorScheme.secondaryContainer.withOpacity(0.7),
+          color: colorScheme.secondaryContainer.withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: colorScheme.secondary.withOpacity(0.3)),
+              color: colorScheme.secondary.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

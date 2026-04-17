@@ -486,7 +486,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   void _zoom(double factor) {
     final s = _txCtrl.value.getMaxScaleOnAxis();
     final ns = (s * factor).clamp(_kMinScale, _kMaxScale);
-    _txCtrl.value = _txCtrl.value.clone()..scale(ns / s);
+    _txCtrl.value = _txCtrl.value.clone()..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
   }
 
   void _resetView() => _txCtrl.value = Matrix4.identity();
@@ -508,8 +508,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     final tx = (vp.width - scaledW) / 2;
     final ty = (vp.height - scaledH) / 2;
     _txCtrl.value = Matrix4.identity()
-      ..translate(tx, ty)
-      ..scale(scale);
+      ..translateByDouble(tx, ty, 0.0, 1.0)
+      ..scaleByDouble(scale, scale, scale, 1.0);
   }
 
   void _showPersonSheet(
@@ -544,7 +544,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: colorScheme.outline.withOpacity(0.4),
+                  color: colorScheme.outline.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -967,7 +967,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
               Icon(
                 Icons.account_tree_outlined,
                 size: 80,
-                color: colorScheme.primary.withOpacity(0.35),
+                color: colorScheme.primary.withValues(alpha: 0.35),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1172,11 +1172,11 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: colorScheme.onPrimary.withOpacity(0.15),
+                fillColor: colorScheme.onPrimary.withValues(alpha: 0.15),
                 hintStyle: TextStyle(
-                  color: colorScheme.onPrimary.withOpacity(0.7),
+                  color: colorScheme.onPrimary.withValues(alpha: 0.7),
                 ),
-                prefixIconColor: colorScheme.onPrimary.withOpacity(0.8),
+                prefixIconColor: colorScheme.onPrimary.withValues(alpha: 0.8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(28),
                   borderSide: BorderSide.none,
@@ -1216,8 +1216,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                           painter: _EdgePainter(
                             nodes: layout.nodes,
                             edges: layout.edges,
-                            edgeColor: colorScheme.outline.withOpacity(0.5),
-                            coupleColor: colorScheme.tertiary.withOpacity(0.7),
+                            edgeColor: colorScheme.outline.withValues(alpha: 0.5),
+                            coupleColor: colorScheme.tertiary.withValues(alpha: 0.7),
                             edgeStyle: _preset.edgeStyle,
                             nodeWidth: _preset.nodeWidth,
                             nodeHeight: _preset.nodeHeight,
@@ -1377,7 +1377,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: colorScheme.inverseSurface.withOpacity(0.85),
+                            color: colorScheme.inverseSurface.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -1513,10 +1513,10 @@ class _EmptyAddNode extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(opacity),
+            color: colorScheme.primary.withValues(alpha: opacity),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: colorScheme.primary.withOpacity(0.32),
+              color: colorScheme.primary.withValues(alpha: 0.32),
               width: 1.1,
             ),
           ),
@@ -1542,7 +1542,7 @@ class _EmptyAddNode extends StatelessWidget {
                   'Tier $tier',
                   style: TextStyle(
                     fontSize: 8,
-                    color: colorScheme.onPrimaryContainer.withOpacity(0.85),
+                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.85),
                   ),
                 ),
             ],
@@ -1628,7 +1628,7 @@ class _PersonNodeWidget extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: borderColor.withOpacity(isSelected ? 0.3 : 0.12),
+              color: borderColor.withValues(alpha: isSelected ? 0.3 : 0.12),
               blurRadius: isSelected ? 8 : 4,
               offset: const Offset(0, 2),
             ),
@@ -1640,7 +1640,7 @@ class _PersonNodeWidget extends StatelessWidget {
               Container(
                 width: 6,
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.85),
+                  color: accentColor.withValues(alpha: 0.85),
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(10),
                     bottomLeft: Radius.circular(10),
@@ -1713,7 +1713,7 @@ class _PersonNodeWidget extends StatelessWidget {
                         person.birthPlace!,
                         style: TextStyle(
                           fontSize: 9,
-                          color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1773,7 +1773,7 @@ class _PersonNodeWidget extends StatelessWidget {
               : colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isHighlighted ? Colors.amber : accentColor.withOpacity(0.7),
+            color: isHighlighted ? Colors.amber : accentColor.withValues(alpha: 0.7),
             width: isHighlighted || isSelected ? 2.0 : 1.0,
           ),
         ),
@@ -1811,7 +1811,7 @@ class _PersonNodeWidget extends StatelessWidget {
                   Icon(
                     Icons.star,
                     size: 9,
-                    color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
               ],
             ),
@@ -1875,7 +1875,7 @@ class _PersonNodeWidget extends StatelessWidget {
             bottom: BorderSide(
               color: isSelected
                   ? colorScheme.primary
-                  : accentColor.withOpacity(0.5),
+                  : accentColor.withValues(alpha: 0.5),
               width: isSelected ? 2.0 : 1.0,
             ),
           ),
@@ -1928,7 +1928,7 @@ class _ExpandDot extends StatelessWidget {
         color: colorScheme.primary,
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(color: colorScheme.primary.withOpacity(0.4), blurRadius: 4),
+          BoxShadow(color: colorScheme.primary.withValues(alpha: 0.4), blurRadius: 4),
         ],
       ),
       child: Icon(icon, size: 12, color: colorScheme.onPrimary),
@@ -2025,7 +2025,7 @@ class _LegendCard extends StatelessWidget {
                 Container(
                   width: 24,
                   height: 2,
-                  color: colorScheme.outline.withOpacity(0.5),
+                  color: colorScheme.outline.withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -2041,7 +2041,7 @@ class _LegendCard extends StatelessWidget {
                 Container(
                   width: 24,
                   height: 2,
-                  color: colorScheme.tertiary.withOpacity(0.7),
+                  color: colorScheme.tertiary.withValues(alpha: 0.7),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -2084,7 +2084,7 @@ class _LegendCard extends StatelessWidget {
                 Icon(
                   Icons.star,
                   size: 12,
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 const SizedBox(width: 8),
                 Text('Deceased', style: Theme.of(context).textTheme.bodySmall),
@@ -2112,7 +2112,7 @@ class _LegendItem extends StatelessWidget {
             width: 12,
             height: 24,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.85),
+              color: color.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -2180,9 +2180,9 @@ class _ZoomIndicatorState extends State<_ZoomIndicator> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withOpacity(0.9),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
       ),
       child: Text(
         '$pct%',
@@ -2208,9 +2208,9 @@ class _GenLabel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withOpacity(0.75),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.75),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
       ),
       child: Text(
         label,
@@ -2269,7 +2269,7 @@ class _LiveDotState extends State<_LiveDot>
           height: 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: color.withOpacity(0.4 + 0.6 * _ctrl.value),
+            color: color.withValues(alpha: 0.4 + 0.6 * _ctrl.value),
           ),
         ),
       ),

@@ -71,8 +71,8 @@ class _FanChartScreenState extends State<FanChartScreen> {
     final tx = (viewportSize.width - scaledW) / 2;
     final ty = (viewportSize.height - scaledH) / 2;
     _txCtrl.value = Matrix4.identity()
-      ..translate(tx, ty)
-      ..scale(scale);
+      ..translateByDouble(tx, ty, 0.0, 1.0)
+      ..scaleByDouble(scale, scale, scale, 1.0);
   }
 
   // ── Ancestor map build ──────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ class _FanChartScreenState extends State<FanChartScreen> {
   void _zoom(double factor) {
     final s = _txCtrl.value.getMaxScaleOnAxis();
     final ns = (s * factor).clamp(0.1, 5.0);
-    _txCtrl.value = _txCtrl.value.clone()..scale(ns / s);
+    _txCtrl.value = _txCtrl.value.clone()..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
   }
 }
 
@@ -333,7 +333,7 @@ class _FanPainter extends CustomPainter {
     // ── Home person circle ────────────────────────────────────────────────────
     final home = ancestorMap[(0, 0)];
     final homePaint = Paint()
-      ..color = colorScheme.primary.withOpacity(0.85)
+      ..color = colorScheme.primary.withValues(alpha: 0.85)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(_kCenter, _kCenterRadius, homePaint);
     canvas.drawCircle(
@@ -367,7 +367,7 @@ class _FanPainter extends CustomPainter {
 
     // ── Outer border arc ──────────────────────────────────────────────────────
     final borderPaint = Paint()
-      ..color = colorScheme.outline.withOpacity(0.25)
+      ..color = colorScheme.outline.withValues(alpha: 0.25)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     final outerRect = Rect.fromCircle(
@@ -391,18 +391,18 @@ class _FanPainter extends CustomPainter {
     required int gen,
   }) {
     final fillColor = person == null
-        ? colorScheme.surfaceContainerHighest.withOpacity(0.35)
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
         : person.gender?.toLowerCase() == 'male'
-            ? colorScheme.primary.withOpacity(0.18 + gen * 0.04)
+            ? colorScheme.primary.withValues(alpha: 0.18 + gen * 0.04)
             : person.gender?.toLowerCase() == 'female'
-                ? colorScheme.error.withOpacity(0.18 + gen * 0.04)
-                : colorScheme.secondary.withOpacity(0.18 + gen * 0.04);
+                ? colorScheme.error.withValues(alpha: 0.18 + gen * 0.04)
+                : colorScheme.secondary.withValues(alpha: 0.18 + gen * 0.04);
 
     final fillPaint = Paint()
       ..color = fillColor
       ..style = PaintingStyle.fill;
     final strokePaint = Paint()
-      ..color = colorScheme.outline.withOpacity(0.28)
+      ..color = colorScheme.outline.withValues(alpha: 0.28)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.7;
 
@@ -457,7 +457,7 @@ class _FanPainter extends CustomPainter {
       text: TextSpan(
         text: _shortName(person.name),
         style: TextStyle(
-          color: colorScheme.onSurface.withOpacity(0.85),
+          color: colorScheme.onSurface.withValues(alpha: 0.85),
           fontSize: fontSize,
           fontWeight: gen <= 2 ? FontWeight.w600 : FontWeight.w400,
           height: 1.2,

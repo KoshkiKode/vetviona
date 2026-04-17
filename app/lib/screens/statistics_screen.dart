@@ -43,7 +43,7 @@ class StatisticsScreen extends StatelessWidget {
                   color: Theme.of(context)
                       .colorScheme
                       .primary
-                      .withOpacity(0.3)),
+                      .withValues(alpha: 0.3)),
               const SizedBox(height: 16),
               const Text('Add people to see statistics.'),
             ],
@@ -409,9 +409,9 @@ class _NumberTile extends StatelessWidget {
       width: 152,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -513,7 +513,7 @@ class _BarRow extends StatelessWidget {
                     height: 20,
                     width: constraints.maxWidth,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.08),
+                      color: color.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -521,7 +521,7 @@ class _BarRow extends StatelessWidget {
                     height: 20,
                     width: barW.clamp(0, constraints.maxWidth),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.75),
+                      color: color.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -641,7 +641,7 @@ class _StatPill extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: TextStyle(fontSize: 10, color: color.withOpacity(0.8))),
+            style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8))),
         Text(value,
             style: TextStyle(
                 fontSize: 15, fontWeight: FontWeight.bold, color: color)),

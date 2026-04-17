@@ -80,19 +80,19 @@ class ThemeProvider with ChangeNotifier {
       brightness: Brightness.light,
       primary: effectivePrimary,
       onPrimary: paper,
-      primaryContainer: acc.withOpacity(0.25),
+      primaryContainer: acc.withValues(alpha: 0.25),
       onPrimaryContainer: effectivePrimary,
       secondary: sec,
       onSecondary: paper,
-      secondaryContainer: acc.withOpacity(0.18),
+      secondaryContainer: acc.withValues(alpha: 0.18),
       onSecondaryContainer: sec,
       tertiary: acc,
       onTertiary: ink,
-      tertiaryContainer: acc.withOpacity(0.15),
+      tertiaryContainer: acc.withValues(alpha: 0.15),
       onTertiaryContainer: effectivePrimary,
       error: burg,
       onError: paper,
-      errorContainer: burg.withOpacity(0.12),
+      errorContainer: burg.withValues(alpha: 0.12),
       onErrorContainer: burg,
       surface: paper,
       onSurface: ink,
@@ -106,7 +106,7 @@ class ThemeProvider with ChangeNotifier {
       onInverseSurface: paper,
       inversePrimary: acc,
       outline: dust,
-      outlineVariant: brass.withOpacity(0.4),
+      outlineVariant: brass.withValues(alpha: 0.4),
       shadow: slate,
       scrim: Colors.black,
     );
@@ -137,19 +137,19 @@ class ThemeProvider with ChangeNotifier {
       brightness: Brightness.dark,
       primary: p,
       onPrimary: ink,
-      primaryContainer: p.withOpacity(0.35),
+      primaryContainer: p.withValues(alpha: 0.35),
       onPrimaryContainer: acc,
       secondary: sec,
       onSecondary: ink,
-      secondaryContainer: sec.withOpacity(0.4),
+      secondaryContainer: sec.withValues(alpha: 0.4),
       onSecondaryContainer: acc,
       tertiary: acc,
       onTertiary: paper,
-      tertiaryContainer: acc.withOpacity(0.2),
+      tertiaryContainer: acc.withValues(alpha: 0.2),
       onTertiaryContainer: ink,
       error: burg,
       onError: ink,
-      errorContainer: burg.withOpacity(0.25),
+      errorContainer: burg.withValues(alpha: 0.25),
       onErrorContainer: burg,
       surface: paper,
       onSurface: ink,
@@ -163,7 +163,7 @@ class ThemeProvider with ChangeNotifier {
       onInverseSurface: paper,
       inversePrimary: acc,
       outline: dust,
-      outlineVariant: brass.withOpacity(0.3),
+      outlineVariant: brass.withValues(alpha: 0.3),
       shadow: slate,
       scrim: Colors.black,
     );
@@ -191,7 +191,7 @@ class ThemeProvider with ChangeNotifier {
         foregroundColor: scheme.onPrimary,
         elevation: 0,
         scrolledUnderElevation: 2,
-        shadowColor: primary.withOpacity(0.3),
+        shadowColor: primary.withValues(alpha: 0.3),
         surfaceTintColor: primary,
         centerTitle: _isCupertinoHost,
         systemOverlayStyle: SystemUiOverlayStyle(
@@ -230,7 +230,7 @@ class ThemeProvider with ChangeNotifier {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(
-            color: dust.withOpacity(isDark ? 0.12 : 0.15),
+            color: dust.withValues(alpha: isDark ? 0.12 : 0.15),
           ),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -246,7 +246,7 @@ class ThemeProvider with ChangeNotifier {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: dust.withOpacity(0.35)),
+          borderSide: BorderSide(color: dust.withValues(alpha: 0.35)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -271,7 +271,7 @@ class ThemeProvider with ChangeNotifier {
           backgroundColor: primary,
           foregroundColor: scheme.onPrimary,
           elevation: 1,
-          shadowColor: primary.withOpacity(0.35),
+          shadowColor: primary.withValues(alpha: 0.35),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14)),
           padding:
@@ -292,14 +292,14 @@ class ThemeProvider with ChangeNotifier {
             if (states.contains(WidgetState.hovered)) return 2;
             return 1;
           }),
-          shadowColor: WidgetStatePropertyAll(primary.withOpacity(0.3)),
+          shadowColor: WidgetStatePropertyAll(primary.withValues(alpha: 0.3)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14)),
-          side: BorderSide(color: primary.withOpacity(0.5)),
+          side: BorderSide(color: primary.withValues(alpha: 0.5)),
           padding:
               const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
@@ -332,7 +332,7 @@ class ThemeProvider with ChangeNotifier {
         selectedColor: scheme.secondaryContainer,
         secondarySelectedColor: scheme.secondaryContainer,
         checkmarkColor: scheme.onSecondaryContainer,
-        side: BorderSide(color: dust.withOpacity(0.2)),
+        side: BorderSide(color: dust.withValues(alpha: 0.2)),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -344,7 +344,7 @@ class ThemeProvider with ChangeNotifier {
         backgroundColor: scheme.surfaceContainerHigh,
         surfaceTintColor: primary,
         elevation: 3,
-        shadowColor: Colors.black.withOpacity(0.15),
+        shadowColor: Colors.black.withValues(alpha: 0.15),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28)),
         titleTextStyle: TextStyle(
@@ -365,7 +365,7 @@ class ThemeProvider with ChangeNotifier {
         surfaceTintColor: primary,
         elevation: 2,
         showDragHandle: true,
-        dragHandleColor: dust.withOpacity(0.5),
+        dragHandleColor: dust.withValues(alpha: 0.5),
         shape: const RoundedRectangleBorder(
           borderRadius:
               BorderRadius.vertical(top: Radius.circular(28)),
@@ -434,7 +434,7 @@ class ThemeProvider with ChangeNotifier {
         color: scheme.surfaceContainerHigh,
         surfaceTintColor: primary,
         elevation: 3,
-        shadowColor: Colors.black.withOpacity(0.12),
+        shadowColor: Colors.black.withValues(alpha: 0.12),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16)),
         textStyle: TextStyle(color: scheme.onSurface, fontSize: 14),
@@ -456,7 +456,7 @@ class ThemeProvider with ChangeNotifier {
       dividerTheme: DividerThemeData(
         space: 1,
         thickness: 1,
-        color: dust.withOpacity(isDark ? 0.15 : 0.25),
+        color: dust.withValues(alpha: isDark ? 0.15 : 0.25),
       ),
 
       // ── Switch ───────────────────────────────────────────────────────────
@@ -465,8 +465,8 @@ class ThemeProvider with ChangeNotifier {
             states.contains(WidgetState.selected) ? primary : dust),
         trackColor: WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.selected)
-                ? primary.withOpacity(0.4)
-                : dust.withOpacity(0.2)),
+                ? primary.withValues(alpha: 0.4)
+                : dust.withValues(alpha: 0.2)),
       ),
 
       // ── List Tiles ───────────────────────────────────────────────────────
@@ -494,8 +494,8 @@ class ThemeProvider with ChangeNotifier {
       // ── Progress Indicator ─────────────────────────────────────────────────
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: primary,
-        linearTrackColor: dust.withOpacity(0.2),
-        circularTrackColor: dust.withOpacity(0.15),
+        linearTrackColor: dust.withValues(alpha: 0.2),
+        circularTrackColor: dust.withValues(alpha: 0.15),
         linearMinHeight: 6,
       ),
 
@@ -514,7 +514,7 @@ class ThemeProvider with ChangeNotifier {
   Future<void> setPrimaryColor(Color color) async {
     _primaryColor = color;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('primaryColor', color.value);
+    await prefs.setInt('primaryColor', color.toARGB32());
     notifyListeners();
   }
 
@@ -528,7 +528,7 @@ class ThemeProvider with ChangeNotifier {
   Future<void> loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final colorValue =
-        prefs.getInt('primaryColor') ?? VetvionaPalette.lightPrimary.value;
+        prefs.getInt('primaryColor') ?? VetvionaPalette.lightPrimary.toARGB32();
     _primaryColor = Color(colorValue);
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     notifyListeners();

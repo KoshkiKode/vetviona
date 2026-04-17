@@ -194,7 +194,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
@@ -328,7 +328,7 @@ class _InfoPanel extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),

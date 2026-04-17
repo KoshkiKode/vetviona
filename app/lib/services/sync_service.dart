@@ -445,7 +445,7 @@ class SyncService extends ChangeNotifier {
       host: peer.host,
       port: peer.port,
       sharedSecret: device.sharedSecret,
-    ).catchError((_) {});
+    ).ignore();
   }
 
   /// Stops mDNS discovery and clears [discoveredPeers].

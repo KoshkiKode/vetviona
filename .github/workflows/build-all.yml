@@ -14,7 +14,7 @@ env:
 
 jobs:
   android:
-    name: Android APK + AAB
+    name: Android APK + AAB (Paid + Free)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,18 +28,44 @@ jobs:
         run: |
           flutter create --platforms=android --org com.koshkikode .
           flutter pub get
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          files = [
+              (Path("android/app/build.gradle.kts"), "kts"),
+              (Path("android/app/build.gradle"), "gradle"),
+          ]
+
+          for path, kind in files:
+              if not path.exists():
+                  continue
+              content = path.read_text(encoding="utf-8")
+              if kind == "kts":
+                  updated, replacements = re.subn(
+                      r"(minSdk(?:Version)?)(\s*=\s*)?\s*flutter\.minSdkVersion",
+                      lambda m: f"{m.group(1)}{' = ' if m.group(2) else ' '}24",
+                      content,
+                      count=1,
+                  )
+              else:
+                  updated, replacements = re.subn(
+                      r"(minSdk(?:Version)?)(\s*=\s*)?\s*flutter\.minSdkVersion",
+                      lambda m: f"{m.group(1)}{' = ' if m.group(2) else ' '}24",
+                      content,
+                      count=1,
+                  )
+              if replacements == 0:
+                  raise SystemExit(
+                      f"Could not update minSdk in {path}; expected a line like "
+                      "minSdk/minSdkVersion [=] flutter.minSdkVersion."
+                  )
+              path.write_text(updated, encoding="utf-8")
+              break
+          else:
+              raise SystemExit("Android Gradle build file not found.")
+          PY
           dart run flutter_launcher_icons -f icons_android.yaml
-          flutter build apk --release
-          flutter build appbundle --release
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: build-android-free
-          path: |
-            app/build/app/outputs/flutter-apk/app-release.apk
-            app/build/app/outputs/bundle/release/app-release.aab
-          retention-days: 7
-      - working-directory: app
-        run: |
           flutter build apk --release --dart-define=MOBILE_PAID=true
           flutter build appbundle --release --dart-define=MOBILE_PAID=true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -49,9 +75,21 @@ jobs:
             app/build/app/outputs/flutter-apk/app-release.apk
             app/build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
+      - working-directory: app
+        run: |
+          flutter pub get
+          flutter build apk --release
+          flutter build appbundle --release
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-android-free
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 7
 
   ios:
-    name: iOS IPA
+    name: iOS IPA (Paid + Free)
     runs-on: macos-latest
     permissions:
       contents: read
@@ -66,27 +104,30 @@ jobs:
         run: |
           flutter pub get
           dart run flutter_launcher_icons -f icons_ios.yaml
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
       - run: |
-          mkdir -p /tmp/Payload
-          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
-          cd /tmp && zip -r vetviona-free.ipa Payload
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: build-ios-free
-          path: /tmp/vetviona-free.ipa
-          retention-days: 7
-      - working-directory: app
-        run: flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
-      - run: |
-          rm -rf /tmp/Payload
-          mkdir -p /tmp/Payload
-          cp -r app/build/ios/iphoneos/Runner.app /tmp/Payload/
-          cd /tmp && zip -r vetviona-paid.ipa Payload
+          rm -rf /tmp/vetviona-paid-ipa
+          mkdir -p /tmp/vetviona-paid-ipa/Payload
+          cp -r app/build/ios/iphoneos/Runner.app /tmp/vetviona-paid-ipa/Payload/
+          cd /tmp/vetviona-paid-ipa && zip -r /tmp/vetviona-paid.ipa Payload
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-ios-paid
           path: /tmp/vetviona-paid.ipa
+          retention-days: 7
+      - working-directory: app
+        run: |
+          flutter pub get
+          flutter build ios --release --no-codesign
+      - run: |
+          rm -rf /tmp/vetviona-free-ipa
+          mkdir -p /tmp/vetviona-free-ipa/Payload
+          cp -r app/build/ios/iphoneos/Runner.app /tmp/vetviona-free-ipa/Payload/
+          cd /tmp/vetviona-free-ipa && zip -r /tmp/vetviona-free.ipa Payload
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-ios-free
+          path: /tmp/vetviona-free.ipa
           retention-days: 7
 
   windows-exe:
