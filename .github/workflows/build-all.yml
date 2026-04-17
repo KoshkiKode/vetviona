@@ -43,20 +43,23 @@ jobs:
               content = path.read_text(encoding="utf-8")
               if kind == "kts":
                   updated, replacements = re.subn(
-                      r"minSdk(?:Version)?\s*=?\s*flutter\.minSdkVersion",
-                      "minSdk = 24",
+                      r"(minSdk(?:Version)?)(\s*=\s*)?\s*flutter\.minSdkVersion",
+                      lambda m: f"{m.group(1)}{' = ' if m.group(2) else ' '}24",
                       content,
                       count=1,
                   )
               else:
                   updated, replacements = re.subn(
-                      r"minSdk(?:Version)?(\s*=\s*)?\s*flutter\.minSdkVersion",
-                      lambda m: f"minSdkVersion{' = ' if m.group(1) else ' '}24",
+                      r"(minSdk(?:Version)?)(\s*=\s*)?\s*flutter\.minSdkVersion",
+                      lambda m: f"{m.group(1)}{' = ' if m.group(2) else ' '}24",
                       content,
                       count=1,
                   )
               if replacements == 0:
-                  raise SystemExit(f"Could not update minSdk in {path}")
+                  raise SystemExit(
+                      f"Could not update minSdk in {path}; expected a line like "
+                      "minSdk/minSdkVersion [=] flutter.minSdkVersion."
+                  )
               path.write_text(updated, encoding="utf-8")
               break
           else:
