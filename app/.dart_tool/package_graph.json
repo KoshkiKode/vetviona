@@ -16,6 +16,7 @@
         "flutter",
         "flutter_blue_plus",
         "flutter_colorpicker",
+        "flutter_localizations",
         "flutter_map",
         "flutter_secure_storage",
         "http",
@@ -463,6 +464,15 @@
       "name": "cupertino_icons",
       "version": "1.0.9",
       "dependencies": []
+    },
+    {
+      "name": "flutter_localizations",
+      "version": "0.0.0",
+      "dependencies": [
+        "flutter",
+        "intl",
+        "path"
+      ]
     },
     {
       "name": "flutter",

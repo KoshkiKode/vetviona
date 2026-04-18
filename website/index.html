@@ -444,6 +444,30 @@
       .hero-copy { padding: 1.2rem; }
       .topbar-inner { min-height: 62px; }
     }
+
+    /* Language Switcher */
+    .lang-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .lang-switcher select {
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 0.25rem 0.5rem;
+      cursor: pointer;
+      outline: none;
+    }
+    .lang-switcher select option {
+      background: #2d2d2d;
+      color: #f8f7f3;
+    }
+    [dir="rtl"] { direction: rtl; text-align: right; }
   </style>
 </head>
 <body>
@@ -454,11 +478,29 @@
         <span>Vetviona</span>
       </a>
       <nav class="nav" aria-label="Main Navigation">
-        <a href="#features">Features</a>
+        <a href="#features" data-i18n="nav.features">Features</a>
         <a href="#rootloop">RootLoop</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#production">Roadmap</a>
-        <a href="#download" class="cta">Get the App</a>
+        <a href="#pricing" data-i18n="nav.pricing">Pricing</a>
+        <a href="#production" data-i18n="nav.roadmap">Roadmap</a>
+        <a href="#download" class="cta" data-i18n="nav.getApp">Get the App</a>
+        <span class="lang-switcher" aria-label="Language selector">
+          <span>🌐</span>
+          <select id="langSelect" onchange="applyLang(this.value)">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="pt">Português</option>
+            <option value="ar">العربية</option>
+            <option value="hi">हिन्दी</option>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="id">Bahasa Indonesia</option>
+            <option value="tr">Türkçe</option>
+            <option value="ru">Русский</option>
+          </select>
+        </span>
       </nav>
     </div>
   </header>
@@ -467,14 +509,14 @@
     <section class="hero">
       <div class="hero-grid">
         <div class="hero-copy">
-          <span class="badge">Private. Local-first. Rooted in real family research.</span>
-          <h1>Roots, records, and stories<br>in true Vetviona style.</h1>
-          <p class="subtitle">
+          <span class="badge" data-i18n="hero.badge">Private. Local-first. Rooted in real family research.</span>
+          <h1 data-i18n="hero.headline">Roots, records, and stories<br>in true Vetviona style.</h1>
+          <p class="subtitle" data-i18n="hero.subtitle">
             Vetviona is a warm, archival-first genealogy app where beautiful tree design meets serious evidence tracking and zero-knowledge sync.
           </p>
           <div class="hero-actions">
-            <a class="btn btn-primary" href="#download">Download options</a>
-            <a class="btn btn-secondary" href="https://github.com/KoshkiKode/vetviona" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+            <a class="btn btn-primary" href="#download" data-i18n="hero.downloadBtn">Download options</a>
+            <a class="btn btn-secondary" href="https://github.com/KoshkiKode/vetviona" target="_blank" rel="noopener noreferrer" data-i18n="hero.githubBtn">View on GitHub</a>
           </div>
           <div class="chips">
             <span class="chip">No subscription traps</span>
@@ -631,6 +673,184 @@
     const year = new Date().getFullYear();
     document.getElementById("copyright").textContent =
       "Copyright " + year + " KoshkiKode. Vetviona and RootLoop are trademarks of KoshkiKode.";
+  </script>
+
+  <script>
+    /* ── Website i18n strings ─────────────────────────────────────────────── */
+    const SITE_STRINGS = {
+      en: {
+        "nav.features": "Features",
+        "nav.pricing": "Pricing",
+        "nav.roadmap": "Roadmap",
+        "nav.getApp": "Get the App",
+        "hero.badge": "Private. Local-first. Rooted in real family research.",
+        "hero.headline": "Roots, records, and stories in true Vetviona style.",
+        "hero.subtitle": "Vetviona is a warm, archival-first genealogy app where beautiful tree design meets serious evidence tracking and zero-knowledge sync.",
+        "hero.downloadBtn": "Download options",
+        "hero.githubBtn": "View on GitHub",
+      },
+      es: {
+        "nav.features": "Funciones",
+        "nav.pricing": "Precios",
+        "nav.roadmap": "Hoja de ruta",
+        "nav.getApp": "Obtener la App",
+        "hero.badge": "Privado. Local primero. Arraigado en investigación genealógica real.",
+        "hero.headline": "Raíces, registros e historias al estilo Vetviona.",
+        "hero.subtitle": "Vetviona es una app genealógica cálida y archivística donde el bello diseño de árboles se une al seguimiento serio de evidencias y la sincronización sin conocimiento.",
+        "hero.downloadBtn": "Opciones de descarga",
+        "hero.githubBtn": "Ver en GitHub",
+      },
+      fr: {
+        "nav.features": "Fonctionnalités",
+        "nav.pricing": "Tarifs",
+        "nav.roadmap": "Feuille de route",
+        "nav.getApp": "Télécharger l'App",
+        "hero.badge": "Privé. Local d'abord. Ancré dans la vraie recherche généalogique.",
+        "hero.headline": "Racines, archives et histoires dans le vrai style Vetviona.",
+        "hero.subtitle": "Vetviona est une app généalogique chaleureuse où le design d'arbres rencontre un suivi sérieux des preuves et une synchronisation zéro connaissance.",
+        "hero.downloadBtn": "Options de téléchargement",
+        "hero.githubBtn": "Voir sur GitHub",
+      },
+      de: {
+        "nav.features": "Funktionen",
+        "nav.pricing": "Preise",
+        "nav.roadmap": "Roadmap",
+        "nav.getApp": "App herunterladen",
+        "hero.badge": "Privat. Lokal-zuerst. Verwurzelt in echter Familienforschung.",
+        "hero.headline": "Wurzeln, Aufzeichnungen und Geschichten im echten Vetviona-Stil.",
+        "hero.subtitle": "Vetviona ist eine herzliche, archiv-zuerst Genealogie-App, bei der schönes Stammbaum-Design auf ernstes Beweisführen und Zero-Knowledge-Sync trifft.",
+        "hero.downloadBtn": "Download-Optionen",
+        "hero.githubBtn": "Auf GitHub ansehen",
+      },
+      pt: {
+        "nav.features": "Recursos",
+        "nav.pricing": "Preços",
+        "nav.roadmap": "Roteiro",
+        "nav.getApp": "Baixar o App",
+        "hero.badge": "Privado. Local primeiro. Enraizado em pesquisa genealógica real.",
+        "hero.headline": "Raízes, registros e histórias no verdadeiro estilo Vetviona.",
+        "hero.subtitle": "Vetviona é um app genealógico acolhedor e orientado a arquivo, onde o belo design de árvores encontra rastreamento sério de evidências e sincronização zero-knowledge.",
+        "hero.downloadBtn": "Opções de download",
+        "hero.githubBtn": "Ver no GitHub",
+      },
+      ar: {
+        "nav.features": "الميزات",
+        "nav.pricing": "الأسعار",
+        "nav.roadmap": "خارطة الطريق",
+        "nav.getApp": "احصل على التطبيق",
+        "hero.badge": "خاص. محلي أولاً. متجذر في البحث الجيني الحقيقي.",
+        "hero.headline": "جذور وسجلات وقصص بأسلوب Vetviona الحقيقي.",
+        "hero.subtitle": "Vetviona هو تطبيق أنساب دافئ يجمع بين تصميم الأشجار الجميل وتتبع الأدلة الجاد والمزامنة بدون معرفة.",
+        "hero.downloadBtn": "خيارات التنزيل",
+        "hero.githubBtn": "عرض على GitHub",
+        "dir": "rtl",
+      },
+      hi: {
+        "nav.features": "सुविधाएँ",
+        "nav.pricing": "मूल्य निर्धारण",
+        "nav.roadmap": "रोडमैप",
+        "nav.getApp": "ऐप प्राप्त करें",
+        "hero.badge": "निजी। स्थानीय-पहले। वास्तविक पारिवारिक शोध में निहित।",
+        "hero.headline": "जड़ें, अभिलेख और कहानियाँ सच्चे Vetviona अंदाज़ में।",
+        "hero.subtitle": "Vetviona एक गर्मजोशी भरा, पुरालेख-पहले वंशावली ऐप है जहाँ सुंदर वृक्ष डिज़ाइन गंभीर साक्ष्य ट्रैकिंग और जीरो-नॉलेज सिंक से मिलता है।",
+        "hero.downloadBtn": "डाउनलोड विकल्प",
+        "hero.githubBtn": "GitHub पर देखें",
+      },
+      zh: {
+        "nav.features": "功能",
+        "nav.pricing": "定价",
+        "nav.roadmap": "路线图",
+        "nav.getApp": "获取应用",
+        "hero.badge": "私密。本地优先。扎根于真实的家谱研究。",
+        "hero.headline": "以真正的 Vetviona 风格展现根源、记录和故事。",
+        "hero.subtitle": "Vetviona 是一款温馨的档案优先家谱应用，将精美的家族树设计与严谨的证据追踪和零知识同步相结合。",
+        "hero.downloadBtn": "下载选项",
+        "hero.githubBtn": "在 GitHub 上查看",
+      },
+      ja: {
+        "nav.features": "機能",
+        "nav.pricing": "料金",
+        "nav.roadmap": "ロードマップ",
+        "nav.getApp": "アプリを入手",
+        "hero.badge": "プライベート。ローカルファースト。本物の家系調査に根ざした。",
+        "hero.headline": "真のVetvionaスタイルで、ルーツ、記録、物語を。",
+        "hero.subtitle": "Vetvionaは、美しい家系図デザインと本格的な証拠追跡、ゼロ知識同期を組み合わせた温かみのある家系調査アプリです。",
+        "hero.downloadBtn": "ダウンロードオプション",
+        "hero.githubBtn": "GitHubで見る",
+      },
+      ko: {
+        "nav.features": "기능",
+        "nav.pricing": "가격",
+        "nav.roadmap": "로드맵",
+        "nav.getApp": "앱 받기",
+        "hero.badge": "프라이빗. 로컬 우선. 실제 가계 연구에 뿌리를 둔.",
+        "hero.headline": "진정한 Vetviona 스타일로 뿌리, 기록, 이야기를.",
+        "hero.subtitle": "Vetviona는 아름다운 가계도 디자인과 진지한 증거 추적, 제로 지식 동기화를 결합한 따뜻한 계보 앱입니다.",
+        "hero.downloadBtn": "다운로드 옵션",
+        "hero.githubBtn": "GitHub에서 보기",
+      },
+      id: {
+        "nav.features": "Fitur",
+        "nav.pricing": "Harga",
+        "nav.roadmap": "Peta Jalan",
+        "nav.getApp": "Dapatkan Aplikasi",
+        "hero.badge": "Privat. Lokal-pertama. Berakar pada penelitian silsilah nyata.",
+        "hero.headline": "Akar, catatan, dan cerita dalam gaya Vetviona yang sesungguhnya.",
+        "hero.subtitle": "Vetviona adalah aplikasi silsilah yang hangat dan mengutamakan arsip, di mana desain pohon keluarga yang indah bertemu dengan pelacakan bukti serius dan sinkronisasi zero-knowledge.",
+        "hero.downloadBtn": "Opsi unduhan",
+        "hero.githubBtn": "Lihat di GitHub",
+      },
+      tr: {
+        "nav.features": "Özellikler",
+        "nav.pricing": "Fiyatlandırma",
+        "nav.roadmap": "Yol Haritası",
+        "nav.getApp": "Uygulamayı Al",
+        "hero.badge": "Özel. Önce yerel. Gerçek aile araştırmasına kök salmış.",
+        "hero.headline": "Gerçek Vetviona tarzında kökleri, kayıtları ve hikayeleri.",
+        "hero.subtitle": "Vetviona, güzel aile ağacı tasarımının ciddi kanıt takibi ve sıfır bilgi senkronizasyonuyla buluştuğu, sıcak, arşiv öncelikli bir soy kütüğü uygulamasıdır.",
+        "hero.downloadBtn": "İndirme seçenekleri",
+        "hero.githubBtn": "GitHub'da görüntüle",
+      },
+      ru: {
+        "nav.features": "Функции",
+        "nav.pricing": "Цены",
+        "nav.roadmap": "Дорожная карта",
+        "nav.getApp": "Скачать приложение",
+        "hero.badge": "Приватно. Сначала локально. Укоренено в настоящих семейных исследованиях.",
+        "hero.headline": "Корни, записи и истории в истинном стиле Vetviona.",
+        "hero.subtitle": "Vetviona — это тёплое, ориентированное на архивы генеалогическое приложение, где красивый дизайн семейного дерева сочетается с серьёзным отслеживанием доказательств и синхронизацией с нулевым разглашением.",
+        "hero.downloadBtn": "Варианты загрузки",
+        "hero.githubBtn": "Смотреть на GitHub",
+      },
+    };
+
+    function applyLang(lang) {
+      const strings = SITE_STRINGS[lang] || SITE_STRINGS["en"];
+      // Apply direction
+      document.documentElement.setAttribute("lang", lang);
+      document.documentElement.setAttribute("dir", strings.dir || "ltr");
+      // Apply all data-i18n strings
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (strings[key]) el.innerHTML = strings[key];
+      });
+      // Persist selection
+      try { localStorage.setItem("vetviona_lang", lang); } catch(_) {}
+    }
+
+    // Auto-detect or restore preference
+    (function initLang() {
+      let lang = "en";
+      try { lang = localStorage.getItem("vetviona_lang") || lang; } catch(_) {}
+      // Browser locale fallback
+      const browserLang = (navigator.language || "en").split("-")[0];
+      if (!lang || lang === "en") {
+        if (SITE_STRINGS[browserLang]) lang = browserLang;
+      }
+      const sel = document.getElementById("langSelect");
+      if (sel) sel.value = lang;
+      applyLang(lang);
+    })();
   </script>
 </body>
 </html>

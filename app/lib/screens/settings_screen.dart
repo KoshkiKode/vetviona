@@ -12,7 +12,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../config/build_metadata.dart';
+import '../l10n/app_localizations.dart';
 import '../models/person.dart';
+import '../providers/locale_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/tree_provider.dart';
 import '../services/license_backend_service.dart';
@@ -72,6 +74,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Language ──────────────────────────────────────────
+          _SectionCard(
+            icon: Icons.language_outlined,
+            title: 'Language',
+            children: [
+              _LanguagePicker(),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
           // ── Theme ─────────────────────────────────────────────
           _SectionCard(
             icon: Icons.palette_outlined,
@@ -1043,6 +1056,89 @@ class _PersonSearchDropdownState extends State<_PersonSearchDropdown> {
         ],
         onSelected: (id) => widget.onSelected(id?.isEmpty ?? true ? null : id),
       ),
+    );
+  }
+}
+
+/// Language picker widget shown in Settings → Language section.
+class _LanguagePicker extends StatelessWidget {
+  // Maps locale language tag → display name in that language (+ English label).
+  static const _languages = <({String tag, String label})>[
+    (tag: 'en',    label: 'English'),
+    (tag: 'zh',    label: '中文（简体） — Chinese (Simplified)'),
+    (tag: 'zh_TW', label: '中文（繁體） — Chinese (Traditional)'),
+    (tag: 'hi',    label: 'हिन्दी — Hindi'),
+    (tag: 'es',    label: 'Español — Spanish'),
+    (tag: 'fr',    label: 'Français — French'),
+    (tag: 'ar',    label: 'العربية — Arabic'),
+    (tag: 'bn',    label: 'বাংলা — Bengali'),
+    (tag: 'pt',    label: 'Português — Portuguese'),
+    (tag: 'pt_BR', label: 'Português (Brasil) — Brazilian Portuguese'),
+    (tag: 'ru',    label: 'Русский — Russian'),
+    (tag: 'ur',    label: 'اردو — Urdu'),
+    (tag: 'id',    label: 'Bahasa Indonesia — Indonesian'),
+    (tag: 'de',    label: 'Deutsch — German'),
+    (tag: 'ja',    label: '日本語 — Japanese'),
+    (tag: 'mr',    label: 'मराठी — Marathi'),
+    (tag: 'te',    label: 'తెలుగు — Telugu'),
+    (tag: 'tr',    label: 'Türkçe — Turkish'),
+    (tag: 'ta',    label: 'தமிழ் — Tamil'),
+    (tag: 'vi',    label: 'Tiếng Việt — Vietnamese'),
+    (tag: 'fil',   label: 'Filipino'),
+    (tag: 'ko',    label: '한국어 — Korean'),
+    (tag: 'fa',    label: 'فارسی — Persian'),
+    (tag: 'ha',    label: 'Hausa'),
+    (tag: 'sw',    label: 'Kiswahili — Swahili'),
+    (tag: 'jv',    label: 'Basa Jawa — Javanese'),
+    (tag: 'it',    label: 'Italiano — Italian'),
+    (tag: 'pa',    label: 'ਪੰਜਾਬੀ — Punjabi'),
+    (tag: 'gu',    label: 'ગુજરાતી — Gujarati'),
+    (tag: 'th',    label: 'ภาษาไทย — Thai'),
+    (tag: 'am',    label: 'አማርኛ — Amharic'),
+    (tag: 'pl',    label: 'Polski — Polish'),
+    (tag: 'kn',    label: 'ಕನ್ನಡ — Kannada'),
+    (tag: 'ms',    label: 'Bahasa Melayu — Malay'),
+    (tag: 'uk',    label: 'Українська — Ukrainian'),
+    (tag: 'nl',    label: 'Nederlands — Dutch'),
+  ];
+
+  const _LanguagePicker();
+
+  Locale _tagToLocale(String tag) {
+    final parts = tag.split('_');
+    return parts.length == 2 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
+  }
+
+  String _localeToTag(Locale? locale) {
+    if (locale == null) return 'en';
+    if (locale.countryCode != null && locale.countryCode!.isNotEmpty) {
+      return '${locale.languageCode}_${locale.countryCode}';
+    }
+    return locale.languageCode;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
+    final currentTag = _localeToTag(localeProvider.locale);
+    return DropdownButtonFormField<String>(
+      decoration: const InputDecoration(
+        labelText: 'App Language',
+        prefixIcon: Icon(Icons.translate_outlined),
+      ),
+      value: _languages.any((l) => l.tag == currentTag) ? currentTag : 'en',
+      isExpanded: true,
+      items: _languages
+          .map((l) => DropdownMenuItem<String>(
+                value: l.tag,
+                child: Text(l.label, overflow: TextOverflow.ellipsis),
+              ))
+          .toList(),
+      onChanged: (tag) {
+        if (tag != null) {
+          context.read<LocaleProvider>().setLocale(_tagToLocale(tag));
+        }
+      },
     );
   }
 }
