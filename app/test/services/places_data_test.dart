@@ -211,7 +211,7 @@ void main() {
       }
     });
 
-    test('exact name match returns relevance 0', () {
+    test('exact name match returns relevance 0 or 1', () {
       final sample = places.take(50);
       for (final p in sample) {
         expect(
