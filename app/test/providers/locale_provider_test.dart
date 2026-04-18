@@ -63,7 +63,7 @@ void main() {
       expect(provider.locale, const Locale('pt', 'BR'));
     });
 
-    test('loadLocale ignores extra tag parts after the second segment', () async {
+    test('loadLocale parses only language and first hyphenated segment', () async {
       SharedPreferences.setMockInitialValues({'locale': 'zh-Hant-TW'});
       final provider = LocaleProvider();
 
