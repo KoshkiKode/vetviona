@@ -50,11 +50,11 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get onboardingAddBody =>
-      'Ana ekrandaki + dümesine basarak ilk aile üyenizi ekleyin.';
+      'Ana ekrandaki + düğmesine basarak ilk aile üyenizi ekleyin.';
 
   @override
   String get onboardingLinkBody =>
-      'Herhangi birinin profilini açın ve bağlamak için “Bağılışkı Ekle” kullanın.';
+      'Herhangi birinin profilini açın ve bağlamak için \'İlişki Ekle\' kullanın.';
 
   @override
   String get onboardingDiagramsBody =>
@@ -364,7 +364,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get timeline => 'Zaman çizelgesi';
 
   @override
-  String get noEventsForPerson => 'Bu kişi için kaydedılmış etkinlik yok.';
+  String get noEventsForPerson => 'Bu kişi için kaydedilmiş etkinlik yok.';
 
   @override
   String get verifyLicense => 'Ücretli lisansı doğrula';

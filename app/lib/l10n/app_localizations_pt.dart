@@ -54,7 +54,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get onboardingLinkBody =>
-      'Abra o perfil de qualquer pessoa e use “Adicionar Relacionamento” para vincá-los.';
+      'Abra o perfil de qualquer pessoa e use \'Adicionar Relacionamento\' para vinculá-los.';
 
   @override
   String get onboardingDiagramsBody =>

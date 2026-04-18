@@ -48,7 +48,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onboardingStartBody => '完全离线工作。您的数据由您保管。';
 
   @override
-  String get onboardingAddBody => '点击主屏幕上的 + 按鈕添加您的第一个家庭成员。';
+  String get onboardingAddBody => '点击主屏幕上的 + 按钮添加您的第一个家庭成员。';
 
   @override
   String get onboardingLinkBody => '打开任何人的档案，使用“添加关系”来链接他们。';
@@ -255,10 +255,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sibling => '兄弟姐妹';
 
   @override
-  String get auntUncle => '姑/叔/舐/姨';
+  String get auntUncle => '姑/叔/伯/姨';
 
   @override
-  String get nieceNephew => '侄/外甄';
+  String get nieceNephew => '侄/外甥';
 
   @override
   String get cousin => '表/堂兄弟姐妹';
@@ -359,7 +359,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get verifyLicense => '验证付费许可证';
 
   @override
-  String get vetvionaEmail => 'Vetviona 账户邮符1';
+  String get vetvionaEmail => 'Vetviona 账户邮箱';
 
   @override
   String get emailRequired => '邮箱为必填项。';
@@ -449,7 +449,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get showAddSlots => '显示“添加…”占位符槽';
 
   @override
-  String get quickAddButtons => '缺失亲属的快速添加按鈕';
+  String get quickAddButtons => '缺失亲属的快速添加按钮';
 
   @override
   String get addSlotTiers => '添加槽层级';
