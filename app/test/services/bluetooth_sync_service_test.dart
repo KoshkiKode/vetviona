@@ -174,5 +174,61 @@ void main() {
       final result = await service.syncWithPeer(peer, 'secret');
       expect(result, isFalse);
     });
+
+    test('statusMessage is set after syncWithPeer (syncService=null)', () async {
+      const peer = BleSyncPeer(
+        deviceId: 'test',
+        host: '192.168.1.1',
+        port: 8080,
+        deviceName: 'Test',
+      );
+      await service.syncWithPeer(peer, 'secret');
+      expect(service.statusMessage, isNotNull);
+      expect(service.statusMessage, contains('SyncService'));
+    });
+
+    test('stopAdvertising completes without throwing', () async {
+      await expectLater(service.stopAdvertising(), completes);
+      expect(service.isAdvertising, isFalse);
+    });
+  });
+
+  // ── BluetoothSyncService.parseAdvertisementPayload round-trip ───────────────
+
+  group('BluetoothSyncService.buildAdvertisementPayload round-trip', () {
+    test('port max value 65535 → correct byte encoding', () {
+      final buf = BluetoothSyncService.buildAdvertisementPayload(
+        host: '255.255.255.255',
+        port: 65535,
+        deviceId: 'test1234',
+      );
+      expect(buf[4], 255);
+      expect(buf[5], 255);
+      expect(buf[6], 255);
+      expect(buf[7], 255);
+      expect(buf[8], 0xFF);
+      expect(buf[9], 0xFF);
+    });
+
+    test('port 0 → bytes [0, 0]', () {
+      final buf = BluetoothSyncService.buildAdvertisementPayload(
+        host: '10.0.0.1',
+        port: 0,
+        deviceId: 'x',
+      );
+      expect(buf[8], 0);
+      expect(buf[9], 0);
+    });
+
+    test('empty deviceId → all zero-padded id bytes', () {
+      final buf = BluetoothSyncService.buildAdvertisementPayload(
+        host: '10.0.0.1',
+        port: 80,
+        deviceId: '',
+      );
+      for (int i = 10; i < 18; i++) {
+        expect(buf[i], 0);
+      }
+    });
   });
 }

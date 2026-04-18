@@ -194,5 +194,144 @@ void main() {
       expect(result, contains('City Cemetery'));
       expect(result, contains('Buried at City Cemetery.'));
     });
+
+    test('partnership where person is person2 — partner id is person1Id', () {
+      final person = Person(id: 'main', name: 'Alice Main');
+      final partner = Person(id: 'partner1', name: 'Bob Partner');
+      final allPersons = [person, partner];
+
+      final partnership = Partnership(
+        id: 'pt1',
+        person1Id: 'partner1',
+        person2Id: 'main',  // person is person2
+        status: 'married',
+        startDate: DateTime(1975, 8, 10),
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [partnership], [], [], allPersons);
+
+      expect(result, contains('Bob Partner'));
+    });
+
+    test('partnership with no startDate or startPlace — just name and status', () {
+      final person = Person(id: 'main', name: 'Alice Main');
+      final partner = Person(id: 'partner1', name: 'Bob Partner');
+
+      final partnership = Partnership(
+        id: 'pt1',
+        person1Id: 'main',
+        person2Id: 'partner1',
+        status: 'divorced',
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [partnership], [], [], [person, partner]);
+
+      expect(result, contains('Bob Partner'));
+      expect(result, contains('divorced'));
+    });
+
+    test('single child — uses singular "child"', () {
+      final child = Person(id: 'c1', name: 'Only Child');
+      final person = Person(
+        id: 'main',
+        name: 'John Main',
+        childIds: ['c1'],
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [], [], [], [person, child]);
+
+      expect(result, contains('had 1 child:'));
+    });
+
+    test('life event without date and without place', () {
+      final person = Person(id: 'main', name: 'John Main');
+      final event = LifeEvent(
+        id: 'e1',
+        personId: 'main',
+        title: 'Baptism',
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [], [event], [], [person]);
+
+      expect(result, contains('Baptism'));
+      expect(result, isNot(contains(' on ')));
+      expect(result, isNot(contains(' in ')));
+    });
+
+    test('life event for different person is filtered out', () {
+      final person = Person(id: 'main', name: 'John Main');
+      final event = LifeEvent(
+        id: 'e1',
+        personId: 'other-person',  // different person
+        title: 'Secret Event',
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [], [event], [], [person]);
+
+      expect(result, isNot(contains('Secret Event')));
+    });
+
+    test('medical condition for different person is filtered out', () {
+      final person = Person(id: 'main', name: 'John Main');
+      final condition = MedicalCondition(
+        id: 'mc1',
+        personId: 'other-person',  // different person
+        condition: 'Other Disease',
+        category: 'Other',
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [], [], [condition], [person]);
+
+      expect(result, isNot(contains('Other Disease')));
+    });
+
+    test('death with only deathPlace (no deathDate)', () {
+      final person = Person(
+        id: 'main',
+        name: 'John Main',
+        deathPlace: 'Paris',
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [], [], [], [person]);
+
+      expect(result, contains('died'));
+      expect(result, contains('Paris'));
+    });
+
+    test('death with only deathDate (no deathPlace)', () {
+      final person = Person(
+        id: 'main',
+        name: 'John Main',
+        deathDate: DateTime(1999, 12, 31),
+      );
+
+      final result = PdfReportService.buildNarrative(
+          person, [], [], [], [person]);
+
+      expect(result, contains('died'));
+      expect(result, contains('31 Dec 1999'));
+    });
+
+    test('multiple medical conditions joined with comma', () {
+      final person = Person(id: 'main', name: 'John Main');
+      final conditions = [
+        MedicalCondition(id: 'mc1', personId: 'main', condition: 'Diabetes', category: 'Metabolic'),
+        MedicalCondition(id: 'mc2', personId: 'main', condition: 'Arthritis', category: 'Musculoskeletal'),
+      ];
+
+      final result = PdfReportService.buildNarrative(
+          person, [], [], conditions, [person]);
+
+      expect(result, contains('Diabetes'));
+      expect(result, contains('Arthritis'));
+      expect(result, contains('Medical history includes:'));
+    });
   });
 }
