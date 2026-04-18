@@ -167,13 +167,16 @@ String _slugify(String value) {
   if (!rawTarget.contains('#')) {
     return (rawTarget, null);
   }
-  final List<String> parts = rawTarget.split('#');
-  final String page = parts.first;
-  final String anchor = _slugify(parts.sublist(1).join('#'));
+  final int hashIndex = rawTarget.indexOf('#');
+  final String page = rawTarget.substring(0, hashIndex);
+  final String anchor = _slugify(rawTarget.substring(hashIndex + 1));
   return (page, anchor);
 }
 
 String _fileStem(File file) {
   final String name = file.uri.pathSegments.last;
-  return name.substring(0, name.length - 3);
+  if (!name.endsWith('.md')) {
+    return name;
+  }
+  return name.substring(0, name.length - '.md'.length);
 }
