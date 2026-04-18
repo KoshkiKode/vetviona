@@ -23,7 +23,9 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, widget.photoPaths.length - 1);
+    _currentIndex = widget.photoPaths.isEmpty
+        ? 0
+        : widget.initialIndex.clamp(0, widget.photoPaths.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
   }
 
