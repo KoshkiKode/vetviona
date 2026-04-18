@@ -1,3 +1,5 @@
+/// Returns a country flag emoji for a given ISO-3166 alpha-3 code.
+/// Falls back to 🌐 for missing/unsupported/non-standard country codes.
 String countryFlagEmojiFromIso3(String? iso3) {
   final normalized = iso3?.trim().toUpperCase();
   if (normalized == null || normalized.isEmpty) return '🌐';

@@ -1245,16 +1245,18 @@ class _PlaceFieldState extends State<_PlaceField> {
                                   children: [
                                     Text(name,
                                         style: const TextStyle(fontSize: 14)),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      info,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.onSurfaceVariant,
+                                    if (info.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        info,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ],
                                 ),
                               ),

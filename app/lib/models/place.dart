@@ -134,8 +134,9 @@ class Place {
     String fullName,
   ) {
     final lines = <String>[];
-    if (historicalContext.trim().isNotEmpty) {
-      lines.add(historicalContext.trim());
+    final trimmedHistoricalContext = historicalContext.trim();
+    if (trimmedHistoricalContext.isNotEmpty) {
+      lines.add(trimmedHistoricalContext);
     }
     if (colonizationLevel >= 1 &&
         colonizer != null &&
@@ -145,17 +146,16 @@ class Place {
     if (colonizationLevel >= 2 &&
         nativeTribes != null &&
         nativeTribes!.trim().isNotEmpty) {
-      var nativeLine = 'Indigenous peoples: ${nativeTribes!.trim()}';
+      final trimmedNativeTribes = nativeTribes!.trim();
+      var nativeLine = 'Indigenous peoples: $trimmedNativeTribes';
       final nativeVariant = romanizedNative?.trim();
       if (nativeVariant != null &&
           nativeVariant.isNotEmpty &&
-          nativeVariant.toLowerCase() != nativeTribes!.trim().toLowerCase()) {
+          nativeVariant != trimmedNativeTribes) {
         nativeLine = '$nativeLine ($nativeVariant)';
       }
       lines.add(nativeLine);
     }
-    return lines.isEmpty
-        ? 'No historical context available.'
-        : lines.join('\n');
+    return lines.join('\n');
   }
 }
