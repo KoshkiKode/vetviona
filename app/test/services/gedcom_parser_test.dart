@@ -1379,4 +1379,60 @@ void main() {
       expect(src.volumePage, 'Page 42');
     });
   });
+
+  // ── GEDCOMParser.parse — sanitization of imported text ────────────────────
+  group('GEDCOMParser.parse — control-character sanitization', () {
+    test('C0 control characters are stripped from person name', () async {
+      // Embed a null byte and a BEL character inside the name.
+      final path = await writeGedcom(
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Al\x00ice\x07 Smith\n0 TRLR\n');
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      // After sanitization the control characters must not be present.
+      expect(result.persons.first.name, isNot(contains('\x00')));
+      expect(result.persons.first.name, isNot(contains('\x07')));
+      expect(result.persons.first.name, contains('Alice'));
+    });
+
+    test('DEL character (U+007F) is stripped from person name', () async {
+      final path = await writeGedcom(
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Test\x7FName\n0 TRLR\n');
+      final result = await parser.parse(path);
+      expect(result.persons.first.name, isNot(contains('\x7F')));
+    });
+
+    test('C1 controls are stripped from birth place', () async {
+      final path = await writeGedcom(
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Alice\n1 BIRT\n2 PLAC Lon\x80don\n0 TRLR\n');
+      final result = await parser.parse(path);
+      expect(result.persons.first.birthPlace, isNot(contains('\x80')));
+      expect(result.persons.first.birthPlace, 'London');
+    });
+
+    test('control characters are stripped from notes', () async {
+      final path = await writeGedcom(
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Bob\n1 NOTE Some\x01 notes\n0 TRLR\n');
+      final result = await parser.parse(path);
+      expect(result.persons.first.notes, isNot(contains('\x01')));
+      expect(result.persons.first.notes, contains('Some'));
+    });
+
+    test('overly long name is truncated to maxShortField', () async {
+      final longName = 'A' * 1000;
+      final path = await writeGedcom(
+          '0 HEAD\n0 @I1@ INDI\n1 NAME $longName\n0 TRLR\n');
+      final result = await parser.parse(path);
+      expect(
+        result.persons.first.name.length,
+        lessThanOrEqualTo(500), // InputSanitizer.maxShortField
+      );
+    });
+
+    test('control characters are stripped from life event title', () async {
+      final path = await writeGedcom(
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Alice\n1 EVEN\n2 TYPE Award\x01 Ceremony\n0 TRLR\n');
+      final result = await parser.parse(path);
+      expect(result.lifeEvents.first.title, isNot(contains('\x01')));
+    });
+  });
 }

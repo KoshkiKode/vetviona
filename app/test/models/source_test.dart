@@ -246,5 +246,41 @@ void main() {
         expect(s.treeId, isNull);
       });
     });
+
+    group('updatedAt', () {
+      test('updatedAt defaults to null', () {
+        final s = Source(
+          id: '1',
+          personId: 'p1',
+          title: 'T',
+          type: 'doc',
+          url: 'http://x',
+        );
+        expect(s.updatedAt, isNull);
+      });
+
+      test('updatedAt survives roundtrip', () {
+        final s = Source(
+          id: 's1',
+          personId: 'p1',
+          title: 'T',
+          type: 'doc',
+          url: 'http://x',
+          updatedAt: 1700000000000,
+        );
+        expect(Source.fromMap(s.toMap()).updatedAt, 1700000000000);
+      });
+
+      test('null updatedAt survives roundtrip', () {
+        final s = Source(
+          id: 's1',
+          personId: 'p1',
+          title: 'T',
+          type: 'doc',
+          url: 'http://x',
+        );
+        expect(Source.fromMap(s.toMap()).updatedAt, isNull);
+      });
+    });
   });
 }
