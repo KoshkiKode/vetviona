@@ -7,7 +7,7 @@ final RegExp _headingPattern = RegExp(r'^\s{0,3}#{1,6}\s+(.+?)\s*$');
 final RegExp _explicitIdPattern = RegExp(r'\s*\{#([A-Za-z0-9_-]+)\}\s*$');
 
 void main() {
-  final Directory repoRoot = Directory.current.parent;
+  final Directory repoRoot = _findRepoRoot();
   final Directory wikiDir = Directory('${repoRoot.path}/wiki');
   final File homeFile = File('${wikiDir.path}/Home.md');
   final File websiteFile = File('${repoRoot.path}/website/index.html');
@@ -179,4 +179,21 @@ String _fileStem(File file) {
     return name;
   }
   return name.substring(0, name.length - '.md'.length);
+}
+
+Directory _findRepoRoot() {
+  Directory current = Directory.current.absolute;
+  while (true) {
+    final bool hasWiki = Directory('${current.path}/wiki').existsSync();
+    final bool hasWebsite = Directory('${current.path}/website').existsSync();
+    if (hasWiki && hasWebsite) {
+      return current;
+    }
+
+    final Directory parent = current.parent;
+    if (parent.path == current.path) {
+      throw StateError('Could not locate repository root from ${Directory.current.path}');
+    }
+    current = parent;
+  }
 }
