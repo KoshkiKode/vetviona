@@ -11,8 +11,10 @@ class Place {
   final String? colonizer;
   final String? nativeTribes;
   final String? romanizedNative;
+
   /// ISO-8601 string for the earliest valid date (null = no lower bound).
   final String? validFrom;
+
   /// ISO-8601 string for the latest valid date (null = still current).
   final String? validTo;
 
@@ -53,21 +55,21 @@ class Place {
   }
 
   Map<String, dynamic> toJson() => {
-        'continent': continent,
-        'name': name,
-        'modernCountry': modernCountry,
-        if (iso3 != null) 'iso3': iso3,
-        if (state != null) 'state': state,
-        if (county != null) 'county': county,
-        if (subState != null) 'subState': subState,
-        if (ssr != null) 'ssr': ssr,
-        'historicalContext': historicalContext,
-        if (colonizer != null) 'colonizer': colonizer,
-        if (nativeTribes != null) 'nativeTribes': nativeTribes,
-        if (romanizedNative != null) 'romanizedNative': romanizedNative,
-        if (validFrom != null) 'validFrom': validFrom,
-        if (validTo != null) 'validTo': validTo,
-      };
+    'continent': continent,
+    'name': name,
+    'modernCountry': modernCountry,
+    if (iso3 != null) 'iso3': iso3,
+    if (state != null) 'state': state,
+    if (county != null) 'county': county,
+    if (subState != null) 'subState': subState,
+    if (ssr != null) 'ssr': ssr,
+    'historicalContext': historicalContext,
+    if (colonizer != null) 'colonizer': colonizer,
+    if (nativeTribes != null) 'nativeTribes': nativeTribes,
+    if (romanizedNative != null) 'romanizedNative': romanizedNative,
+    if (validFrom != null) 'validFrom': validFrom,
+    if (validTo != null) 'validTo': validTo,
+  };
 
   /// Whether this place entry is valid for the given date.
   bool isValidFor(DateTime? date) {
@@ -85,14 +87,14 @@ class Place {
 
   /// All searchable text combined for fuzzy matching.
   String get _searchableText => [
-        continent,
-        name,
-        modernCountry,
-        state ?? '',
-        county ?? '',
-        nativeTribes ?? '',
-        romanizedNative ?? '',
-      ].join(' ').toLowerCase();
+    continent,
+    name,
+    modernCountry,
+    state ?? '',
+    county ?? '',
+    nativeTribes ?? '',
+    romanizedNative ?? '',
+  ].join(' ').toLowerCase();
 
   /// Returns true if any searchable field starts with or contains [query].
   bool matches(String query) {
@@ -126,19 +128,34 @@ class Place {
     return parts.join(', ');
   }
 
-  String getHistoricalInfo(DateTime? date, int colonizationLevel, String fullName) {
-    final buffer = StringBuffer(historicalContext);
-    if (colonizationLevel >= 1 && colonizer != null && colonizer!.isNotEmpty) {
-      buffer.write('\nColonized by: $colonizer');
+  String getHistoricalInfo(
+    DateTime? date,
+    int colonizationLevel,
+    String fullName,
+  ) {
+    final lines = <String>[];
+    if (historicalContext.trim().isNotEmpty) {
+      lines.add(historicalContext.trim());
     }
-    if (colonizationLevel >= 2 && nativeTribes != null && nativeTribes!.isNotEmpty) {
-      buffer.write('\nIndigenous peoples: $nativeTribes');
-      if (romanizedNative != null &&
-          romanizedNative!.isNotEmpty &&
-          romanizedNative != nativeTribes) {
-        buffer.write(' ($romanizedNative)');
+    if (colonizationLevel >= 1 &&
+        colonizer != null &&
+        colonizer!.trim().isNotEmpty) {
+      lines.add('Colonized by: ${colonizer!.trim()}');
+    }
+    if (colonizationLevel >= 2 &&
+        nativeTribes != null &&
+        nativeTribes!.trim().isNotEmpty) {
+      var nativeLine = 'Indigenous peoples: ${nativeTribes!.trim()}';
+      final nativeVariant = romanizedNative?.trim();
+      if (nativeVariant != null &&
+          nativeVariant.isNotEmpty &&
+          nativeVariant.toLowerCase() != nativeTribes!.trim().toLowerCase()) {
+        nativeLine = '$nativeLine ($nativeVariant)';
       }
+      lines.add(nativeLine);
     }
-    return buffer.toString();
+    return lines.isEmpty
+        ? 'No historical context available.'
+        : lines.join('\n');
   }
 }

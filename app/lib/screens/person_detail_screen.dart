@@ -14,6 +14,7 @@ import '../models/life_event.dart';
 import '../models/person.dart';
 import '../models/place.dart';
 import '../providers/tree_provider.dart';
+import '../utils/country_flag.dart';
 import '../utils/platform_utils.dart';
 import 'medical_history_screen.dart';
 import 'photo_gallery_screen.dart';
@@ -1160,6 +1161,7 @@ class _PlaceFieldState extends State<_PlaceField> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final colonizationLevel = context.watch<TreeProvider>().colonizationLevel;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1219,13 +1221,45 @@ class _PlaceFieldState extends State<_PlaceField> {
                     itemBuilder: (context, index) {
                       final place = options.elementAt(index);
                       final name = place.getFullName(widget.eventDate);
+                      final info = place.getHistoricalInfo(
+                        widget.eventDate,
+                        colonizationLevel,
+                        name,
+                      );
                       return InkWell(
                         onTap: () => onSelected(place),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 10),
-                          child: Text(name,
-                              style: const TextStyle(fontSize: 14)),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                countryFlagEmojiFromIso3(place.iso3),
+                                style: const TextStyle(fontSize: 18),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(name,
+                                        style: const TextStyle(fontSize: 14)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      info,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
