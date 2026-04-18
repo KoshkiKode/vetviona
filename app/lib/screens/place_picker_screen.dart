@@ -5,6 +5,7 @@ import '../models/place.dart';
 import '../providers/tree_provider.dart';
 import '../services/geonames_service.dart';
 import '../services/place_service.dart';
+import '../utils/country_flag.dart';
 
 class PlacePickerScreen extends StatefulWidget {
   final DateTime? eventDate;
@@ -33,8 +34,10 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
       _query = v;
       // Re-query GeoNames whenever the search text changes.
       _geonamesFuture = v.trim().length >= 2
-          ? GeonamesService.instance
-              .search(v.trim(), eventDate: widget.eventDate)
+          ? GeonamesService.instance.search(
+              v.trim(),
+              eventDate: widget.eventDate,
+            )
           : null;
     });
   }
@@ -49,8 +52,10 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: 8.0,
+            ),
             child: TextField(
               autofocus: true,
               decoration: InputDecoration(
@@ -76,15 +81,18 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
             return const Center(child: CircularProgressIndicator.adaptive());
           }
 
-          final filtered = PlaceService.instance
-              .search(_query, eventDate: widget.eventDate);
+          final filtered = PlaceService.instance.search(
+            _query,
+            eventDate: widget.eventDate,
+          );
 
           return FutureBuilder<List<Place>>(
             future: _geonamesFuture,
             builder: (context, geoSnap) {
               // Collect GeoNames results, deduplicating against compiled results.
-              final compiledNames =
-                  filtered.map((p) => p.name.toLowerCase()).toSet();
+              final compiledNames = filtered
+                  .map((p) => p.name.toLowerCase())
+                  .toSet();
               final geoResults = (geoSnap.data ?? <Place>[])
                   .where((p) => !compiledNames.contains(p.name.toLowerCase()))
                   .toList();
@@ -99,7 +107,8 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
 
               if (totalItems == 0) {
                 return const Center(
-                    child: Text('No places match your search.'));
+                  child: Text('No places match your search.'),
+                );
               }
 
               return ListView.builder(
@@ -107,21 +116,24 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
                 itemBuilder: (context, i) {
                   // ── compiled results ──────────────────────────────────────
                   if (i < compiledCount) {
-                    return _placeTile(
-                        filtered[i], colonizationLevel, context);
+                    return _placeTile(filtered[i], colonizationLevel, context);
                   }
 
                   // ── GeoNames section header ───────────────────────────────
                   if (i == compiledCount) {
                     return _sectionHeader(
-                        context, Icons.public, 'Global city database');
+                      context,
+                      Icons.public,
+                      'Global city database',
+                    );
                   }
 
                   // ── GeoNames results ──────────────────────────────────────
                   return _placeTile(
-                      geoResults[i - compiledCount - 1],
-                      colonizationLevel,
-                      context);
+                    geoResults[i - compiledCount - 1],
+                    colonizationLevel,
+                    context,
+                  );
                 },
               );
             },
@@ -133,18 +145,25 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
 
   Widget _placeTile(Place place, int colonizationLevel, BuildContext context) {
     final fullName = place.getFullName(widget.eventDate);
-    final info =
-        place.getHistoricalInfo(widget.eventDate, colonizationLevel, fullName);
+    final info = place.getHistoricalInfo(
+      widget.eventDate,
+      colonizationLevel,
+      fullName,
+    );
     return ListTile(
-      leading: const Icon(Icons.location_on),
+      leading: Text(
+        countryFlagEmojiFromIso3(place.iso3),
+        style: const TextStyle(fontSize: 22),
+      ),
       title: Text(fullName),
-      subtitle: Text(info, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: info.isEmpty
+          ? null
+          : Text(info, maxLines: 2, overflow: TextOverflow.ellipsis),
       onTap: () => Navigator.pop(context, place),
     );
   }
 
-  Widget _sectionHeader(
-      BuildContext context, IconData icon, String label) {
+  Widget _sectionHeader(BuildContext context, IconData icon, String label) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       color: cs.surfaceContainerHighest,
@@ -156,13 +175,12 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
     );
   }
 }
-
