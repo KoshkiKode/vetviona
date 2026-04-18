@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -616,5 +617,305 @@ void main() {
     test('null → null', () => expect(stripped(null), isNull));
     test('empty → null', () => expect(stripped(''), isNull));
     test('whitespace only → null', () => expect(stripped('   '), isNull));
+
+    test('strips == header markup ==', () {
+      expect(stripped('== Section ==\nContent'), contains('Content'));
+      expect(stripped('== Section ==\nContent'), isNot(contains('==')));
+    });
+
+    test('strips <HTML> tags', () {
+      expect(stripped('<b>Bold</b> text'), contains('Bold'));
+      expect(stripped('<b>Bold</b> text'), isNot(contains('<b>')));
+    });
+
+    test('strips {{template}} braces', () {
+      expect(stripped('{{LCCN|n79024773}} text'), isNot(contains('{{')));
+    });
+
+    test('strips [[link]] without pipe (no alias)', () {
+      expect(stripped('See [[Churchill-4]] for more'), contains('Churchill-4'));
+    });
+  });
+
+  // ── WikiTreeService.searchPerson with birthYear ───────────────────────────
+
+  group('WikiTreeService.searchPerson with birthYear', () {
+    test('passes birth_date in request body', () async {
+      late Uri capturedUri;
+      late Map<String, String>? capturedBody;
+      final mock = MockClient((req) async {
+        capturedUri = req.url;
+        capturedBody = req.bodyFields;
+        return http.Response(jsonEncode({'response': {'matches': []}}), 200);
+      });
+      final svc = WikiTreeService.withClient(mock);
+      await svc.searchPerson('Smith', birthYear: 1900);
+      expect(capturedBody?['birth_date'], '1900');
+    });
+
+    test('searchPerson with limit parameter', () async {
+      final svc = _serviceWith(jsonEncode({'response': {'matches': []}}));
+      final result = await svc.searchPerson('Smith', limit: 5);
+      expect(result, isEmpty);
+    });
+
+    test('searchPerson with non-list matches returns []', () async {
+      final svc = _serviceWith(jsonEncode({'response': {'matches': 'bad'}}));
+      expect(await svc.searchPerson('Smith'), isEmpty);
+    });
+
+    test('searchPerson when parsed response is not a Map returns []', () async {
+      final svc = _serviceWith(jsonEncode([1, 2, 3]));
+      expect(await svc.searchPerson('Smith'), isEmpty);
+    });
+  });
+
+  // ── WikiTreeService.getAncestors — list traversal ─────────────────────────
+
+  group('WikiTreeService.getAncestors list traversal', () {
+    test('traverses a list of profile objects', () async {
+      // Response where ancestors are in a top-level list
+      final body = jsonEncode([
+        {
+          'Id': 10,
+          'Name': 'Jones-10',
+          'FirstName': 'Albert',
+          'LastName': 'Jones',
+        },
+        {
+          'Id': 11,
+          'Name': 'Jones-11',
+          'FirstName': 'Clara',
+          'LastName': 'Jones',
+        },
+      ]);
+      final svc = _serviceWith(body);
+      final result = await svc.getAncestors('Jones-10');
+      expect(result.length, 2);
+    });
+
+    test('empty/invalid JSON body returns []', () async {
+      final svc = _serviceWith('not json {{', statusCode: 200);
+      expect(await svc.getAncestors('Smith-1'), isEmpty);
+    });
+  });
+
+  // ── WikiTreeService._extractProfile — nested profile key ─────────────────
+
+  group('WikiTreeService._extractProfile nested profile key', () {
+    test('map with 0-key containing a profile sub-map', () async {
+      final body = jsonEncode({
+        '0': {
+          'profile': {
+            'Id': 9,
+            'Name': 'Nested-9',
+            'FirstName': 'Nested',
+            'LastName': 'Profile',
+          },
+        },
+      });
+      final svc = _serviceWith(body);
+      final p = await svc.getProfile('Nested-9');
+      expect(p?.wikiTreeId, 'Nested-9');
+    });
+  });
+
+  // ── WikiTreeService.profileToSource — extractedInfo content ──────────────
+
+  group('WikiTreeService.profileToSource extractedInfo', () {
+    test('includes birth year and place when both set', () {
+      final svc = WikiTreeService.instance;
+      final profile = _profile(
+        wikiTreeId: 'Smith-1',
+        firstName: 'John',
+        lastName: 'Smith',
+        birthDate: DateTime(1874, 11, 30),
+        birthPlace: 'Blenheim Palace',
+      );
+      final src = svc.profileToSource(profile, 'p1');
+      expect(src.extractedInfo, contains('1874'));
+      expect(src.extractedInfo, contains('Blenheim Palace'));
+    });
+
+    test('includes death year and place when both set', () {
+      final svc = WikiTreeService.instance;
+      final profile = _profile(
+        wikiTreeId: 'Smith-1',
+        firstName: 'John',
+        deathDate: DateTime(1965, 1, 24),
+        deathPlace: 'London',
+      );
+      final src = svc.profileToSource(profile, 'p1');
+      expect(src.extractedInfo, contains('1965'));
+      expect(src.extractedInfo, contains('London'));
+    });
+
+    test('extractedInfo contains WikiTree ID line', () {
+      final svc = WikiTreeService.instance;
+      final profile = _profile(wikiTreeId: 'Churchill-4');
+      final src = svc.profileToSource(profile, 'p1');
+      expect(src.extractedInfo, contains('Churchill-4'));
+    });
+  });
+
+  // ── WikiTreeService.login ─────────────────────────────────────────────────
+
+  group('WikiTreeService.login', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
+    });
+
+    test('returns networkError on HTTP 500', () async {
+      final svc = _serviceWith('error', statusCode: 500);
+      final result = await svc.login('test@example.com', 'password');
+      expect(result, WikiTreeLoginResult.networkError);
+    });
+
+    test('returns networkError for unparseable response body', () async {
+      final svc = _serviceWith('not json at all');
+      final result = await svc.login('test@example.com', 'password');
+      expect(result, WikiTreeLoginResult.networkError);
+    });
+
+    test('returns wrongPassword when result is WrongPassword', () async {
+      final body = jsonEncode({
+        'clientLogin': {'result': 'WrongPassword'},
+      });
+      final svc = _serviceWith(body);
+      final result = await svc.login('test@example.com', 'badpass');
+      expect(result, WikiTreeLoginResult.wrongPassword);
+    });
+
+    test('returns notFound when result is NoProfile', () async {
+      final body = jsonEncode({
+        'clientLogin': {'result': 'NoProfile'},
+      });
+      final svc = _serviceWith(body);
+      final result = await svc.login('noone@example.com', 'pass');
+      expect(result, WikiTreeLoginResult.notFound);
+    });
+
+    test('returns notFound when result is NotFound', () async {
+      final body = jsonEncode({
+        'clientLogin': {'result': 'NotFound'},
+      });
+      final svc = _serviceWith(body);
+      final result = await svc.login('noone@example.com', 'pass');
+      expect(result, WikiTreeLoginResult.notFound);
+    });
+
+    test('returns networkError when result is unexpected string', () async {
+      final body = jsonEncode({
+        'clientLogin': {'result': 'UnknownError'},
+      });
+      final svc = _serviceWith(body);
+      final result = await svc.login('test@example.com', 'pass');
+      expect(result, WikiTreeLoginResult.networkError);
+    });
+
+    test('returns success and sets loggedInUser on successful login', () async {
+      final body = jsonEncode({
+        'clientLogin': {'result': 'Success', 'username': 'JohnSmith'},
+      });
+      // Provide a mock response with a set-cookie header.
+      final mock = MockClient((_) async => http.Response(
+        body,
+        200,
+        headers: {'set-cookie': 'wikidb_wtb=abc123; Path=/'},
+      ));
+      final svc = WikiTreeService.withClient(mock);
+      final result = await svc.login('test@example.com', 'goodpass');
+      expect(result, WikiTreeLoginResult.success);
+      expect(svc.loggedInUser, 'JohnSmith');
+      expect(svc.isLoggedIn, isTrue);
+    });
+
+    test('login without cookie in response still succeeds (loggedIn via username)', () async {
+      final body = jsonEncode({
+        'clientLogin': {'result': 'Success', 'username': 'JohnDoe'},
+      });
+      final svc = _serviceWith(body);
+      // No set-cookie header — cookie will be null but username is set.
+      final result = await svc.login('test@example.com', 'pass');
+      expect(result, WikiTreeLoginResult.success);
+    });
+  });
+
+  // ── WikiTreeService.logout ────────────────────────────────────────────────
+
+  group('WikiTreeService.logout', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
+    });
+
+    test('logout clears loggedInUser and isLoggedIn', () async {
+      // First log in
+      final body = jsonEncode({
+        'clientLogin': {'result': 'Success', 'username': 'TestUser'},
+      });
+      final mock = MockClient((_) async => http.Response(
+        body,
+        200,
+        headers: {'set-cookie': 'wikidb_wtb=token123; Path=/'},
+      ));
+      final svc = WikiTreeService.withClient(mock);
+      await svc.login('test@example.com', 'pass');
+      expect(svc.isLoggedIn, isTrue);
+
+      // Now log out
+      await svc.logout();
+      expect(svc.loggedInUser, isNull);
+    });
+  });
+
+  // ── WikiTreeService.loadCredentials ───────────────────────────────────────
+
+  group('WikiTreeService.loadCredentials', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
+    });
+
+    test('loads username from SharedPreferences when stored', () async {
+      SharedPreferences.setMockInitialValues({'wikitree_user': 'StoredUser'});
+      FlutterSecureStorage.setMockInitialValues({});
+      final svc = WikiTreeService.withClient(
+        MockClient((_) async => http.Response('{}', 200)),
+      );
+      await svc.loadCredentials();
+      expect(svc.loggedInUser, 'StoredUser');
+    });
+
+    test('loggedInUser is null when no stored user', () async {
+      SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
+      final svc = WikiTreeService.withClient(
+        MockClient((_) async => http.Response('{}', 200)),
+      );
+      await svc.loadCredentials();
+      expect(svc.loggedInUser, isNull);
+    });
+  });
+
+  // ── WikiTreeLoginResult enum ──────────────────────────────────────────────
+
+  group('WikiTreeLoginResult enum', () {
+    test('has 4 values', () {
+      expect(WikiTreeLoginResult.values.length, 4);
+    });
+
+    test('contains all expected values', () {
+      expect(
+        WikiTreeLoginResult.values,
+        containsAll([
+          WikiTreeLoginResult.success,
+          WikiTreeLoginResult.wrongPassword,
+          WikiTreeLoginResult.notFound,
+          WikiTreeLoginResult.networkError,
+        ]),
+      );
+    });
   });
 }

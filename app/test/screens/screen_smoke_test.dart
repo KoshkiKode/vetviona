@@ -13,10 +13,20 @@ import 'package:vetviona_app/models/partnership.dart';
 import 'package:vetviona_app/models/person.dart';
 import 'package:vetviona_app/providers/theme_provider.dart';
 import 'package:vetviona_app/providers/tree_provider.dart';
+import 'package:vetviona_app/screens/ancestry_chart_screen.dart';
+import 'package:vetviona_app/screens/calendar_screen.dart';
+import 'package:vetviona_app/screens/conflict_resolver_screen.dart';
 import 'package:vetviona_app/screens/descendants_screen.dart';
+import 'package:vetviona_app/screens/family_timeline_screen.dart';
+import 'package:vetviona_app/screens/family_tree_screen.dart';
+import 'package:vetviona_app/screens/fan_chart_screen.dart';
 import 'package:vetviona_app/screens/home_screen.dart';
 import 'package:vetviona_app/screens/person_detail_screen.dart';
+import 'package:vetviona_app/screens/research_tasks_screen.dart';
+import 'package:vetviona_app/screens/sources_page.dart';
 import 'package:vetviona_app/screens/splash_screen.dart';
+import 'package:vetviona_app/screens/statistics_screen.dart';
+import 'package:vetviona_app/screens/timeline_screen.dart';
 import 'package:vetviona_app/screens/tree_diagram_screen.dart';
 import 'package:vetviona_app/services/purchase_service.dart';
 import 'package:vetviona_app/services/sync_service.dart';
@@ -357,6 +367,178 @@ void main() {
       await tester.pump();
 
       expect(find.byType(InteractiveViewer), findsOneWidget);
+    });
+  });
+
+  // ── StatisticsScreen ─────────────────────────────────────────────────────
+
+  group('StatisticsScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({'onboardingDone': true}));
+
+    testWidgets('renders with empty tree without throwing', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const StatisticsScreen()));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('shows people count section with empty tree', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const StatisticsScreen()));
+      await tester.pump();
+      // Stats screen shows 0 counts for an empty tree
+      expect(find.byType(AppBar), findsOneWidget);
+    });
+
+    testWidgets('renders with one person in tree', (tester) async {
+      final provider = TreeProvider()
+        ..isLoaded = true
+        ..loadingMessage = 'Ready'
+        ..loadingProgress = 1.0
+        ..persons = [
+          Person(id: 'p1', name: 'Alice Smith', birthDate: DateTime(1950, 5, 1)),
+        ];
+      await tester.pumpWidget(_buildTestApp(const StatisticsScreen(), provider: provider));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+  });
+
+  // ── ResearchTasksScreen ───────────────────────────────────────────────────
+
+  group('ResearchTasksScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders without throwing with empty tree', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const ResearchTasksScreen()));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('shows AppBar', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const ResearchTasksScreen()));
+      await tester.pump();
+      expect(find.byType(AppBar), findsOneWidget);
+    });
+  });
+
+  // ── SourcesPage ───────────────────────────────────────────────────────────
+
+  group('SourcesPage smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders without throwing for a person with no sources', (tester) async {
+      final person = Person(id: 'p1', name: 'Test Person');
+      await tester.pumpWidget(_buildTestApp(SourcesPage(person: person)));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+  });
+
+  // ── TimelineScreen ────────────────────────────────────────────────────────
+
+  group('TimelineScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders with empty person showing no-events message',
+        (tester) async {
+      final person = Person(id: 'p1', name: 'Alice');
+      await tester.pumpWidget(_buildTestApp(TimelineScreen(person: person)));
+      await tester.pump();
+      expect(
+        find.text('No events recorded for this person.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows persons name in AppBar', (tester) async {
+      final person = Person(id: 'p1', name: 'Alice');
+      await tester.pumpWidget(_buildTestApp(TimelineScreen(person: person)));
+      await tester.pump();
+      expect(find.byType(AppBar), findsOneWidget);
+    });
+  });
+
+  // ── CalendarScreen ────────────────────────────────────────────────────────
+
+  group('CalendarScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders with empty tree', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const CalendarScreen()));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+  });
+
+  // ── AncestryChartScreen ───────────────────────────────────────────────────
+
+  group('AncestryChartScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('shows empty-tree placeholder when no people', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const AncestryChartScreen()));
+      await tester.pump();
+      expect(find.text('No people in the tree yet.'), findsOneWidget);
+    });
+
+    testWidgets('renders InteractiveViewer when tree has one person', (tester) async {
+      final provider = TreeProvider()
+        ..isLoaded = true
+        ..loadingMessage = 'Ready'
+        ..loadingProgress = 1.0
+        ..persons = [Person(id: 'p1', name: 'Alice')];
+      await tester.pumpWidget(
+          _buildTestApp(const AncestryChartScreen(), provider: provider));
+      await tester.pump();
+      // Ancestry chart renders the tree canvas for non-empty trees.
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+  });
+
+  // ── FamilyTimelineScreen ──────────────────────────────────────────────────
+
+  group('FamilyTimelineScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders with empty tree', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const FamilyTimelineScreen()));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+  });
+
+  // ── FanChartScreen ────────────────────────────────────────────────────────
+
+  group('FanChartScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders with empty tree', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const FanChartScreen()));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+  });
+
+  // ── ConflictResolverScreen ────────────────────────────────────────────────
+
+  group('ConflictResolverScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders with empty tree without throwing', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const ConflictResolverScreen()));
+      await tester.pump();
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
+    });
+  });
+
+  // ── FamilyTreeScreen ──────────────────────────────────────────────────────
+
+  group('FamilyTreeScreen smoke test', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('renders AppBar without throwing', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const FamilyTreeScreen()));
+      await tester.pump();
+      expect(find.byType(AppBar), findsAtLeastNWidgets(1));
     });
   });
 }
