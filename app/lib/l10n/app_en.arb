@@ -1,0 +1,623 @@
+{
+  "@@locale": "en",
+
+  "appName": "Vetviona",
+  "@appName": {"description": "Application name"},
+
+  "settingsTitle": "Settings",
+  "@settingsTitle": {"description": "Settings screen title"},
+
+  "languageSection": "Language",
+  "@languageSection": {"description": "Language settings section title"},
+
+  "appearanceSection": "Appearance",
+  "@appearanceSection": {"description": "Appearance settings section title"},
+
+  "darkMode": "Dark Mode",
+  "@darkMode": {"description": "Dark mode toggle label"},
+
+  "soundSection": "Sound",
+  "@soundSection": {"description": "Sound settings section title"},
+
+  "syncSection": "RootLoop\u2122 Sync",
+  "@syncSection": {"description": "Sync settings section title"},
+
+  "welcomeToVetviona": "Welcome to Vetviona",
+  "@welcomeToVetviona": {"description": "Onboarding welcome title"},
+
+  "onboardingStartTitle": "Start with yourself",
+  "@onboardingStartTitle": {"description": "Onboarding page 1 title"},
+
+  "onboardingLinkTitle": "Link your family",
+  "@onboardingLinkTitle": {"description": "Onboarding page 2 title"},
+
+  "onboardingExploreTitle": "Explore your tree",
+  "@onboardingExploreTitle": {"description": "Onboarding page 3 title"},
+
+  "onboardingSyncTitle": "Sync with family",
+  "@onboardingSyncTitle": {"description": "Onboarding page 4 title"},
+
+  "onboardingStartBody": "Works fully offline. Your data stays with you.",
+  "@onboardingStartBody": {"description": "Onboarding page 1 body"},
+
+  "onboardingAddBody": "Tap the + button on the home screen to add your first family member.",
+  "@onboardingAddBody": {"description": "Onboarding page 2 body"},
+
+  "onboardingLinkBody": "Open any person's profile and use \"Add Relationship\" to link them.",
+  "@onboardingLinkBody": {"description": "Onboarding page 3 body"},
+
+  "onboardingDiagramsBody": "Access diagrams from the side menu or a person's profile page.",
+  "@onboardingDiagramsBody": {"description": "Onboarding page 4 body"},
+
+  "onboardingSyncBody": "No internet required. Open Settings \u2192 RootLoop\u2122 Sync to get started.",
+  "@onboardingSyncBody": {"description": "Onboarding page 5 body"},
+
+  "skip": "Skip",
+  "@skip": {"description": "Skip button label"},
+
+  "getStarted": "Get Started",
+  "@getStarted": {"description": "Get started button label"},
+
+  "next": "Next",
+  "@next": {"description": "Next button label"},
+
+  "of": "of",
+  "@of": {"description": "Used in page counter like '2 of 5'"},
+
+  "signIn": "Sign In",
+  "@signIn": {"description": "Sign in button/title"},
+
+  "welcomeBack": "Welcome back",
+  "@welcomeBack": {"description": "Login screen subtitle"},
+
+  "username": "Username",
+  "@username": {"description": "Username field label"},
+
+  "password": "Password",
+  "@password": {"description": "Password field label"},
+
+  "dontHaveAccount": "Don't have an account?",
+  "@dontHaveAccount": {"description": "Link to register screen"},
+
+  "register": "Register",
+  "@register": {"description": "Register button label"},
+
+  "invalidCredentials": "Invalid username or password. Please try again.",
+  "@invalidCredentials": {"description": "Login error message"},
+
+  "usernameRequired": "Username is required",
+  "@usernameRequired": {"description": "Validation: username required"},
+
+  "passwordRequired": "Password is required",
+  "@passwordRequired": {"description": "Validation: password required"},
+
+  "createAccount": "Create Account",
+  "@createAccount": {"description": "Create account screen title"},
+
+  "createYourAccount": "Create your account",
+  "@createYourAccount": {"description": "Create account subtitle"},
+
+  "optionalPinHint": "Set an optional local PIN to protect this device.",
+  "@optionalPinHint": {"description": "Optional PIN hint on register screen"},
+
+  "confirmPassword": "Confirm Password",
+  "@confirmPassword": {"description": "Confirm password field label"},
+
+  "passwordMinLength": "Password must be at least 4 characters",
+  "@passwordMinLength": {"description": "Validation: password too short"},
+
+  "passwordsMismatch": "Passwords do not match",
+  "@passwordsMismatch": {"description": "Validation: passwords do not match"},
+
+  "alreadyHaveAccount": "Already have an account?",
+  "@alreadyHaveAccount": {"description": "Link to sign in screen"},
+
+  "accountCreated": "Account created successfully",
+  "@accountCreated": {"description": "Success message after registration"},
+
+  "registrationFailed": "Registration failed. Username may already be taken.",
+  "@registrationFailed": {"description": "Registration error message"},
+
+  "familyTimeline": "Family Timeline",
+  "@familyTimeline": {"description": "Family timeline screen title"},
+
+  "searchEvents": "Search events\u2026",
+  "@searchEvents": {"description": "Search events placeholder"},
+
+  "filterAll": "All",
+  "@filterAll": {"description": "Filter: all events"},
+
+  "filterBirths": "Births",
+  "@filterBirths": {"description": "Filter: births"},
+
+  "filterDeaths": "Deaths",
+  "@filterDeaths": {"description": "Filter: deaths"},
+
+  "filterPartnerships": "Partnerships",
+  "@filterPartnerships": {"description": "Filter: partnerships"},
+
+  "filterEvents": "Events",
+  "@filterEvents": {"description": "Filter: events"},
+
+  "noEventsMatch": "No events match.",
+  "@noEventsMatch": {"description": "Empty state: no events match filter"},
+
+  "addPeopleForTimeline": "Add people to see the family timeline.",
+  "@addPeopleForTimeline": {"description": "Empty state: no people for timeline"},
+
+  "undated": "Undated",
+  "@undated": {"description": "Label for events without a date"},
+
+  "birth": "Birth",
+  "@birth": {"description": "Event type: birth"},
+
+  "death": "Death",
+  "@death": {"description": "Event type: death"},
+
+  "partnershipEnded": "Partnership ended",
+  "@partnershipEnded": {"description": "Event type: partnership ended"},
+
+  "sources": "Sources",
+  "@sources": {"description": "Sources section/screen title"},
+
+  "noSourcesYet": "No sources added yet.",
+  "@noSourcesYet": {"description": "Empty state: no sources"},
+
+  "addSource": "Add Source",
+  "@addSource": {"description": "Add source button label"},
+
+  "editCitations": "Edit Citations",
+  "@editCitations": {"description": "Edit citations button label"},
+
+  "cancel": "Cancel",
+  "@cancel": {"description": "Cancel button label"},
+
+  "save": "Save",
+  "@save": {"description": "Save button label"},
+
+  "deleteSource": "Delete Source",
+  "@deleteSource": {"description": "Delete source button label"},
+
+  "delete": "Delete",
+  "@delete": {"description": "Delete button label"},
+
+  "citations": "Citations",
+  "@citations": {"description": "Citations section label"},
+
+  "pedigreeChart": "Pedigree Chart",
+  "@pedigreeChart": {"description": "Pedigree chart screen title"},
+
+  "noPersonsYet": "No people in the tree yet.",
+  "@noPersonsYet": {"description": "Empty state: no persons in tree"},
+
+  "focusPerson": "Focus person",
+  "@focusPerson": {"description": "Focus person label in pedigree"},
+
+  "generations": "generations",
+  "@generations": {"description": "Generations label"},
+
+  "relationshipFinder": "Relationship Finder",
+  "@relationshipFinder": {"description": "Relationship finder screen title"},
+
+  "fromPerson": "From Person",
+  "@fromPerson": {"description": "From person field label"},
+
+  "toPerson": "To Person",
+  "@toPerson": {"description": "To person field label"},
+
+  "findRelationship": "Find Relationship",
+  "@findRelationship": {"description": "Find relationship button label"},
+
+  "noRelationshipFound": "No relationship path found between these two people.",
+  "@noRelationshipFound": {"description": "No relationship path found message"},
+
+  "path": "Path",
+  "@path": {"description": "Path label in relationship finder"},
+
+  "start": "Start",
+  "@start": {"description": "Start label"},
+
+  "end": "End",
+  "@end": {"description": "End label"},
+
+  "samePerson": "Same Person",
+  "@samePerson": {"description": "Relationship: same person"},
+
+  "partnerSpouse": "Partner/Spouse",
+  "@partnerSpouse": {"description": "Relationship: partner or spouse"},
+
+  "parent": "Parent",
+  "@parent": {"description": "Relationship: parent"},
+
+  "grandparent": "Grandparent",
+  "@grandparent": {"description": "Relationship: grandparent"},
+
+  "greatGrandparent": "Great-Grandparent",
+  "@greatGrandparent": {"description": "Relationship: great-grandparent"},
+
+  "child": "Child",
+  "@child": {"description": "Relationship: child"},
+
+  "grandchild": "Grandchild",
+  "@grandchild": {"description": "Relationship: grandchild"},
+
+  "greatGrandchild": "Great-Grandchild",
+  "@greatGrandchild": {"description": "Relationship: great-grandchild"},
+
+  "sibling": "Sibling",
+  "@sibling": {"description": "Relationship: sibling"},
+
+  "auntUncle": "Aunt/Uncle",
+  "@auntUncle": {"description": "Relationship: aunt or uncle"},
+
+  "nieceNephew": "Niece/Nephew",
+  "@nieceNephew": {"description": "Relationship: niece or nephew"},
+
+  "cousin": "Cousin",
+  "@cousin": {"description": "Relationship: cousin"},
+
+  "onceRemoved": "once removed",
+  "@onceRemoved": {"description": "Relationship modifier: once removed"},
+
+  "timesRemoved": "times removed",
+  "@timesRemoved": {"description": "Relationship modifier: times removed"},
+
+  "relative": "Relative",
+  "@relative": {"description": "Generic relationship label"},
+
+  "conflictResolver": "Evidence Conflict Resolver",
+  "@conflictResolver": {"description": "Conflict resolver screen title"},
+
+  "noConflictsFound": "No conflicting evidence found",
+  "@noConflictsFound": {"description": "No conflicts found message"},
+
+  "allConflictsResolved": "All conflicts resolved",
+  "@allConflictsResolved": {"description": "All conflicts resolved message"},
+
+  "conflictsResolved": "conflicts resolved",
+  "@conflictsResolved": {"description": "Conflicts resolved count label"},
+
+  "resolved": "Resolved",
+  "@resolved": {"description": "Resolved label"},
+
+  "conflict": "Conflict",
+  "@conflict": {"description": "Conflict label"},
+
+  "clear": "Clear",
+  "@clear": {"description": "Clear button label"},
+
+  "prefer": "Prefer",
+  "@prefer": {"description": "Prefer button label"},
+
+  "birthdaysAnniversaries": "Birthdays & Anniversaries",
+  "@birthdaysAnniversaries": {"description": "Calendar screen title"},
+
+  "noUpcomingEvents": "No upcoming events",
+  "@noUpcomingEvents": {"description": "No upcoming events message"},
+
+  "addDatesHint": "Add birth dates to living people or wedding dates to partnerships to see upcoming events here.",
+  "@addDatesHint": {"description": "Hint to add dates for calendar"},
+
+  "today": "Today!",
+  "@today": {"description": "Calendar label: today"},
+
+  "tomorrow": "Tomorrow",
+  "@tomorrow": {"description": "Calendar label: tomorrow"},
+
+  "inXDays": "In {days} days",
+  "@inXDays": {
+    "description": "Calendar label: in X days",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+
+  "birthday": "Birthday",
+  "@birthday": {"description": "Event type: birthday"},
+
+  "anniversary": "Anniversary",
+  "@anniversary": {"description": "Event type: anniversary"},
+
+  "fanChart": "Fan Chart",
+  "@fanChart": {"description": "Fan chart screen title"},
+
+  "changeRootPerson": "Change root person",
+  "@changeRootPerson": {"description": "Fan chart: change root person"},
+
+  "familyTree": "Family Tree",
+  "@familyTree": {"description": "Family tree screen title"},
+
+  "treeSettings": "Tree Settings",
+  "@treeSettings": {"description": "Tree settings label"},
+
+  "interactive": "Interactive",
+  "@interactive": {"description": "Tree view: interactive"},
+
+  "ancestry": "Ancestry",
+  "@ancestry": {"description": "Tree view: ancestry"},
+
+  "descendancy": "Descendancy",
+  "@descendancy": {"description": "Tree view: descendancy"},
+
+  "pedigree": "Pedigree",
+  "@pedigree": {"description": "Tree view: pedigree"},
+
+  "layout": "Layout:",
+  "@layout": {"description": "Layout label"},
+
+  "timeline": "Timeline",
+  "@timeline": {"description": "Timeline screen title"},
+
+  "noEventsForPerson": "No events recorded for this person.",
+  "@noEventsForPerson": {"description": "Empty state: no events for person"},
+
+  "verifyLicense": "Verify Paid License",
+  "@verifyLicense": {"description": "License verification screen title"},
+
+  "vetvionaEmail": "Vetviona account email",
+  "@vetvionaEmail": {"description": "Email field label on license verification"},
+
+  "emailRequired": "Email is required.",
+  "@emailRequired": {"description": "Validation: email required"},
+
+  "enterValidEmail": "Enter a valid email.",
+  "@enterValidEmail": {"description": "Validation: enter valid email"},
+
+  "verifyLicenseButton": "Verify license",
+  "@verifyLicenseButton": {"description": "Verify license button label"},
+
+  "receivedGiftClaim": "Received a license gift? Claim it",
+  "@receivedGiftClaim": {"description": "Link to claim gift license"},
+
+  "claimGiftTitle": "Claim a License Gift",
+  "@claimGiftTitle": {"description": "Claim gift license screen title"},
+
+  "youReceivedLicense": "You received a license!",
+  "@youReceivedLicense": {"description": "License gift received message"},
+
+  "claimGiftSteps": "Follow the steps below to add it to your Vetviona account.",
+  "@claimGiftSteps": {"description": "Claim gift license instructions"},
+
+  "downloadApp": "Download the Vetviona app",
+  "@downloadApp": {"description": "Step: download app"},
+
+  "enterClaimToken": "Enter your claim token",
+  "@enterClaimToken": {"description": "Step: enter claim token"},
+
+  "claimToken": "Claim token",
+  "@claimToken": {"description": "Claim token field label"},
+
+  "enterClaimTokenHint": "Please enter a claim token.",
+  "@enterClaimTokenHint": {"description": "Validation: claim token required"},
+
+  "claimLicense": "Claim License",
+  "@claimLicense": {"description": "Claim license button label"},
+
+  "faq": "Frequently asked questions",
+  "@faq": {"description": "FAQ link label"},
+
+  "signInVerify": "Sign In / Verify License",
+  "@signInVerify": {"description": "Sign in / verify license link label"},
+
+  "name": "Name",
+  "@name": {"description": "Name field label"},
+
+  "enterPersonName": "Enter person name",
+  "@enterPersonName": {"description": "Person name field hint"},
+
+  "genderOptional": "Gender (optional)",
+  "@genderOptional": {"description": "Gender field label"},
+
+  "notSpecified": "Not specified",
+  "@notSpecified": {"description": "Gender: not specified"},
+
+  "male": "Male",
+  "@male": {"description": "Gender: male"},
+
+  "female": "Female",
+  "@female": {"description": "Gender: female"},
+
+  "nonBinary": "Non-binary",
+  "@nonBinary": {"description": "Gender: non-binary"},
+
+  "other": "Other",
+  "@other": {"description": "Gender: other"},
+
+  "add": "Add",
+  "@add": {"description": "Add button label"},
+
+  "layoutStyle": "Layout Style",
+  "@layoutStyle": {"description": "Tree settings: layout style"},
+
+  "generationsToShow": "Generations to show",
+  "@generationsToShow": {"description": "Tree settings: generations to show"},
+
+  "ancestors": "Ancestors",
+  "@ancestors": {"description": "Tree settings: ancestors"},
+
+  "descendants": "Descendants",
+  "@descendants": {"description": "Tree settings: descendants"},
+
+  "canvas": "Canvas",
+  "@canvas": {"description": "Tree settings: canvas layout"},
+
+  "showAddSlots": "Show \"Add\u2026\" placeholder slots",
+  "@showAddSlots": {"description": "Tree settings: show add slots"},
+
+  "quickAddButtons": "Quick-add buttons for missing relatives",
+  "@quickAddButtons": {"description": "Tree settings: quick add buttons"},
+
+  "addSlotTiers": "Add-slot tiers",
+  "@addSlotTiers": {"description": "Tree settings: add-slot tiers"},
+
+  "imageNotAvailable": "Image not available",
+  "@imageNotAvailable": {"description": "Photo gallery: image not available"},
+
+  "sourceDetails": "Source Details",
+  "@sourceDetails": {"description": "Source detail screen title"},
+
+  "title": "Title",
+  "@title": {"description": "Source title field label"},
+
+  "sourceType": "Source Type",
+  "@sourceType": {"description": "Source type field label"},
+
+  "urlOptional": "URL (optional)",
+  "@urlOptional": {"description": "URL field label"},
+
+  "authorOptional": "Author (optional)",
+  "@authorOptional": {"description": "Author field label"},
+
+  "publisherOptional": "Publisher (optional)",
+  "@publisherOptional": {"description": "Publisher field label"},
+
+  "publicationDateOptional": "Publication Date (optional)",
+  "@publicationDateOptional": {"description": "Publication date field label"},
+
+  "repositoryOptional": "Repository / Archive (optional)",
+  "@repositoryOptional": {"description": "Repository field label"},
+
+  "volumePageOptional": "Volume / Page (optional)",
+  "@volumePageOptional": {"description": "Volume/page field label"},
+
+  "retrievalDateOptional": "URL Retrieval Date (optional)",
+  "@retrievalDateOptional": {"description": "URL retrieval date field label"},
+
+  "confidenceOptional": "Confidence Rating (optional)",
+  "@confidenceOptional": {"description": "Confidence rating field label"},
+
+  "notRated": "Not rated",
+  "@notRated": {"description": "Confidence: not rated"},
+
+  "saveSource": "Save Source",
+  "@saveSource": {"description": "Save source button label"},
+
+  "titleRequired": "Title is required",
+  "@titleRequired": {"description": "Validation: title required"},
+
+  "selectTypeRequired": "Please select a type",
+  "@selectTypeRequired": {"description": "Validation: select type required"},
+
+  "relationshipCertificate": "Relationship Certificate",
+  "@relationshipCertificate": {"description": "Relationship certificate screen title"},
+
+  "generateCertificate": "Generate Certificate",
+  "@generateCertificate": {"description": "Generate certificate button label"},
+
+  "certificatePreview": "Certificate Preview",
+  "@certificatePreview": {"description": "Certificate preview label"},
+
+  "exportAsText": "Export as text file",
+  "@exportAsText": {"description": "Export as text file button label"},
+
+  "personA": "Person A (subject)",
+  "@personA": {"description": "Person A field label"},
+
+  "personB": "Person B (ancestor / relative)",
+  "@personB": {"description": "Person B field label"},
+
+  "export": "Export",
+  "@export": {"description": "Export button label"},
+
+  "pickAPlace": "Pick a Place",
+  "@pickAPlace": {"description": "Place picker screen title"},
+
+  "noPlacesMatch": "No places match your search.",
+  "@noPlacesMatch": {"description": "Empty state: no places match"},
+
+  "globalCityDatabase": "Global city database",
+  "@globalCityDatabase": {"description": "Global city database label"},
+
+  "searchPlaces": "Search places\u2026",
+  "@searchPlaces": {"description": "Search places placeholder"},
+
+  "confirm": "Confirm",
+  "@confirm": {"description": "Confirm button label"},
+
+  "searchForPlace": "Search for a place\u2026",
+  "@searchForPlace": {"description": "Map picker search placeholder"},
+
+  "tapToPlacePin": "Tap anywhere on the map to place a pin",
+  "@tapToPlacePin": {"description": "Map picker instruction"},
+
+  "useThisLocation": "Use this location",
+  "@useThisLocation": {"description": "Use this location button label"},
+
+  "politicalBoundaries": "Political boundaries",
+  "@politicalBoundaries": {"description": "Map layer: political boundaries"},
+
+  "postalCode": "Postal code",
+  "@postalCode": {"description": "Map info: postal code"},
+
+  "countryCode": "Country code",
+  "@countryCode": {"description": "Map info: country code"},
+
+  "listView": "List view",
+  "@listView": {"description": "Tree screen: list view"},
+
+  "tableView": "Table view",
+  "@tableView": {"description": "Tree screen: table view"},
+
+  "viewDiagram": "View Diagram",
+  "@viewDiagram": {"description": "Tree screen: view diagram"},
+
+  "addPerson": "Add Person",
+  "@addPerson": {"description": "Add person button label"},
+
+  "quickAddPerson": "Quick add person",
+  "@quickAddPerson": {"description": "Quick add person button label"},
+
+  "createSomeoneWithName": "Create someone with just a name",
+  "@createSomeoneWithName": {"description": "Quick add person hint"},
+
+  "quickAdd": "Quick Add",
+  "@quickAdd": {"description": "Quick add label"},
+
+  "viewInteractiveTree": "View interactive tree diagram",
+  "@viewInteractiveTree": {"description": "View interactive tree button"},
+
+  "noPersonsInTree": "No people in this tree yet",
+  "@noPersonsInTree": {"description": "Empty state: no persons"},
+
+  "addFirstMember": "Add your first family member to get started.",
+  "@addFirstMember": {"description": "Empty state hint"},
+
+  "addFirstPerson": "Add First Person",
+  "@addFirstPerson": {"description": "Add first person button label"},
+
+  "quickAddPersonTitle": "Quick Add Person",
+  "@quickAddPersonTitle": {"description": "Quick add person dialog title"},
+
+  "createPersonFillLater": "Create a person now and fill full details later.",
+  "@createPersonFillLater": {"description": "Quick add person dialog subtitle"},
+
+  "born": "Born",
+  "@born": {"description": "Born label"},
+
+  "died": "Died",
+  "@died": {"description": "Died label"},
+
+  "parents": "Parents",
+  "@parents": {"description": "Parents label"},
+
+  "partners": "Partners",
+  "@partners": {"description": "Partners label"},
+
+  "children": "Children",
+  "@children": {"description": "Children label"},
+
+  "relationships": "Relationships",
+  "@relationships": {"description": "Relationships label"},
+
+  "edit": "Edit",
+  "@edit": {"description": "Edit button label"},
+
+  "deleted": "deleted",
+  "@deleted": {"description": "Deleted status label"},
+
+  "undo": "Undo",
+  "@undo": {"description": "Undo button label"},
+
+  "yourFamilyStory": "Your family story",
+  "@yourFamilyStory": {"description": "Splash screen tagline"}
+}
