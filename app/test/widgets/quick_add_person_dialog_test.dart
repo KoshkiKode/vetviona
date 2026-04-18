@@ -95,19 +95,19 @@ void main() {
     testWidgets('Add button with empty name does not dismiss dialog',
         (tester) async {
       await _pump(tester);
-      await tester.tap(find.text('Add'));
+      await tester.tap(find.byType(FilledButton));
       await tester.pumpAndSettle();
-      // Dialog should still be visible.
-      expect(find.text('Add'), findsOneWidget);
+      // Dialog should still be visible (title is 'Add Person').
+      expect(find.text('Add Person'), findsOneWidget);
     });
 
     testWidgets('Add button with whitespace-only name does not dismiss',
         (tester) async {
       await _pump(tester);
       await tester.enterText(find.byType(TextField), '   ');
-      await tester.tap(find.text('Add'));
+      await tester.tap(find.byType(FilledButton));
       await tester.pumpAndSettle();
-      expect(find.text('Add'), findsOneWidget);
+      expect(find.text('Add Person'), findsOneWidget);
     });
   });
 

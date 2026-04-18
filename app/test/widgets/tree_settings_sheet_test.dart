@@ -13,7 +13,9 @@ import 'package:vetviona_app/widgets/tree_settings_sheet.dart';
 
 // Helper: show the sheet inside a minimal MaterialApp and capture every
 // settings value that arrives via the onChanged callback.
-// We use a large SurfaceSize so the whole sheet content fits in one viewport.
+// We use a tall surface (800×1600) so the DraggableScrollableSheet can
+// expand to show all its sections (Canvas, Generations, presets) without
+// any content being clipped below the fold.
 Future<List<TreeViewSettings>> _showSheet(
   WidgetTester tester, {
   TreeViewSettings? initial,
@@ -21,6 +23,7 @@ Future<List<TreeViewSettings>> _showSheet(
   final callbacks = <TreeViewSettings>[];
   final settings = initial ?? TreeViewSettings();
 
+  // Large viewport ensures all sheet sections are within the visible area.
   await tester.binding.setSurfaceSize(const Size(800, 1600));
 
   await tester.pumpWidget(
