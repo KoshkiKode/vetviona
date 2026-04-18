@@ -51,7 +51,7 @@ void main() {
           if (anchorPart != null && anchorPart.isNotEmpty) {
             final Set<String> anchors = anchorsByPage[resolvedPage] ?? <String>{};
             expect(
-              anchors.contains(anchorPart),
+              anchors.contains(anchorPart) || anchors.contains(_slugify(anchorPart)),
               isTrue,
               reason:
                   'Missing wiki anchor "#$anchorPart" in $resolvedPage referenced from $sourcePage',
@@ -139,7 +139,7 @@ Set<String> _extractAnchors(String markdown) {
     String headingText = heading.group(1)!.trim();
     final Match? explicitId = _explicitIdPattern.firstMatch(headingText);
     if (explicitId != null) {
-      anchors.add(_slugify(explicitId.group(1)!));
+      anchors.add(explicitId.group(1)!);
       headingText = headingText.replaceFirst(_explicitIdPattern, '').trim();
     }
     anchors.add(_slugify(_stripInlineMarkdown(headingText)));
@@ -169,7 +169,7 @@ String _slugify(String value) {
   }
   final int hashIndex = rawTarget.indexOf('#');
   final String page = rawTarget.substring(0, hashIndex);
-  final String anchor = _slugify(rawTarget.substring(hashIndex + 1));
+  final String anchor = rawTarget.substring(hashIndex + 1);
   return (page, anchor);
 }
 
