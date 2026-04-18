@@ -10,6 +10,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:vetviona_app/config/app_config.dart';
 import 'package:vetviona_app/models/life_event.dart';
 import 'package:vetviona_app/models/medical_condition.dart';
 import 'package:vetviona_app/models/partnership.dart';
@@ -1484,6 +1485,218 @@ void main() {
       final p = Person(id: 'p1', name: 'Test');
       final restored = Person.fromMap(p.toMap());
       expect(restored.updatedAt, isNull);
+    });
+  });
+
+  // ── TreeProvider.partnershipsFor ─────────────────────────────────────────
+
+  group('TreeProvider.partnershipsFor', () {
+    test('returns partnerships where person is person1', () {
+      final p = TreeProvider();
+      p.partnerships = [
+        Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2', status: 'married'),
+        Partnership(id: 'pt2', person1Id: 'p3', person2Id: 'p4', status: 'married'),
+      ];
+      expect(p.partnershipsFor('p1'), hasLength(1));
+      expect(p.partnershipsFor('p1').first.id, 'pt1');
+    });
+
+    test('returns partnerships where person is person2', () {
+      final p = TreeProvider();
+      p.partnerships = [
+        Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2', status: 'married'),
+      ];
+      expect(p.partnershipsFor('p2'), hasLength(1));
+    });
+
+    test('returns empty list when no partnerships', () {
+      final p = TreeProvider();
+      p.partnerships = [];
+      expect(p.partnershipsFor('p1'), isEmpty);
+    });
+  });
+
+  // ── TreeProvider.partnerIdsFor ─────────────────────────────────────────────
+
+  group('TreeProvider.partnerIdsFor', () {
+    test('returns the id of the other partner when person is person1', () {
+      final p = TreeProvider();
+      p.partnerships = [
+        Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2', status: 'married'),
+      ];
+      expect(p.partnerIdsFor('p1'), contains('p2'));
+    });
+
+    test('returns the id of person1 when person is person2', () {
+      final p = TreeProvider();
+      p.partnerships = [
+        Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2', status: 'married'),
+      ];
+      expect(p.partnerIdsFor('p2'), contains('p1'));
+    });
+  });
+
+  // ── TreeProvider.childrenOfPartnership ────────────────────────────────────
+
+  group('TreeProvider.childrenOfPartnership', () {
+    test('returns children shared by the partnership', () {
+      final child = Person(id: 'c1', name: 'Child One', parentIds: ['p1', 'p2']);
+      final p = TreeProvider();
+      p.persons = [child];
+      final pt = Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2', status: 'married');
+      final children = p.childrenOfPartnership(pt);
+      expect(children, contains(child));
+    });
+
+    test('returns empty list when no children share both parents', () {
+      final child = Person(id: 'c1', name: 'Other Child', parentIds: ['p1', 'p3']);
+      final p = TreeProvider();
+      p.persons = [child];
+      final pt = Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2', status: 'married');
+      expect(p.childrenOfPartnership(pt), isEmpty);
+    });
+  });
+
+  // ── TreeProvider accessors / getters ─────────────────────────────────────
+
+  group('TreeProvider accessors', () {
+    test('treeNames returns list of tree name strings', () {
+      final p = TreeProvider();
+      p.trees = [
+        {'id': 'tree1', 'name': 'Tree One'},
+        {'id': 'tree2', 'name': 'Tree Two'},
+      ];
+      expect(p.treeNames, containsAll(['Tree One', 'Tree Two']));
+    });
+
+    test('currentTreeName returns name of current tree', () {
+      final p = TreeProvider();
+      p.currentTreeId = 'tree1';
+      p.trees = [
+        {'id': 'tree1', 'name': 'My Family'},
+      ];
+      expect(p.currentTreeName, 'My Family');
+    });
+
+    test('currentTreeName returns default when tree not found', () {
+      final p = TreeProvider();
+      p.currentTreeId = 'unknown';
+      p.trees = [];
+      expect(p.currentTreeName, 'My Family Tree');
+    });
+
+    test('isLoggedIn is false initially', () {
+      expect(TreeProvider().isLoggedIn, isFalse);
+    });
+
+    test('currentUser is null initially', () {
+      expect(TreeProvider().currentUser, isNull);
+    });
+
+    test('localDeviceId is empty string initially', () {
+      expect(TreeProvider().localDeviceId, isEmpty);
+    });
+
+    test('homePersonId is null initially', () {
+      expect(TreeProvider().homePersonId, isNull);
+    });
+
+    test('dateFormat default value', () {
+      expect(TreeProvider().dateFormat, 'dd MMM yyyy');
+    });
+
+    test('liveChanges is a broadcast stream', () {
+      final p = TreeProvider();
+      expect(p.liveChanges.isBroadcast, isTrue);
+    });
+  });
+
+  // ── TreeProvider.setDateFormat / setColonizationLevel / setHomePersonId ──
+
+  group('TreeProvider settings setters', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('setDateFormat updates dateFormat and persists to prefs', () async {
+      final p = TreeProvider();
+      await p.setDateFormat('MM/dd/yyyy');
+      expect(p.dateFormat, 'MM/dd/yyyy');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('dateFormat'), 'MM/dd/yyyy');
+    });
+
+    test('setColonizationLevel updates level and persists', () async {
+      final p = TreeProvider();
+      await p.setColonizationLevel(1);
+      expect(p.colonizationLevel, 1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('colonizationLevel'), 1);
+    });
+
+    test('setHomePersonId updates homePersonId and persists', () async {
+      final p = TreeProvider();
+      await p.setHomePersonId('person-123');
+      expect(p.homePersonId, 'person-123');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('homePersonId'), 'person-123');
+    });
+
+    test('setHomePersonId with null clears homePersonId', () async {
+      final p = TreeProvider();
+      await p.setHomePersonId('some-id');
+      await p.setHomePersonId(null);
+      expect(p.homePersonId, isNull);
+    });
+  });
+
+  // ── TreeProvider.isAtPersonLimit (new tests) ────────────────────────────
+
+  group('TreeProvider.isAtPersonLimit (additional)', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('isAtPersonLimit is always false when persons list is empty', () {
+      final p = TreeProvider();
+      p.persons = [];
+      expect(p.isAtPersonLimit, isFalse);
+    });
+  });
+
+  // ── TreeProvider.exportBackupJson in-memory ───────────────────────────────
+
+  group('TreeProvider.exportBackupJson', () {
+    test('exports all persons, sources, partnerships', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice Smith'),
+        Person(id: 'p2', name: 'Bob Jones'),
+      ];
+      provider.partnerships = [
+        Partnership(id: 'pt1', person1Id: 'p1', person2Id: 'p2', status: 'married'),
+      ];
+      provider.sources = [
+        Source(id: 's1', personId: 'p1', title: 'Birth Certificate', type: 'document', url: ''),
+      ];
+      provider.lifeEvents = [];
+      provider.medicalConditions = [];
+      provider.researchTasks = [];
+
+      final json = await provider.exportBackupJson();
+      expect(json, contains('Alice Smith'));
+      expect(json, contains('Bob Jones'));
+      expect(json, contains('pt1'));
+      expect(json, contains('Birth Certificate'));
+    });
+  });
+
+  // ── TreeProvider.currentAppTier / personLimit ────────────────────────────
+
+  group('TreeProvider tier helpers', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('isAtPersonLimit is false for empty persons on any tier', () {
+      final p = TreeProvider();
+      p.persons = [];
+      expect(p.isAtPersonLimit, isFalse);
     });
   });
 }
