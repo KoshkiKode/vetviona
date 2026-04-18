@@ -490,7 +490,7 @@ class SyncService extends ChangeNotifier {
       Map<String, dynamic>? incoming;
       Device? matchedDevice;
       for (final device in tp.pairedDevices) {
-        incoming = _tryDecrypt(body, device.sharedSecret);
+        incoming = tryDecrypt(body, device.sharedSecret);
         if (incoming != null) {
           matchedDevice = device;
           break;
@@ -529,7 +529,7 @@ class SyncService extends ChangeNotifier {
       final ourData = tp.exportForSync(includeAllMedical: includeAllMedical);
       ourData['senderId'] = tp.localDeviceId;
       ourData['senderTier'] = tp.currentAppTierString;
-      final encrypted = _encrypt(ourData, matchedDevice.sharedSecret);
+      final encrypted = encrypt(ourData, matchedDevice.sharedSecret);
       return Response.ok(encrypted,
           headers: {'content-type': 'text/plain'});
     } catch (e) {
@@ -570,7 +570,7 @@ class SyncService extends ChangeNotifier {
       ourData['senderId'] = tp.localDeviceId;
       ourData['senderTier'] = tp.currentAppTierString;
 
-      final encrypted = _encrypt(ourData, sharedSecret);
+      final encrypted = encrypt(ourData, sharedSecret);
       final url = Uri(scheme: 'http', host: host, port: port, path: '/sync');
 
       final response = await http
@@ -583,7 +583,7 @@ class SyncService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         if (response.body.isNotEmpty) {
-          final theirData = _tryDecrypt(response.body, sharedSecret);
+          final theirData = tryDecrypt(response.body, sharedSecret);
           if (theirData != null) {
             // Update the stored device ID if the peer introduced itself.
             final senderId = theirData['senderId'] as String?;
@@ -651,7 +651,7 @@ class SyncService extends ChangeNotifier {
       Map<String, dynamic>? payload;
       Device? matchedDevice;
       for (final device in tp.pairedDevices) {
-        payload = _tryDecrypt(body, device.sharedSecret);
+        payload = tryDecrypt(body, device.sharedSecret);
         if (payload != null) {
           matchedDevice = device;
           break;
@@ -669,7 +669,7 @@ class SyncService extends ChangeNotifier {
       // new one immediately rather than stacking concurrent requests.
       if (_pendingConsentCompleter != null &&
           !_pendingConsentCompleter!.isCompleted) {
-        final resp = _encrypt({'accepted': false}, matchedDevice.sharedSecret);
+        final resp = encrypt({'accepted': false}, matchedDevice.sharedSecret);
         return Response.ok(resp, headers: {'content-type': 'text/plain'});
       }
 
@@ -696,7 +696,7 @@ class SyncService extends ChangeNotifier {
         _pendingConsentCompleter = null;
       }
 
-      final resp = _encrypt({'accepted': accepted}, matchedDevice.sharedSecret);
+      final resp = encrypt({'accepted': accepted}, matchedDevice.sharedSecret);
       return Response.ok(resp, headers: {'content-type': 'text/plain'});
     } catch (e) {
       return Response.internalServerError(body: 'Error: $e');
@@ -718,7 +718,7 @@ class SyncService extends ChangeNotifier {
       Map<String, dynamic>? payload;
       Device? matchedDevice;
       for (final device in tp.pairedDevices) {
-        payload = _tryDecrypt(body, device.sharedSecret);
+        payload = tryDecrypt(body, device.sharedSecret);
         if (payload != null) {
           matchedDevice = device;
           break;
@@ -735,7 +735,7 @@ class SyncService extends ChangeNotifier {
       // If there is already a pending confirm in progress, reject.
       if (_pendingConfirmCompleter != null &&
           !_pendingConfirmCompleter!.isCompleted) {
-        final resp = _encrypt({'ready': false}, matchedDevice.sharedSecret);
+        final resp = encrypt({'ready': false}, matchedDevice.sharedSecret);
         return Response.ok(resp, headers: {'content-type': 'text/plain'});
       }
 
@@ -768,7 +768,7 @@ class SyncService extends ChangeNotifier {
         if (!_disposed) notifyListeners();
       }
 
-      final resp = _encrypt({'ready': ready}, matchedDevice.sharedSecret);
+      final resp = encrypt({'ready': ready}, matchedDevice.sharedSecret);
       return Response.ok(resp, headers: {'content-type': 'text/plain'});
     } catch (e) {
       return Response.internalServerError(body: 'Error: $e');
@@ -820,7 +820,7 @@ class SyncService extends ChangeNotifier {
 
     // ── Step 1: ask the remote peer ──────────────────────────────────────────
     try {
-      final step1Payload = _encrypt(
+      final step1Payload = encrypt(
         {'senderId': tp.localDeviceId, 'step': 1},
         sharedSecret,
       );
@@ -833,7 +833,7 @@ class SyncService extends ChangeNotifier {
 
       if (resp.statusCode != 200) return MedicalConsentResult.networkError;
 
-      final result = _tryDecrypt(resp.body, sharedSecret);
+      final result = tryDecrypt(resp.body, sharedSecret);
       if (result == null) return MedicalConsentResult.networkError;
       if (result['accepted'] != true) return MedicalConsentResult.denied;
     } on TimeoutException {
@@ -850,7 +850,7 @@ class SyncService extends ChangeNotifier {
 
     // ── Step 3: send confirmation, wait for peer's final approval ────────────
     try {
-      final step3Payload = _encrypt(
+      final step3Payload = encrypt(
         {'senderId': tp.localDeviceId, 'step': 3},
         sharedSecret,
       );
@@ -863,7 +863,7 @@ class SyncService extends ChangeNotifier {
 
       if (resp.statusCode != 200) return MedicalConsentResult.networkError;
 
-      final result = _tryDecrypt(resp.body, sharedSecret);
+      final result = tryDecrypt(resp.body, sharedSecret);
       if (result == null) return MedicalConsentResult.networkError;
       if (result['ready'] != true) return MedicalConsentResult.denied;
     } on TimeoutException {
@@ -902,7 +902,7 @@ class SyncService extends ChangeNotifier {
       final body = await request.readAsString();
       Map<String, dynamic>? incoming;
       for (final device in tp.pairedDevices) {
-        incoming = _tryDecrypt(body, device.sharedSecret);
+        incoming = tryDecrypt(body, device.sharedSecret);
         if (incoming != null) break;
       }
       if (incoming == null) return Response(401, body: 'Unauthorized');
@@ -920,7 +920,7 @@ class SyncService extends ChangeNotifier {
   /// Accumulates the delta and schedules a batched push after a short debounce.
   void _onLiveChange(Map<String, dynamic> delta) {
     if (!_isServerRunning || _activePeers.isEmpty) return;
-    _pendingDelta = _mergeDelta(_pendingDelta, delta);
+    _pendingDelta = mergeDelta(_pendingDelta, delta);
     _pushTimer?.cancel();
     _pushTimer = Timer(const Duration(milliseconds: 400), _flushPendingDelta);
   }
@@ -930,30 +930,33 @@ class SyncService extends ChangeNotifier {
   /// Records with the same `id` are deduplicated by keeping the one with the
   /// higher `updatedAt` timestamp (or the incoming record when timestamps are
   /// absent / equal, matching the last-write-wins convention used elsewhere).
-  static Map<String, dynamic> _mergeDelta(
+  // ignore: invalid_use_of_visible_for_testing_member
+  @visibleForTesting
+  static Map<String, dynamic> mergeDelta(
     Map<String, dynamic>? existing,
     Map<String, dynamic> incoming,
   ) {
     if (existing == null) return Map<String, dynamic>.from(incoming);
     return {
-      'persons': _mergeList(
+      'persons': mergeList(
           existing['persons'] as List?, incoming['persons'] as List?),
-      'partnerships': _mergeList(
+      'partnerships': mergeList(
           existing['partnerships'] as List?, incoming['partnerships'] as List?),
-      'sources': _mergeList(
+      'sources': mergeList(
           existing['sources'] as List?, incoming['sources'] as List?),
-      'lifeEvents': _mergeList(
+      'lifeEvents': mergeList(
           existing['lifeEvents'] as List?, incoming['lifeEvents'] as List?),
-      'medicalConditions': _mergeList(existing['medicalConditions'] as List?,
+      'medicalConditions': mergeList(existing['medicalConditions'] as List?,
           incoming['medicalConditions'] as List?),
-      'researchTasks': _mergeList(
+      'researchTasks': mergeList(
           existing['researchTasks'] as List?, incoming['researchTasks'] as List?),
     };
   }
 
   /// Deduplicates two record lists by `id`, keeping the record with the higher
   /// `updatedAt` value (or the latest-seen record when timestamps are absent).
-  static List<Map<String, dynamic>> _mergeList(List? a, List? b) {
+  @visibleForTesting
+  static List<Map<String, dynamic>> mergeList(List? a, List? b) {
     final result = <String, Map<String, dynamic>>{};
     for (final item in [...(a ?? []), ...(b ?? [])]) {
       final map = item as Map<String, dynamic>;
@@ -1025,7 +1028,7 @@ class SyncService extends ChangeNotifier {
         peerDelta['senderId'] = tp.localDeviceId;
         peerDelta['senderTier'] = tp.currentAppTierString;
 
-        final encrypted = _encrypt(peerDelta, peer.sharedSecret);
+        final encrypted = encrypt(peerDelta, peer.sharedSecret);
         final url = Uri(
             scheme: 'http', host: peer.host, port: peer.port, path: '/push');
         await http
@@ -1079,9 +1082,9 @@ class SyncService extends ChangeNotifier {
         for (final addr in iface.addresses) {
           if (addr.isLoopback) continue;
           final ip = addr.address;
-          if (_isTailscaleIp(ip)) {
+          if (isTailscaleIp(ip)) {
             result['tailscale']!.add(ip);
-          } else if (_isLanIp(ip)) {
+          } else if (isLanIp(ip)) {
             result['lan']!.add(ip);
           } else {
             result['other']!.add(ip);
@@ -1093,7 +1096,8 @@ class SyncService extends ChangeNotifier {
   }
 
   /// Returns `true` if [ip] falls in the Tailscale CGNAT range 100.64.0.0/10.
-  static bool _isTailscaleIp(String ip) {
+  @visibleForTesting
+  static bool isTailscaleIp(String ip) {
     final parts = ip.split('.');
     if (parts.length != 4) return false;
     final first = int.tryParse(parts[0]) ?? 0;
@@ -1103,7 +1107,8 @@ class SyncService extends ChangeNotifier {
   }
 
   /// Returns `true` if [ip] is a typical private LAN address.
-  static bool _isLanIp(String ip) {
+  @visibleForTesting
+  static bool isLanIp(String ip) {
     final parts = ip.split('.');
     if (parts.length != 4) return false;
     final a = int.tryParse(parts[0]) ?? 0;
@@ -1127,7 +1132,8 @@ class SyncService extends ChangeNotifier {
   ///
   /// SHA-256 produces 32 bytes of uniformly distributed key material from
   /// any-length input, making it safe regardless of secret format.
-  static enc.Key _keyFromSecret(String sharedSecret) {
+  @visibleForTesting
+  static enc.Key keyFromSecret(String sharedSecret) {
     final digest = sha256.convert(utf8.encode(sharedSecret));
     return enc.Key(Uint8List.fromList(digest.bytes));
   }
@@ -1144,8 +1150,9 @@ class SyncService extends ChangeNotifier {
   /// A fresh 12-byte (96-bit) nonce is generated for every message, which is
   /// the NIST-recommended nonce size for GCM and provides strong security
   /// guarantees for typical message volumes.
-  static String _encrypt(Map<String, dynamic> data, String sharedSecret) {
-    final key = _keyFromSecret(sharedSecret);
+  @visibleForTesting
+  static String encrypt(Map<String, dynamic> data, String sharedSecret) {
+    final key = keyFromSecret(sharedSecret);
     final iv = enc.IV.fromSecureRandom(12); // 12-byte nonce (NIST GCM std)
     final encrypter =
         enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm, padding: null));
@@ -1158,11 +1165,12 @@ class SyncService extends ChangeNotifier {
   /// Returns `null` if decryption fails **for any reason** — wrong key,
   /// corrupted ciphertext, failed GCM authentication tag verification, or
   /// invalid JSON.  Callers should treat `null` as "unauthorized".
-  static Map<String, dynamic>? _tryDecrypt(String raw, String sharedSecret) {
+  @visibleForTesting
+  static Map<String, dynamic>? tryDecrypt(String raw, String sharedSecret) {
     try {
       final parts = raw.split('::');
       if (parts.length != 2) return null;
-      final key = _keyFromSecret(sharedSecret);
+      final key = keyFromSecret(sharedSecret);
       final iv = enc.IV.fromBase64(parts[0]);
       final encrypter =
           enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm, padding: null));
