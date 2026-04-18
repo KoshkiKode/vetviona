@@ -108,5 +108,17 @@ void main() {
       final long = 'p' * (InputSanitizer.maxAuthField + 100);
       expect(InputSanitizer.authField(long).length, InputSanitizer.maxAuthField);
     });
+
+    test('shortField() returns sanitized value for non-null input', () {
+      expect(InputSanitizer.shortField('hello\x00world'), 'helloworld');
+    });
+
+    test('mediumField() returns sanitized non-null value', () {
+      expect(InputSanitizer.mediumField('note\x01content'), 'notecontent');
+    });
+
+    test('mediumField() returns null for null input', () {
+      expect(InputSanitizer.mediumField(null), isNull);
+    });
   });
 }

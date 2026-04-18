@@ -36,7 +36,7 @@ class ShareSyncService {
     try {
       final json = await tree.exportBackupJson();
       final dir = await getTemporaryDirectory();
-      final treeName = _sanitizeFileName(tree.currentTreeName);
+      final treeName = sanitizeFileName(tree.currentTreeName);
       final file = File('${dir.path}/$treeName.vetviona');
       await file.writeAsString(json, flush: true);
 
@@ -53,7 +53,8 @@ class ShareSyncService {
   }
 
   /// Replaces any characters that are not safe in a file name.
-  static String _sanitizeFileName(String name) {
+  @visibleForTesting
+  static String sanitizeFileName(String name) {
     return name.replaceAll(RegExp(r'[^\w\s\-.]'), '_').trim();
   }
 }

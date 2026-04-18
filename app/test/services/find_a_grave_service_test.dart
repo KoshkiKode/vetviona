@@ -394,4 +394,83 @@ void main() {
       expect(m.deathYear, isNull);
     });
   });
+
+  // ── fetchMemorial — _placeFromSchema variants ─────────────────────────────
+  group('FindAGraveService.fetchMemorial _placeFromSchema', () {
+    test('handles birthPlace as plain string (not a Map)', () async {
+      final jsonLd = jsonEncode({
+        '@type': 'Person',
+        'name': 'John Doe',
+        'birthPlace': 'Dublin, Ireland',
+      });
+      final html =
+          '<script type="application/ld+json">$jsonLd</script>';
+      final svc = _serviceWithHtml(html);
+      final m = await svc.fetchMemorial('99');
+      expect(m?.birthPlace, 'Dublin, Ireland');
+    });
+
+    test('handles birthPlace as Map with addressLocality', () async {
+      final jsonLd = jsonEncode({
+        '@type': 'Person',
+        'birthPlace': {
+          'address': {'addressLocality': 'Cork'},
+        },
+      });
+      final html =
+          '<script type="application/ld+json">$jsonLd</script>';
+      final svc = _serviceWithHtml(html);
+      final m = await svc.fetchMemorial('100');
+      expect(m?.birthPlace, 'Cork');
+    });
+
+    test('handles birthPlace as Map with address.name', () async {
+      final jsonLd = jsonEncode({
+        '@type': 'Person',
+        'birthPlace': {
+          'address': {'name': 'Galway'},
+        },
+      });
+      final html =
+          '<script type="application/ld+json">$jsonLd</script>';
+      final svc = _serviceWithHtml(html);
+      final m = await svc.fetchMemorial('101');
+      expect(m?.birthPlace, 'Galway');
+    });
+
+    test('handles null birthPlace returning null', () async {
+      final jsonLd = jsonEncode({'@type': 'Person', 'birthPlace': null});
+      final html =
+          '<script type="application/ld+json">$jsonLd</script>';
+      final svc = _serviceWithHtml(html);
+      final m = await svc.fetchMemorial('102');
+      expect(m?.birthPlace, isNull);
+    });
+  });
+
+  // ── fetchMemorial — HTML fallback additional cases ─────────────────────────
+  group('FindAGraveService.fetchMemorial HTML fallback additional', () {
+    test('extracts death place from itemprop="deathPlace"', () async {
+      final html =
+          '<span itemprop="deathPlace">Mount Vernon, Virginia</span>';
+      final svc = _serviceWithHtml(html);
+      final m = await svc.fetchMemorial('2');
+      expect(m?.deathPlace, 'Mount Vernon, Virginia');
+    });
+
+    test('extracts cemetery name from class="cemetery"', () async {
+      final html =
+          '<div class="cemetery-name">Arlington Cemetery</div>';
+      final svc = _serviceWithHtml(html);
+      final m = await svc.fetchMemorial('3');
+      // The regex looks for class containing "cemetery"
+      expect(m?.cemeteryName, 'Arlington Cemetery');
+    });
+
+    test('handles network exception returning null', () async {
+      final client = MockClient((_) async => throw Exception('Network error'));
+      final svc = FindAGraveService.withClient(client);
+      expect(await svc.fetchMemorial('1'), isNull);
+    });
+  });
 }

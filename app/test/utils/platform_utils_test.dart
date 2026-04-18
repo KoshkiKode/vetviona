@@ -41,6 +41,30 @@ void main() {
       expect(isDesktop, isFalse);
       debugDefaultTargetPlatformOverride = null;
     });
+
+    test('Windows flags are consistent', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+
+      expect(isIOS, isFalse);
+      expect(isMacOS, isFalse);
+      expect(isAndroid, isFalse);
+      expect(isCupertino, isFalse);
+      expect(isMobile, isFalse);
+      expect(isDesktop, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    test('Linux flags are consistent', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      expect(isIOS, isFalse);
+      expect(isMacOS, isFalse);
+      expect(isAndroid, isFalse);
+      expect(isCupertino, isFalse);
+      expect(isMobile, isFalse);
+      expect(isDesktop, isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 
   group('adaptiveScrollPhysics', () {
