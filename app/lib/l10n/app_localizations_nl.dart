@@ -74,7 +74,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get next => 'Volgende';
 
   @override
-  String get of => 'van';
+  String get pageCounterOf => 'van';
 
   @override
   String get signIn => 'Inloggen';

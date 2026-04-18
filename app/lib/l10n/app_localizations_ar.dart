@@ -73,7 +73,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get next => 'التالي';
 
   @override
-  String get of => 'من';
+  String get pageCounterOf => 'من';
 
   @override
   String get signIn => 'تسجيل الدخول';

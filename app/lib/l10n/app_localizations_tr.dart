@@ -74,7 +74,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get next => 'Sonraki';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'Giriş Yap';

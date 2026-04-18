@@ -69,7 +69,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get next => '下一步';
 
   @override
-  String get of => '共';
+  String get pageCounterOf => '共';
 
   @override
   String get signIn => '登录';
@@ -691,7 +691,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get next => '下一步';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => '登入';

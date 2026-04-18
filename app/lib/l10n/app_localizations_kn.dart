@@ -74,7 +74,7 @@ class AppLocalizationsKn extends AppLocalizations {
   String get next => 'ಮುಂದೆ';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'ಸೈನ್ ಇನ್';

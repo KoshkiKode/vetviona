@@ -74,7 +74,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get next => 'Далее';
 
   @override
-  String get of => 'из';
+  String get pageCounterOf => 'из';
 
   @override
   String get signIn => 'Войти';

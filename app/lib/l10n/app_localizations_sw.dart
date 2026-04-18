@@ -74,7 +74,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get next => 'Ijayo';
 
   @override
-  String get of => 'kati ya';
+  String get pageCounterOf => 'kati ya';
 
   @override
   String get signIn => 'Ingia';

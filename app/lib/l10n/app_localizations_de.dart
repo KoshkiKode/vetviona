@@ -74,7 +74,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get next => 'Weiter';
 
   @override
-  String get of => 'von';
+  String get pageCounterOf => 'von';
 
   @override
   String get signIn => 'Anmelden';

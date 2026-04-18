@@ -74,7 +74,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get next => 'அடுத்து';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'உள்நுழை';

@@ -74,7 +74,7 @@ class AppLocalizationsJv extends AppLocalizations {
   String get next => 'Sabanjure';
 
   @override
-  String get of => 'saka';
+  String get pageCounterOf => 'saka';
 
   @override
   String get signIn => 'Mlebu';

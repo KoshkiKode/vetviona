@@ -74,7 +74,7 @@ class AppLocalizationsTe extends AppLocalizations {
   String get next => 'తదుపరి';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'సైన్ ఇన్';

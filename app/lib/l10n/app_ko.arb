@@ -20,7 +20,7 @@
   "skip": "건너뛰기",
   "getStarted": "시작하기",
   "next": "다음",
-  "of": "/",
+  "pageCounterOf": "/",
   "signIn": "로그인",
   "welcomeBack": "다시 오신 것을 환영합니다",
   "username": "사용자 이름",

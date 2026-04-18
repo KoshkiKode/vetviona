@@ -74,7 +74,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get next => 'بعدی';
 
   @override
-  String get of => 'از';
+  String get pageCounterOf => 'از';
 
   @override
   String get signIn => 'ورود';

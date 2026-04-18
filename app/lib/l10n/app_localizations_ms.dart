@@ -74,7 +74,7 @@ class AppLocalizationsMs extends AppLocalizations {
   String get next => 'Seterusnya';
 
   @override
-  String get of => 'daripada';
+  String get pageCounterOf => 'daripada';
 
   @override
   String get signIn => 'Log masuk';

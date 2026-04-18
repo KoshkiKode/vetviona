@@ -288,7 +288,7 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'of'**
-  String get of;
+  String get pageCounterOf;
 
   /// Sign in button/title
   ///

@@ -74,7 +74,7 @@ class AppLocalizationsUr extends AppLocalizations {
   String get next => 'اگلا';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'سائن ان';
