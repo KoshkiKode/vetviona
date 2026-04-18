@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'l10n/app_localizations.dart';
+import 'providers/locale_provider.dart';
 import 'providers/tree_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
@@ -23,6 +25,13 @@ class VetvionaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = LocaleProvider();
+            provider.loadLocale();
+            return provider;
+          },
+        ),
         ChangeNotifierProvider(
           create: (_) {
             final provider = TreeProvider();
@@ -76,12 +85,15 @@ class VetvionaApp extends StatelessWidget {
           },
         ),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
+      child: Consumer2<ThemeProvider, LocaleProvider>(
+        builder: (context, themeProvider, localeProvider, child) {
           final app = MaterialApp(
             title: BuildMetadata.appName,
             theme: themeProvider.theme,
             debugShowCheckedModeBanner: false,
+            locale: localeProvider.locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             // iOS/macOS gets elastic over-scroll; Android/desktop gets clamping.
             scrollBehavior: _VetvionaScrollBehavior(),
             home: const _StartupRouter(),
