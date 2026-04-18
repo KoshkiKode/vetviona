@@ -74,7 +74,7 @@ class AppLocalizationsFil extends AppLocalizations {
   String get next => 'Susunod';
 
   @override
-  String get of => 'ng';
+  String get pageCounterOf => 'ng';
 
   @override
   String get signIn => 'Mag-sign in';

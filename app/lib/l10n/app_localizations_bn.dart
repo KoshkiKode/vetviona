@@ -74,7 +74,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get next => 'পরবর্তী';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'সাইন ইন';

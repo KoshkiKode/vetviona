@@ -74,7 +74,7 @@ class AppLocalizationsGu extends AppLocalizations {
   String get next => 'આગળ';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'સાઇન ઇન';

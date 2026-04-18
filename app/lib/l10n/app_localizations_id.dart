@@ -74,7 +74,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get next => 'Berikutnya';
 
   @override
-  String get of => 'dari';
+  String get pageCounterOf => 'dari';
 
   @override
   String get signIn => 'Masuk';

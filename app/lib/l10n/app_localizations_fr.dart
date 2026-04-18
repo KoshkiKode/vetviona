@@ -74,7 +74,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get next => 'Suivant';
 
   @override
-  String get of => 'sur';
+  String get pageCounterOf => 'sur';
 
   @override
   String get signIn => 'Se connecter';

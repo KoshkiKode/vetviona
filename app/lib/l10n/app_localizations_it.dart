@@ -74,7 +74,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get next => 'Avanti';
 
   @override
-  String get of => 'di';
+  String get pageCounterOf => 'di';
 
   @override
   String get signIn => 'Accedi';

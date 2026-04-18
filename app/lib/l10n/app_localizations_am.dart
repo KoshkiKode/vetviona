@@ -70,7 +70,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get next => 'ቀጥሎ';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'ግባ';

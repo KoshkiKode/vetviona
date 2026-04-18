@@ -74,7 +74,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get next => 'ถัดไป';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'เข้าสู่ระบบ';

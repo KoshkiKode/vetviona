@@ -74,7 +74,7 @@ class AppLocalizationsPa extends AppLocalizations {
   String get next => 'ਅਗਲਾ';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'ਸਾਈਨ ਇਨ';

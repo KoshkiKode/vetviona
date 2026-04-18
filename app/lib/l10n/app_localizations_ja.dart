@@ -69,7 +69,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get next => '次へ';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'サインイン';

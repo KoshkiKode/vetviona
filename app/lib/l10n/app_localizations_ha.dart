@@ -74,7 +74,7 @@ class AppLocalizationsHa extends AppLocalizations {
   String get next => 'Na gaba';
 
   @override
-  String get of => 'daga cikin';
+  String get pageCounterOf => 'daga cikin';
 
   @override
   String get signIn => 'Shiga';

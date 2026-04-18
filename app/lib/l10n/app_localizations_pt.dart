@@ -74,7 +74,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get next => 'Próximo';
 
   @override
-  String get of => 'de';
+  String get pageCounterOf => 'de';
 
   @override
   String get signIn => 'Entrar';
@@ -713,7 +713,7 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
   String get next => 'Próximo';
 
   @override
-  String get of => 'de';
+  String get pageCounterOf => 'de';
 
   @override
   String get signIn => 'Entrar';

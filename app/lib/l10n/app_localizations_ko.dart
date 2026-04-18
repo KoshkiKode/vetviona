@@ -70,7 +70,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get next => '다음';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => '로그인';

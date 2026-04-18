@@ -20,7 +20,7 @@
   "skip": "ข้ามไป",
   "getStarted": "เริ่มต้น",
   "next": "ถัดไป",
-  "of": "/",
+  "pageCounterOf": "/",
   "signIn": "เข้าสู่ระบบ",
   "welcomeBack": "ยินดีต้อนรับกลับมา",
   "username": "ชื่อผู้ใช้",

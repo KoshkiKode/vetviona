@@ -74,7 +74,7 @@ class AppLocalizationsUk extends AppLocalizations {
   String get next => 'Далі';
 
   @override
-  String get of => 'з';
+  String get pageCounterOf => 'з';
 
   @override
   String get signIn => 'Увійти';

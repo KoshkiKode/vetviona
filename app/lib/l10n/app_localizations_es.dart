@@ -74,7 +74,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get next => 'Siguiente';
 
   @override
-  String get of => 'de';
+  String get pageCounterOf => 'de';
 
   @override
   String get signIn => 'Iniciar sesión';

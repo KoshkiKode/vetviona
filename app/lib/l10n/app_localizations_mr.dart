@@ -74,7 +74,7 @@ class AppLocalizationsMr extends AppLocalizations {
   String get next => 'पुढे';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'साइन इन';

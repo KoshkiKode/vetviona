@@ -74,7 +74,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get next => 'Tiếp theo';
 
   @override
-  String get of => '/';
+  String get pageCounterOf => '/';
 
   @override
   String get signIn => 'Đăng nhập';
