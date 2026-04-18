@@ -245,7 +245,8 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-          find.byType(TextFormField), 'bob@example.com');
+          find.byType(TextFormField), 'bob@example.com',
+      );
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
@@ -268,7 +269,8 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-          find.byType(TextFormField), 'bob@example.com');
+          find.byType(TextFormField), 'bob@example.com',
+      );
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
@@ -329,7 +331,8 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-          find.byType(TextFormField), 'bob@example.com');
+          find.byType(TextFormField), 'bob@example.com',
+      );
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
@@ -358,7 +361,8 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-          find.byType(TextFormField), 'bob@example.com');
+          find.byType(TextFormField), 'bob@example.com',
+      );
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
@@ -381,7 +385,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(
-          find.byType(TextFormField), 'bob@example.com');
+          find.byType(TextFormField), 'bob@example.com',
+      );
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Send Transfer'));
