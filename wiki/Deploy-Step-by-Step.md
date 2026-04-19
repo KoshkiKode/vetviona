@@ -36,7 +36,7 @@ Have these ready before you start:
 Pick the AWS region closest to your users and use it consistently in every command below.
 
 ```bash
-export AWS_REGION=us-east-1       # ← change this to your region
+export AWS_REGION=us-east-1
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "Account: $AWS_ACCOUNT_ID  Region: $AWS_REGION"
 ```
@@ -48,50 +48,32 @@ echo "Account: $AWS_ACCOUNT_ID  Region: $AWS_REGION"
 The license database is a single JSON object in S3.  No public access — ever.
 
 ```bash
-export BUCKET=vetviona-licenses   # ← pick a globally unique name
+export BUCKET=vetviona-licenses
+```
 
-# 1. Create the bucket
-aws s3api create-bucket \
-  --bucket "$BUCKET" \
-  --region "$AWS_REGION" \
-  --create-bucket-configuration LocationConstraint="$AWS_REGION"
-# NOTE: omit --create-bucket-configuration for us-east-1
+**Create the bucket** (omit `--create-bucket-configuration` if your region is `us-east-1`):
+```bash
+aws s3api create-bucket --bucket "$BUCKET" --region "$AWS_REGION" --create-bucket-configuration LocationConstraint="$AWS_REGION"
+```
 
-# 2. Block all public access
-aws s3api put-public-access-block \
-  --bucket "$BUCKET" \
-  --public-access-block-configuration \
-    BlockPublicAcls=true,IgnorePublicAcls=true,\
-    BlockPublicPolicy=true,RestrictPublicBuckets=true
+**Block all public access:**
+```bash
+aws s3api put-public-access-block --bucket "$BUCKET" --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+```
 
-# 3. Enable versioning (point-in-time recovery)
-aws s3api put-bucket-versioning \
-  --bucket "$BUCKET" \
-  --versioning-configuration Status=Enabled
+**Enable versioning** (point-in-time recovery):
+```bash
+aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
+```
 
-# 4. Enable access logging (audit trail)
-aws s3api put-bucket-logging \
-  --bucket "$BUCKET" \
-  --bucket-logging-status '{
-    "LoggingEnabled": {
-      "TargetBucket": "'"$BUCKET"'",
-      "TargetPrefix": "access-logs/"
-    }
-  }'
+**Enable access logging** (audit trail):
+```bash
+aws s3api put-bucket-logging --bucket "$BUCKET" --bucket-logging-status '{"LoggingEnabled":{"TargetBucket":"'"$BUCKET"'","TargetPrefix":"access-logs/"}}'
+```
 
-# 5. Enforce HTTPS-only
-aws s3api put-bucket-policy \
-  --bucket "$BUCKET" \
-  --policy '{
-    "Version":"2012-10-17",
-    "Statement":[{
-      "Sid":"DenyHTTP","Effect":"Deny","Principal":"*",
-      "Action":"s3:*",
-      "Resource":["arn:aws:s3:::'"$BUCKET"'",
-                  "arn:aws:s3:::'"$BUCKET"'/*"],
-      "Condition":{"Bool":{"aws:SecureTransport":"false"}}
-    }]
-  }'
+**Enforce HTTPS-only:**
+```bash
+aws s3api put-bucket-policy --bucket "$BUCKET" --policy '{"Version":"2012-10-17","Statement":[{"Sid":"DenyHTTP","Effect":"Deny","Principal":"*","Action":"s3:*","Resource":["arn:aws:s3:::'"$BUCKET"'","arn:aws:s3:::'"$BUCKET"'/*"],"Condition":{"Bool":{"aws:SecureTransport":"false"}}}]}'
 ```
 
 ✅ Verify: `aws s3api get-bucket-versioning --bucket "$BUCKET"` should return `Status: Enabled`.
@@ -102,26 +84,19 @@ aws s3api put-bucket-policy \
 
 This key encrypts the license database object at rest with SSE-KMS (envelope encryption — stronger than the default SSE-S3).
 
+**Create the key:**
 ```bash
-# 1. Create the key
-KEY_ID=$(aws kms create-key \
-  --description "Vetviona license DB encryption key" \
-  --key-usage ENCRYPT_DECRYPT \
-  --region "$AWS_REGION" \
-  --query KeyMetadata.KeyId \
-  --output text)
-echo "KMS Key ID: $KEY_ID"
+KEY_ID=$(aws kms create-key --description "Vetviona license DB encryption key" --key-usage ENCRYPT_DECRYPT --region "$AWS_REGION" --query KeyMetadata.KeyId --output text) && echo "KMS Key ID: $KEY_ID"
+```
 
-# 2. Create a friendly alias
-aws kms create-alias \
-  --alias-name alias/vetviona-license-db \
-  --target-key-id "$KEY_ID" \
-  --region "$AWS_REGION"
+**Create a friendly alias:**
+```bash
+aws kms create-alias --alias-name alias/vetviona-license-db --target-key-id "$KEY_ID" --region "$AWS_REGION"
+```
 
-# 3. Enable automatic annual key rotation
-aws kms enable-key-rotation \
-  --key-id "$KEY_ID" \
-  --region "$AWS_REGION"
+**Enable automatic annual key rotation:**
+```bash
+aws kms enable-key-rotation --key-id "$KEY_ID" --region "$AWS_REGION"
 ```
 
 ✅ Verify: `aws kms describe-key --key-id alias/vetviona-license-db --region "$AWS_REGION"` shows `KeyState: Enabled`.
@@ -132,46 +107,20 @@ aws kms enable-key-rotation \
 
 The backend server will use an EC2 instance profile instead of hardcoded credentials.  This is the recommended approach — you never handle AWS keys manually.
 
+**Create the role:**
 ```bash
-# 1. Create the role
-aws iam create-role \
-  --role-name VetvionaLicenseBackend \
-  --assume-role-policy-document '{
-    "Version":"2012-10-17",
-    "Statement":[{
-      "Effect":"Allow",
-      "Principal":{"Service":"ec2.amazonaws.com"},
-      "Action":"sts:AssumeRole"
-    }]
-  }'
+aws iam create-role --role-name VetvionaLicenseBackend --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+```
 
-# 2. Create the minimal S3 + KMS policy (paste as-is after substituting values)
-aws iam put-role-policy \
-  --role-name VetvionaLicenseBackend \
-  --policy-name LicenseDbAccess \
-  --policy-document '{
-    "Version":"2012-10-17",
-    "Statement":[
-      {
-        "Sid":"LicenseDbReadWrite",
-        "Effect":"Allow",
-        "Action":["s3:GetObject","s3:PutObject"],
-        "Resource":"arn:aws:s3:::'"$BUCKET"'/vetviona/license-db.json"
-      },
-      {
-        "Sid":"LicenseDbKms",
-        "Effect":"Allow",
-        "Action":["kms:GenerateDataKey","kms:Decrypt"],
-        "Resource":"arn:aws:kms:'"$AWS_REGION"':'"$AWS_ACCOUNT_ID"':key/'"$KEY_ID"'"
-      }
-    ]
-  }'
+**Attach the minimal S3 + KMS policy:**
+```bash
+aws iam put-role-policy --role-name VetvionaLicenseBackend --policy-name LicenseDbAccess --policy-document '{"Version":"2012-10-17","Statement":[{"Sid":"LicenseDbReadWrite","Effect":"Allow","Action":["s3:GetObject","s3:PutObject"],"Resource":"arn:aws:s3:::'"$BUCKET"'/vetviona/license-db.json"},{"Sid":"LicenseDbKms","Effect":"Allow","Action":["kms:GenerateDataKey","kms:Decrypt"],"Resource":"arn:aws:kms:'"$AWS_REGION"':'"$AWS_ACCOUNT_ID"':key/'"$KEY_ID"'"}]}'
+```
 
-# 3. Create an instance profile and attach the role
+**Create an instance profile and attach the role:**
+```bash
 aws iam create-instance-profile --instance-profile-name VetvionaLicenseBackend
-aws iam add-role-to-instance-profile \
-  --instance-profile-name VetvionaLicenseBackend \
-  --role-name VetvionaLicenseBackend
+aws iam add-role-to-instance-profile --instance-profile-name VetvionaLicenseBackend --role-name VetvionaLicenseBackend
 ```
 
 ---
@@ -183,11 +132,8 @@ The backend sends email for account verification, license gifts, and vouchers.
 **a. Verify your sending domain**
 
 ```bash
-export MAIL_DOMAIN=vetviona.yourdomain.com   # ← your domain
-
-aws ses verify-domain-identity \
-  --domain "$MAIL_DOMAIN" \
-  --region "$AWS_REGION"
+export MAIL_DOMAIN=vetviona.yourdomain.com
+aws ses verify-domain-identity --domain "$MAIL_DOMAIN" --region "$AWS_REGION"
 ```
 
 AWS will return a TXT verification token.  Add it to your domain's DNS as instructed in the console (**SES → Verified identities**).  Wait for status to become `Verified` (usually a few minutes).
@@ -199,17 +145,11 @@ By default SES is in sandbox mode — you can only send to verified addresses.  
 **c. Create SMTP credentials**
 
 ```bash
-# IAM user for SES SMTP (separate from the EC2 role)
 aws iam create-user --user-name vetviona-ses-smtp
-
-aws iam attach-user-policy \
-  --user-name vetviona-ses-smtp \
-  --policy-arn arn:aws:iam::aws:policy/AmazonSESFullAccess
-
-# Generate SMTP credentials in the SES console:
-# SES → SMTP settings → Create SMTP credentials
-# Note the SMTP username and password — you only see it once.
+aws iam attach-user-policy --user-name vetviona-ses-smtp --policy-arn arn:aws:iam::aws:policy/AmazonSESFullAccess
 ```
+
+Then in the AWS console: **SES → SMTP settings → Create SMTP credentials**.  Note the username and password — you only see them once.
 
 > **SES SMTP endpoint** for your region: `email-smtp.<region>.amazonaws.com`  
 > **Port:** 587 (STARTTLS) or 465 (TLS)
@@ -220,48 +160,30 @@ aws iam attach-user-policy \
 
 A `t3.micro` is more than sufficient for the license backend.
 
+**Find the latest Amazon Linux 2023 AMI for your region:**
 ```bash
-# Find the latest Amazon Linux 2023 AMI for your region
-AMI_ID=$(aws ec2 describe-images \
-  --owners amazon \
-  --filters "Name=name,Values=al2023-ami-2023*-x86_64" \
-            "Name=state,Values=available" \
-  --query "Images | sort_by(@, &CreationDate) | [-1].ImageId" \
-  --output text \
-  --region "$AWS_REGION")
-echo "AMI: $AMI_ID"
+AMI_ID=$(aws ec2 describe-images --owners amazon --filters "Name=name,Values=al2023-ami-2023*-x86_64" "Name=state,Values=available" --query "Images | sort_by(@, &CreationDate) | [-1].ImageId" --output text --region "$AWS_REGION") && echo "AMI: $AMI_ID"
+```
 
-# Create a security group
-SG_ID=$(aws ec2 create-security-group \
-  --group-name vetviona-backend-sg \
-  --description "Vetviona license backend" \
-  --query GroupId --output text)
+**Create a security group:**
+```bash
+SG_ID=$(aws ec2 create-security-group --group-name vetviona-backend-sg --description "Vetviona license backend" --query GroupId --output text) && echo "SG: $SG_ID"
+```
 
-# Allow SSH (restrict to your IP in production), HTTP, HTTPS
+**Allow SSH (your IP only), HTTP, and HTTPS:**
+```bash
 MY_IP=$(curl -s https://checkip.amazonaws.com)/32
-aws ec2 authorize-security-group-ingress --group-id "$SG_ID" \
-  --ip-permissions \
-  "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$MY_IP}]" \
-  "IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]" \
-  "IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]"
+aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$MY_IP}]" "IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]" "IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]"
+```
 
-# Launch the instance with the IAM instance profile
-INSTANCE_ID=$(aws ec2 run-instances \
-  --image-id "$AMI_ID" \
-  --instance-type t3.micro \
-  --key-name <your-key-pair-name> \
-  --security-group-ids "$SG_ID" \
-  --iam-instance-profile Name=VetvionaLicenseBackend \
-  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=vetviona-backend}]' \
-  --query Instances[0].InstanceId \
-  --output text)
-echo "Instance: $INSTANCE_ID"
+**Launch the instance** (replace `<your-key-pair-name>`):
+```bash
+INSTANCE_ID=$(aws ec2 run-instances --image-id "$AMI_ID" --instance-type t3.micro --key-name <your-key-pair-name> --security-group-ids "$SG_ID" --iam-instance-profile Name=VetvionaLicenseBackend --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=vetviona-backend}]' --query Instances[0].InstanceId --output text) && echo "Instance: $INSTANCE_ID"
+```
 
-# Get the public IP
-aws ec2 describe-instances \
-  --instance-ids "$INSTANCE_ID" \
-  --query 'Reservations[0].Instances[0].PublicIpAddress' \
-  --output text
+**Get the public IP:**
+```bash
+aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text
 ```
 
 ✅ Point your domain's A record at this IP before continuing (needed for TLS cert).
@@ -305,10 +227,7 @@ npm install nodemailer@^7.0.11
 Generate the two required secrets first:
 
 ```bash
-# Generate LICENSE_KEY_SECRET (64 hex chars = 256 bits)
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-
-# Generate ADMIN_SECRET (16 hex chars)
 node -e "console.log(require('crypto').randomBytes(8).toString('hex'))"
 ```
 
@@ -427,15 +346,8 @@ flutter build ios --release
 ### Step 13 — Build Mobile Paid (iOS + Android)
 
 ```bash
-# Android APK
-flutter build apk --release \
-  --dart-define=MOBILE_PAID=true \
-  --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
-
-# iOS
-flutter build ios --release \
-  --dart-define=MOBILE_PAID=true \
-  --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
+flutter build apk --release --dart-define=MOBILE_PAID=true --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
+flutter build ios --release --dart-define=MOBILE_PAID=true --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
 ```
 
 ---
@@ -443,20 +355,9 @@ flutter build ios --release \
 ### Step 14 — Build Desktop Pro (Windows / macOS / Linux)
 
 ```bash
-# Windows
-flutter build windows --release \
-  --dart-define=PAID=true \
-  --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
-
-# macOS
-flutter build macos --release \
-  --dart-define=PAID=true \
-  --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
-
-# Linux
-flutter build linux --release \
-  --dart-define=PAID=true \
-  --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
+flutter build windows --release --dart-define=PAID=true --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
+flutter build macos   --release --dart-define=PAID=true --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
+flutter build linux   --release --dart-define=PAID=true --dart-define=LICENSE_BACKEND_URL=https://license.yourdomain.com
 ```
 
 > Desktop builds **without** `--dart-define=PAID=true` show a lock screen at startup.
@@ -477,54 +378,44 @@ curl https://license.yourdomain.com/health
 ### Step 16 — Register a test account
 
 ```bash
-curl -s -X POST https://license.yourdomain.com/v1/account/register \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "email":"test@example.com",
-    "password":"TestPassword123!",
-    "desktopLicense":true
-  }' | jq .
-# Expected: {"ok":true,"account":{...}}
-# Check your test inbox for a verification email.
+curl -s -X POST https://license.yourdomain.com/v1/account/register -H 'Content-Type: application/json' -d '{"email":"test@example.com","password":"TestPassword123!","desktopLicense":true}' | jq .
 ```
+
+Expected: `{"ok":true,"account":{...}}` — check your test inbox for a verification email.
 
 ### Step 17 — Verify the S3 object was created
 
 ```bash
-aws s3api head-object \
-  --bucket vetviona-licenses \
-  --key vetviona/license-db.json \
-  --region "$AWS_REGION"
-# Expected: 200 response with ServerSideEncryption: aws:kms
+aws s3api head-object --bucket vetviona-licenses --key vetviona/license-db.json --region "$AWS_REGION"
 ```
+
+Expected: 200 response with `ServerSideEncryption: aws:kms`.
 
 ### Step 18 — Verify email arrived and confirm it
 
-```bash
-# The verification token is in the email subject "Verify your Vetviona account email".
-# Alternatively read it from the server log if SMTP is still being set up:
-sudo journalctl -u vetviona-backend --since "5 minutes ago" | grep "\[email"
+Read the verification token from the email (subject: "Verify your Vetviona account email").  If SMTP is still being configured, grab it from the server log instead:
 
-curl -s -X POST https://license.yourdomain.com/v1/account/verify-email \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"test@example.com","token":"<TOKEN-FROM-EMAIL>"}' | jq .
-# Expected: {"ok":true,"message":"Email verified successfully."}
+```bash
+sudo journalctl -u vetviona-backend --since "5 minutes ago" | grep "\[email"
 ```
+
+Then confirm the address (replace `<TOKEN>`):
+
+```bash
+curl -s -X POST https://license.yourdomain.com/v1/account/verify-email -H 'Content-Type: application/json' -d '{"email":"test@example.com","token":"<TOKEN>"}' | jq .
+```
+
+Expected: `{"ok":true,"message":"Email verified successfully."}`
 
 ### Step 19 — Create a test voucher (admin)
 
+Replace `<ADMIN_SECRET>` with the value from your `.env` file:
+
 ```bash
-# Replace <ADMIN_SECRET> with the value from your .env file.
-curl -s -X POST https://license.yourdomain.com/v1/license/voucher/create \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "adminSecret":"<ADMIN_SECRET>",
-    "licenseType":"desktop",
-    "quantity":1,
-    "notes":"smoke-test"
-  }' | jq .
-# Expected: {"ok":true,"vouchers":[{"id":"...","token":"XXXXXXXX",...}]}
+curl -s -X POST https://license.yourdomain.com/v1/license/voucher/create -H 'Content-Type: application/json' -d '{"adminSecret":"<ADMIN_SECRET>","licenseType":"desktop","quantity":1,"notes":"smoke-test"}' | jq .
 ```
+
+Expected: `{"ok":true,"vouchers":[{"id":"...","token":"XXXXXXXX",...}]}`
 
 ### Step 20 — Run the app and verify the license
 
@@ -593,21 +484,14 @@ sudo systemctl restart vetviona-backend
 
 ### Recover from a bad license DB write (S3 versioning)
 
+**List recent versions of the database object:**
 ```bash
-# List recent versions of the database object
-aws s3api list-object-versions \
-  --bucket vetviona-licenses \
-  --prefix vetviona/license-db.json \
-  --region "$AWS_REGION" | jq '.Versions[] | {VersionId, LastModified}'
+aws s3api list-object-versions --bucket vetviona-licenses --prefix vetviona/license-db.json --region "$AWS_REGION" | jq '.Versions[] | {VersionId, LastModified}'
+```
 
-# Restore a specific version
-aws s3api copy-object \
-  --bucket vetviona-licenses \
-  --copy-source "vetviona-licenses/vetviona/license-db.json?versionId=<VersionId>" \
-  --key vetviona/license-db.json \
-  --server-side-encryption aws:kms \
-  --ssekms-key-id alias/vetviona-license-db \
-  --region "$AWS_REGION"
+**Restore a specific version** (replace `<VersionId>`):
+```bash
+aws s3api copy-object --bucket vetviona-licenses --copy-source "vetviona-licenses/vetviona/license-db.json?versionId=<VersionId>" --key vetviona/license-db.json --server-side-encryption aws:kms --ssekms-key-id alias/vetviona-license-db --region "$AWS_REGION"
 ```
 
 ### Rotate ADMIN_SECRET or LICENSE_KEY_SECRET
