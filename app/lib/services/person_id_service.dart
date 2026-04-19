@@ -6,11 +6,12 @@ import '../models/person.dart';
 ///
 /// ## Format
 ///
-/// Each person is assigned a short ID of the form `FL-001` where:
-/// - `F` is the first letter of the person's first name.
-/// - `L` is the first letter of the person's last name (or `F` again for
-///   single-word names).
-/// - The number is a sequential counter within the `FL` bucket, stored
+/// Each person is assigned a short ID in the form `XX-001` where XX is the
+/// person's initials (e.g. `JD-001` for John Doe):
+/// - The first letter is the first letter of the person's first name.
+/// - The second letter is the first letter of the person's last name (or the
+///   first letter again for single-word names, e.g. `MM-001` for Madonna).
+/// - The number is a sequential counter within the `XX` bucket, stored
 ///   zero-padded to three digits (`001`–`999`).
 ///
 /// ## Display format
