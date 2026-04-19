@@ -21,6 +21,7 @@
 | Free vs. Paid tiers | [App Tiers and Pricing](App-Tiers-and-Pricing) |
 | Data models, DB schema, services | [Architecture and Technical Reference](Architecture-and-Technical-Reference) |
 | Build the app from source | [Building and Development](Building-and-Development) |
+| Deploy the backend and database search services | [Deployment](Deploy) |
 | Encryption, privacy, security | [Security and Privacy](Security-and-Privacy) |
 
 ---
