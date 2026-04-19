@@ -19,6 +19,7 @@ import '../models/person.dart';
 import '../models/research_task.dart';
 import '../models/source.dart';
 import '../services/gedcom_parser.dart';
+import '../services/person_id_service.dart';
 import '../utils/input_sanitizer.dart';
 
 // ── PBKDF2-HMAC-SHA256 helpers ─────────────────────────────────────────────
@@ -192,7 +193,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -241,7 +242,8 @@ class TreeProvider extends ChangeNotifier {
             updatedAt INTEGER,
             wikitreeId TEXT,
             findAGraveId TEXT,
-            familySearchId TEXT
+            familySearchId TEXT,
+            shortId TEXT
           )
         ''');
         await db.execute('''
@@ -499,6 +501,10 @@ class TreeProvider extends ChangeNotifier {
           // External ID column: FamilySearch person ID.
           await db.execute('ALTER TABLE persons ADD COLUMN familySearchId TEXT');
         }
+        if (oldVersion < 12) {
+          // Human-readable short ID, e.g. JD-007.
+          await db.execute('ALTER TABLE persons ADD COLUMN shortId TEXT');
+        }
       },
     );
   }
@@ -614,6 +620,10 @@ class TreeProvider extends ChangeNotifier {
     person.id = person.id.isEmpty ? _uuid.v4() : person.id;
     person.treeId = currentTreeId;
     person.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    // Auto-assign a human-readable short ID if the person doesn't have one yet.
+    if (person.shortId == null || person.shortId!.isEmpty) {
+      person.shortId = PersonIdService.instance.generate(person.name, persons);
+    }
     final db = await _database;
     await db.insert('persons', person.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);

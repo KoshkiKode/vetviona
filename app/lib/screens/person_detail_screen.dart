@@ -28,6 +28,7 @@ import '../services/place_service.dart';
 import '../services/wikitree_service.dart';
 import 'map_picker_screen.dart';
 import '../services/family_search_service.dart';
+import '../services/person_id_service.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -829,6 +830,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   Widget _buildPersonHeader(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final person = widget.person!;
+    final allPersons = context.read<TreeProvider>().persons;
     Color avatarBg;
     if (_gender?.toLowerCase() == 'male') {
       avatarBg = colorScheme.primary;
@@ -841,6 +843,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             Brightness.dark
         ? colorScheme.onPrimary
         : colorScheme.onSurface;
+
+    final shortIdDisplay = PersonIdService.instance
+        .display(person.shortId, allPersons);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -880,6 +885,26 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   .titleLarge
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
+            if (shortIdDisplay.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colorScheme.secondaryContainer.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  shortIdDisplay,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSecondaryContainer,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -251,6 +251,11 @@ void main() {
         final p = Person(id: 'x', name: 'X');
         expect(p.familySearchId, isNull);
       });
+
+      test('shortId defaults to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.shortId, isNull);
+      });
     });
 
     group('allBloodTypes', () {
@@ -429,6 +434,18 @@ void main() {
         expect(r.familySearchId, isNull);
       });
 
+      test('shortId survives roundtrip', () {
+        final p = Person(id: 'x', name: 'John Doe', shortId: 'JD-042');
+        final r = Person.fromMap(p.toMap());
+        expect(r.shortId, 'JD-042');
+      });
+
+      test('null shortId roundtrips to null', () {
+        final p = Person(id: 'x', name: 'X');
+        final r = Person.fromMap(p.toMap());
+        expect(r.shortId, isNull);
+      });
+
       test('postal code fields survive roundtrip', () {
         final p = Person(
           id: 'x',
@@ -500,6 +517,7 @@ void main() {
           wikitreeId: 'Dupont-42',
           findAGraveId: '9876',
           familySearchId: 'KW7S-BBQ',
+          shortId: 'MD-001',
         );
         final r = Person.fromMap(original.toMap());
         expect(r.occupation, original.occupation);
@@ -523,6 +541,7 @@ void main() {
         expect(r.wikitreeId, original.wikitreeId);
         expect(r.findAGraveId, original.findAGraveId);
         expect(r.familySearchId, original.familySearchId);
+        expect(r.shortId, original.shortId);
       });
     });
   });
