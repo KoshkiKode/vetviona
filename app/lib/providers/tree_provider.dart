@@ -1341,7 +1341,14 @@ class TreeProvider extends ChangeNotifier {
       final existing = persons.where((p) => p.id == person.id).firstOrNull;
       final isNew = existing == null;
       if (isNew) {
-        if (isAtPersonLimit) continue;
+        // Guard against exceeding the free-tier person cap.  We use
+        // `persons.length + added` rather than `isAtPersonLimit` because the
+        // in-memory `persons` list is not updated during this loop — only
+        // reloaded via `loadPersons()` at the very end.  Without this
+        // correction a free-tier user could receive an unbounded number of
+        // new people in a single sync payload.
+        final limit = personLimit;
+        if (limit != null && persons.length + added >= limit) continue;
         if (sessionCap != null && added >= sessionCap) continue;
       } else {
         // Concurrent merge: skip if local record is strictly newer.
@@ -1433,7 +1440,8 @@ class TreeProvider extends ChangeNotifier {
         ..title = InputSanitizer.sanitizeRequired(
             event.title, maxLength: InputSanitizer.maxShortField)
         ..place = InputSanitizer.shortField(event.place)
-        ..notes = InputSanitizer.mediumField(event.notes);
+        ..notes = InputSanitizer.mediumField(event.notes)
+        ..treeId = currentTreeId;
       await db.insert('life_events', event.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -1798,8 +1806,14 @@ class TreeProvider extends ChangeNotifier {
       if (p.id == keepId || p.id == mergeId) continue;
       bool changed = false;
       if (p.parentIds.contains(mergeId)) {
+        // Preserve the relationship type (biological/adoptive/step/foster) so
+        // it is not silently reset to the default 'biological' after the merge.
+        final relType = p.parentRelTypes.remove(mergeId) ?? 'biological';
         p.parentIds.remove(mergeId);
-        if (!p.parentIds.contains(keepId)) p.parentIds.add(keepId);
+        if (!p.parentIds.contains(keepId)) {
+          p.parentIds.add(keepId);
+          p.parentRelTypes[keepId] = relType;
+        }
         changed = true;
       }
       if (p.childIds.contains(mergeId)) {
@@ -1881,7 +1895,41 @@ class TreeProvider extends ChangeNotifier {
     // Copy birth info if keep has none.
     if (keep.birthDate == null && merge.birthDate != null) {
       keep.birthDate = merge.birthDate;
-      keep.birthPlace = merge.birthPlace;
+    }
+    keep.birthPlace ??= merge.birthPlace;
+
+    // Copy death info if keep has none.
+    if (keep.deathDate == null && merge.deathDate != null) {
+      keep.deathDate = merge.deathDate;
+      keep.deathPlace ??= merge.deathPlace;
+    }
+    keep.deathPlace ??= merge.deathPlace;
+    keep.causeOfDeath ??= merge.causeOfDeath;
+
+    // Copy burial info if keep has none.
+    if (keep.burialDate == null && merge.burialDate != null) {
+      keep.burialDate = merge.burialDate;
+      keep.burialPlace ??= merge.burialPlace;
+    }
+    keep.burialPlace ??= merge.burialPlace;
+
+    // Copy other identifying fields when keep is missing them.
+    keep.gender ??= merge.gender;
+    keep.occupation ??= merge.occupation;
+    keep.nationality ??= merge.nationality;
+    keep.maidenName ??= merge.maidenName;
+    keep.religion ??= merge.religion;
+    keep.education ??= merge.education;
+    keep.bloodType ??= merge.bloodType;
+    keep.eyeColour ??= merge.eyeColour;
+    keep.hairColour ??= merge.hairColour;
+    keep.height ??= merge.height;
+    keep.wikitreeId ??= merge.wikitreeId;
+    keep.findAGraveId ??= merge.findAGraveId;
+
+    // Merge aliases (dedup).
+    for (final alias in merge.aliases) {
+      if (!keep.aliases.contains(alias)) keep.aliases.add(alias);
     }
 
     await updatePerson(keep);
