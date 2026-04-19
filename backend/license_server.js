@@ -11,6 +11,12 @@ const DB_PATH = process.env.LICENSE_DB_PATH || path.join(__dirname, 'license-db.
 const PBKDF2_ITERATIONS = 120000;
 const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = 'sha256';
+// scrypt parameters (memory-hard; N=16384 uses 16 MB which fits the Node.js
+// default maxmem of 32 MB; increase N in production if memory allows)
+const SCRYPT_N = 16384;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 64;
 
 // ── Email configuration ─────────────────────────────────────────────────────
 // Set SMTP_HOST (and optionally SMTP_PORT/SMTP_USER/SMTP_PASS/SMTP_SECURE)
@@ -210,10 +216,32 @@ function cleanupExpired(db) {
 }
 
 // ── Crypto ───────────────────────────────────────────────────────────────────
+
+/// Hash a password using scrypt (memory-hard, preferred over PBKDF2).
+/// Returns a hex string with the format: "scrypt$<hex>".
+/// Also accepts legacy PBKDF2 hashes (plain hex, no prefix) so that existing
+/// accounts stored before the scrypt migration continue to work.
 function hashPassword(password, salt) {
-  return crypto
-    .pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST)
+  return 'scrypt$' + crypto
+    .scryptSync(password, salt, SCRYPT_KEYLEN, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P })
     .toString('hex');
+}
+
+/// Verify a password against a stored hash, supporting both scrypt (new) and
+/// PBKDF2-SHA256 (legacy) formats so that pre-migration accounts still work.
+function verifyPassword(password, salt, storedHash) {
+  if (storedHash.startsWith('scrypt$')) {
+    const expected = Buffer.from(storedHash.slice('scrypt$'.length), 'hex');
+    const actual = crypto.scryptSync(
+      password, salt, SCRYPT_KEYLEN,
+      { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P },
+    );
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  }
+  // Legacy PBKDF2-SHA256 path — no prefix, plain hex.
+  const actual = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
+  const expected = Buffer.from(storedHash, 'hex');
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
 function sanitizeEmail(email) {
@@ -325,10 +353,7 @@ function requireAccountAndPassword(db, email, password) {
     return { error: 'Account not found.' };
   }
 
-  const actualHash = hashPassword(String(password), account.passwordSalt);
-  const expectedHash = Buffer.from(account.passwordHash, 'hex');
-  const actual = Buffer.from(actualHash, 'hex');
-  if (expectedHash.length !== actual.length || !crypto.timingSafeEqual(expectedHash, actual)) {
+  if (!verifyPassword(String(password), account.passwordSalt, account.passwordHash)) {
     return { error: 'Invalid email or password.' };
   }
   return { account };
