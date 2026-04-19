@@ -277,7 +277,7 @@ Before going to production with the license backend:
 2. **Set `LICENSE_KEY_SECRET`** — a stable secret of ≥ 32 characters ensures re-entry license codes are consistent across server restarts and deployments.
 3. **Configure SMTP** — so users receive real email verification codes, gift notifications, and voucher emails.
 4. **Serve over HTTPS** — put the backend behind a reverse proxy (nginx, Caddy, etc.) with a valid TLS certificate.
-5. **Restrict file permissions** on `LICENSE_DB_PATH` — the JSON database contains password hashes (PBKDF2-SHA256) and should not be world-readable.
+5. **Restrict file permissions** on `LICENSE_DB_PATH` — the JSON database contains password hashes (scrypt; legacy accounts may contain PBKDF2-SHA256 hashes) and should not be world-readable.
 6. **Set `MAX_DEVICES_PER_LICENSE`** if 15 devices per license type is not appropriate for your deployment.
 
 For the full encryption and privacy model see [Security and Privacy](Security-and-Privacy).
