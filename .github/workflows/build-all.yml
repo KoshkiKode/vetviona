@@ -1,4 +1,4 @@
-name: Build — All Platforms
+name: Build — Matrix Exports
 
 on:
   push:
@@ -13,18 +13,118 @@ env:
   MACOS_DEPLOYMENT_TARGET: '10.15'
 
 jobs:
-  android:
-    name: Android APK + AAB (Paid + Free)
+  tests:
+    name: Flutter Unit Tests
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
+        with:
+          channel: stable
+          cache: true
       - working-directory: app
+        run: |
+          flutter pub get
+          flutter test --reporter=expanded
+
+  export-generic-files:
+    name: Export Generic Files
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-generic-files
+          path: |
+            README.md
+            app/pubspec.yaml
+            packaging/**
+          retention-days: 7
+
+  export-platform:
+    name: Export • ${{ matrix.label }}
+    needs: [tests, export-generic-files]
+    runs-on: ${{ matrix.runs_on }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: android-paid
+            label: Android Paid (APK + AAB)
+            runs_on: ubuntu-latest
+          - id: android-free
+            label: Android Free (APK + AAB)
+            runs_on: ubuntu-latest
+          - id: ios-paid
+            label: iOS Paid (IPA)
+            runs_on: macos-latest
+          - id: ios-free
+            label: iOS Free (IPA)
+            runs_on: macos-latest
+          - id: windows-exe
+            label: Windows Paid (EXE)
+            runs_on: windows-latest
+          - id: windows-msi
+            label: Windows Paid (MSI)
+            runs_on: windows-latest
+          - id: windows-msix
+            label: Windows Paid (MSIX)
+            runs_on: windows-latest
+          - id: macos-dmg
+            label: macOS Paid (DMG)
+            runs_on: macos-latest
+          - id: linux-deb
+            label: Linux Paid (DEB)
+            runs_on: ubuntu-22.04
+          - id: linux-snap
+            label: Linux Paid (Snap)
+            runs_on: ubuntu-22.04
+          - id: linux-flatpak
+            label: Linux Paid (Flatpak)
+            runs_on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        if: ${{ matrix.id == 'android-paid' || matrix.id == 'android-free' }}
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Linux build dependencies
+        if: ${{ startsWith(matrix.id, 'linux-') }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libunwind-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+      - name: Install Flatpak dependencies
+        if: ${{ matrix.id == 'linux-flatpak' }}
+        run: |
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub \
+            https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//23.08 \
+            org.freedesktop.Sdk//23.08
+
+      - name: Bootstrap Android
+        if: ${{ matrix.id == 'android-paid' || matrix.id == 'android-free' }}
+        working-directory: app
         run: |
           flutter create --platforms=android --org com.koshkikode .
           flutter pub get
@@ -33,54 +133,107 @@ jobs:
           import re
 
           files = [
-              (Path("android/app/build.gradle.kts"), "kts"),
-              (Path("android/app/build.gradle"), "gradle"),
+              (Path('android/app/build.gradle.kts'), 'kts'),
+              (Path('android/app/build.gradle'), 'gradle'),
           ]
 
           for path, kind in files:
               if not path.exists():
                   continue
-              content = path.read_text(encoding="utf-8")
-              if kind == "kts":
-                  updated, replacements = re.subn(
-                      r"(minSdk(?:Version)?)(\s*=\s*)?\s*flutter\.minSdkVersion",
-                      lambda m: f"{m.group(1)}{' = ' if m.group(2) else ' '}24",
-                      content,
-                      count=1,
-                  )
-              else:
-                  updated, replacements = re.subn(
-                      r"(minSdk(?:Version)?)(\s*=\s*)?\s*flutter\.minSdkVersion",
-                      lambda m: f"{m.group(1)}{' = ' if m.group(2) else ' '}24",
-                      content,
-                      count=1,
-                  )
+              content = path.read_text(encoding='utf-8')
+              updated, replacements = re.subn(
+                  r'(minSdk(?:Version)?)(\s*=\s*)?\s*flutter\.minSdkVersion',
+                  lambda m: f"{m.group(1)}{' = ' if m.group(2) else ' '}24",
+                  content,
+                  count=1,
+              )
               if replacements == 0:
                   raise SystemExit(
-                      f"Could not update minSdk in {path}; expected a line like "
-                      "minSdk/minSdkVersion [=] flutter.minSdkVersion."
+                      f'Could not update minSdk in {path}; expected a line like '
+                      'minSdk/minSdkVersion [=] flutter.minSdkVersion.'
                   )
-              path.write_text(updated, encoding="utf-8")
+              path.write_text(updated, encoding='utf-8')
               break
           else:
-              raise SystemExit("Android Gradle build file not found.")
+              raise SystemExit('Android Gradle build file not found.')
           PY
           dart run flutter_launcher_icons -f icons_android.yaml
+
+      - name: Bootstrap iOS
+        if: ${{ matrix.id == 'ios-paid' || matrix.id == 'ios-free' }}
+        working-directory: app
+        run: |
+          flutter create --platforms=ios --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f icons_ios.yaml
+
+      - name: Set iOS deployment target
+        if: ${{ matrix.id == 'ios-paid' || matrix.id == 'ios-free' }}
+        run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '${IOS_DEPLOYMENT_TARGET}'/" app/ios/Podfile
+
+      - name: Bootstrap Windows
+        if: ${{ startsWith(matrix.id, 'windows-') }}
+        working-directory: app
+        run: |
+          flutter config --enable-windows-desktop
+          flutter create --platforms=windows --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f icons_windows.yaml
+
+      - name: Bootstrap macOS
+        if: ${{ matrix.id == 'macos-dmg' }}
+        working-directory: app
+        run: |
+          flutter config --enable-macos-desktop
+          flutter create --platforms=macos --org com.koshkikode .
+          flutter pub get
+          dart run flutter_launcher_icons -f icons_macos.yaml
+
+      - name: Set macOS deployment target
+        if: ${{ matrix.id == 'macos-dmg' }}
+        run: sed -i '' "s/.*platform :osx, .*/platform :osx, '${MACOS_DEPLOYMENT_TARGET}'/" app/macos/Podfile
+
+      - name: Copy macOS entitlements
+        if: ${{ matrix.id == 'macos-dmg' }}
+        run: |
+          cp packaging/macos/entitlements.plist app/macos/Runner/Release.entitlements
+          cp packaging/macos/entitlements.plist app/macos/Runner/DebugProfile.entitlements
+
+      - name: Bootstrap Linux
+        if: ${{ startsWith(matrix.id, 'linux-') }}
+        working-directory: app
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux --org com.koshkikode .
+          flutter pub get
+
+      - name: Build Android (paid)
+        if: ${{ matrix.id == 'android-paid' }}
+        working-directory: app
+        run: |
           flutter build apk --release --dart-define=MOBILE_PAID=true
           flutter build appbundle --release --dart-define=MOBILE_PAID=true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Build Android (free)
+        if: ${{ matrix.id == 'android-free' }}
+        working-directory: app
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+
+      - name: Upload Android artifact (paid)
+        if: ${{ matrix.id == 'android-paid' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-android-paid
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
-      - working-directory: app
-        run: |
-          flutter pub get
-          flutter build apk --release
-          flutter build appbundle --release
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload Android artifact (free)
+        if: ${{ matrix.id == 'android-free' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-android-free
           path: |
@@ -88,185 +241,142 @@ jobs:
             app/build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
 
-  ios:
-    name: iOS IPA (Paid + Free)
-    runs-on: macos-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - working-directory: app
-        run: flutter create --platforms=ios --org com.koshkikode .
-      - run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '${IOS_DEPLOYMENT_TARGET}'/" app/ios/Podfile
-      - working-directory: app
+      - name: Build iOS (paid)
+        if: ${{ matrix.id == 'ios-paid' }}
+        working-directory: app
+        run: flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
+
+      - name: Build iOS (free)
+        if: ${{ matrix.id == 'ios-free' }}
+        working-directory: app
+        run: flutter build ios --release --no-codesign
+
+      - name: Package iOS IPA (paid)
+        if: ${{ matrix.id == 'ios-paid' }}
         run: |
-          flutter pub get
-          dart run flutter_launcher_icons -f icons_ios.yaml
-          flutter build ios --release --no-codesign --dart-define=MOBILE_PAID=true
-      - run: |
           rm -rf /tmp/vetviona-paid-ipa
           mkdir -p /tmp/vetviona-paid-ipa/Payload
           cp -r app/build/ios/iphoneos/Runner.app /tmp/vetviona-paid-ipa/Payload/
           cd /tmp/vetviona-paid-ipa && zip -r /tmp/vetviona-paid.ipa Payload
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: build-ios-paid
-          path: /tmp/vetviona-paid.ipa
-          retention-days: 7
-      - working-directory: app
+
+      - name: Package iOS IPA (free)
+        if: ${{ matrix.id == 'ios-free' }}
         run: |
-          flutter pub get
-          flutter build ios --release --no-codesign
-      - run: |
           rm -rf /tmp/vetviona-free-ipa
           mkdir -p /tmp/vetviona-free-ipa/Payload
           cp -r app/build/ios/iphoneos/Runner.app /tmp/vetviona-free-ipa/Payload/
           cd /tmp/vetviona-free-ipa && zip -r /tmp/vetviona-free.ipa Payload
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload iOS artifact (paid)
+        if: ${{ matrix.id == 'ios-paid' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-ios-paid
+          path: /tmp/vetviona-paid.ipa
+          retention-days: 7
+
+      - name: Upload iOS artifact (free)
+        if: ${{ matrix.id == 'ios-free' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-ios-free
           path: /tmp/vetviona-free.ipa
           retention-days: 7
 
-  windows-exe:
-    name: Windows EXE
-    runs-on: windows-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - working-directory: app
-        run: |
-          flutter config --enable-windows-desktop
-          flutter create --platforms=windows --org com.koshkikode .
-          flutter pub get
-          dart run flutter_launcher_icons -f icons_windows.yaml
-          flutter build windows --release --dart-define=PAID=true
-      - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - name: Build Windows (paid)
+        if: ${{ startsWith(matrix.id, 'windows-') }}
+        working-directory: app
+        run: flutter build windows --release --dart-define=PAID=true
+
+      - name: Rename Windows executable
+        if: ${{ startsWith(matrix.id, 'windows-') }}
+        run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
+
+      - name: Upload Windows EXE artifact
+        if: ${{ matrix.id == 'windows-exe' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-windows-exe
-          path: app/build/windows/x64/runner/Release/
+          path: app/build/windows/x64/runner/Release/vetviona.exe
           retention-days: 7
 
-  windows-msi:
-    name: Windows MSI
-    runs-on: windows-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - working-directory: app
+      - name: Install WiX
+        if: ${{ matrix.id == 'windows-msi' }}
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Configure WiX extensions
+        if: ${{ matrix.id == 'windows-msi' }}
         run: |
-          flutter config --enable-windows-desktop
-          flutter create --platforms=windows --org com.koshkikode .
-          flutter pub get
-          dart run flutter_launcher_icons -f icons_windows.yaml
-          flutter build windows --release --dart-define=PAID=true
-      - run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
-      - run: dotnet tool install --global wix --version 5.0.2
-      - run: |
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
           wix extension add -g WixToolset.UI --version 5.0.2
           wix extension add -g WixToolset.Heat --version 5.0.2
-      - run: |
+
+      - name: Copy MSI packaging files
+        if: ${{ matrix.id == 'windows-msi' }}
+        run: |
           cp packaging/windows/vetviona.wxs app/build/windows/x64/runner/Release/vetviona.wxs
           cp packaging/windows/LICENSE.rtf app/build/windows/x64/runner/Release/LICENSE.rtf
-      - working-directory: app/build/windows/x64/runner/Release
+
+      - name: Build MSI
+        if: ${{ matrix.id == 'windows-msi' }}
+        working-directory: app/build/windows/x64/runner/Release
         run: |
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
           wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
           wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload Windows MSI artifact
+        if: ${{ matrix.id == 'windows-msi' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-windows-msi
           path: app/build/windows/x64/runner/Release/vetviona-setup.msi
           retention-days: 7
 
-  windows-msix:
-    name: Windows MSIX
-    runs-on: windows-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - working-directory: app
+      - name: Build MSIX
+        if: ${{ matrix.id == 'windows-msix' }}
+        working-directory: app
         run: |
-          flutter config --enable-windows-desktop
-          flutter create --platforms=windows --org com.koshkikode .
-          flutter pub get
-          dart run flutter_launcher_icons -f icons_windows.yaml
-          flutter build windows --release --dart-define=PAID=true
           $version = (Select-String -Path pubspec.yaml -Pattern '^version:').Line -replace '^version:\s*', '' -replace '\+.*', ''
           dart run msix:create --version "$version.0"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload Windows MSIX artifact
+        if: ${{ matrix.id == 'windows-msix' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-windows-msix
           path: app/build/windows/x64/runner/Release/vetviona-setup.msix
           retention-days: 7
 
-  macos:
-    name: macOS DMG
-    runs-on: macos-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - run: flutter config --enable-macos-desktop
-      - working-directory: app
-        run: flutter create --platforms=macos --org com.koshkikode .
-      - run: sed -i '' "s/.*platform :osx, .*/platform :osx, '${MACOS_DEPLOYMENT_TARGET}'/" app/macos/Podfile
-      - run: |
-          cp packaging/macos/entitlements.plist app/macos/Runner/Release.entitlements
-          cp packaging/macos/entitlements.plist app/macos/Runner/DebugProfile.entitlements
-      - working-directory: app
+      - name: Build macOS (paid)
+        if: ${{ matrix.id == 'macos-dmg' }}
+        working-directory: app
+        run: flutter build macos --release --dart-define=PAID=true
+
+      - name: Package DMG
+        if: ${{ matrix.id == 'macos-dmg' }}
         run: |
-          flutter pub get
-          dart run flutter_launcher_icons -f icons_macos.yaml
-          flutter build macos --release --dart-define=PAID=true
-      - run: |
           hdiutil create -volname "Vetviona" \
             -srcfolder "app/build/macos/Build/Products/Release/vetviona_app.app" \
             -ov -format UDZO vetviona-macos.dmg
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload macOS artifact
+        if: ${{ matrix.id == 'macos-dmg' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-macos
           path: vetviona-macos.dmg
           retention-days: 7
 
-  linux-deb:
-    name: Linux DEB
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - run: |
-          sudo apt-get update -y
-          sudo apt-get install -y clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libunwind-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            dpkg-dev
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - working-directory: app
+      - name: Build Linux (paid)
+        if: ${{ startsWith(matrix.id, 'linux-') }}
+        working-directory: app
+        run: flutter build linux --release --dart-define=PAID=true
+
+      - name: Build DEB
+        if: ${{ matrix.id == 'linux-deb' }}
         run: |
-          flutter config --enable-linux-desktop
-          flutter create --platforms=linux --org com.koshkikode .
-          flutter pub get
-          flutter build linux --release --dart-define=PAID=true
-      - run: |
+          sudo apt-get install -y dpkg-dev
           VERSION=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           PKGDIR="vetviona_${VERSION}_amd64"
           mkdir -p "$PKGDIR/usr/bin" "$PKGDIR/usr/share/applications" "$PKGDIR/DEBIAN"
@@ -288,85 +398,55 @@ jobs:
           Categories=Education;
           EOF
           dpkg-deb --build "$PKGDIR"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload Linux DEB artifact
+        if: ${{ matrix.id == 'linux-deb' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-linux-deb
           path: vetviona_*.deb
           retention-days: 7
 
-  snap:
-    name: Linux Snap
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - name: Install Linux build dependencies
+      - name: Prepare Snap sources
+        if: ${{ matrix.id == 'linux-snap' }}
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libunwind-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - working-directory: app
-        run: |
-          flutter config --enable-linux-desktop
-          flutter create --platforms=linux --org com.koshkikode .
-          flutter pub get
-          flutter build linux --release --dart-define=PAID=true
-      - run: |
           mkdir -p app/snap-bundle
           cp -r app/build/linux/x64/release/bundle/* app/snap-bundle/
-      - run: |
           mkdir -p app/snap
           cp packaging/linux/snap/snapcraft.yaml app/snap/snapcraft.yaml
-      - uses: canonical/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
+
+      - name: Build Snap
+        if: ${{ matrix.id == 'linux-snap' }}
+        uses: canonical/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
         id: build-snap
         with:
           path: app
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload Linux Snap artifact
+        if: ${{ matrix.id == 'linux-snap' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-linux-snap
           path: ${{ steps.build-snap.outputs.snap }}
           retention-days: 7
 
-  flatpak:
-    name: Linux Flatpak
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - run: |
-          sudo apt-get update -y
-          sudo apt-get install -y clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libunwind-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            flatpak flatpak-builder
-          sudo flatpak remote-add --if-not-exists flathub \
-            https://dl.flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.freedesktop.Platform//23.08 \
-            org.freedesktop.Sdk//23.08
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with: { channel: stable, cache: true }
-      - working-directory: app
+      - name: Prepare Flatpak sources
+        if: ${{ matrix.id == 'linux-flatpak' }}
         run: |
-          flutter config --enable-linux-desktop
-          flutter create --platforms=linux --org com.koshkikode .
-          flutter pub get
-          flutter build linux --release --dart-define=PAID=true
-      - run: |
           mkdir -p packaging/linux/flatpak/bundle
           cp -r app/build/linux/x64/release/bundle/* packaging/linux/flatpak/bundle/
-      - run: |
+
+      - name: Build Flatpak bundle
+        if: ${{ matrix.id == 'linux-flatpak' }}
+        run: |
           flatpak-builder --repo=flatpak-repo --force-clean flatpak-build \
             packaging/linux/flatpak/com.koshkikode.Vetviona.yml
           flatpak build-bundle flatpak-repo vetviona.flatpak \
             com.koshkikode.Vetviona
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+
+      - name: Upload Linux Flatpak artifact
+        if: ${{ matrix.id == 'linux-flatpak' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-linux-flatpak
           path: vetviona.flatpak
