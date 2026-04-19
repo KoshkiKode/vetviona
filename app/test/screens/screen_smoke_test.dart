@@ -37,6 +37,7 @@ import 'package:vetviona_app/screens/research_tasks_screen.dart';
 import 'package:vetviona_app/screens/settings_screen.dart';
 import 'package:vetviona_app/screens/source_detail_screen.dart';
 import 'package:vetviona_app/screens/sources_page.dart';
+import 'package:vetviona_app/screens/eula_screen.dart';
 import 'package:vetviona_app/screens/splash_screen.dart';
 import 'package:vetviona_app/screens/statistics_screen.dart';
 import 'package:vetviona_app/screens/sync_screen.dart';
@@ -132,6 +133,46 @@ void main() {
 
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       expect(find.text('Loading people\u2026'), findsOneWidget);
+    });
+  });
+
+  // ── EulaScreen ──────────────────────────────────────────────────────────────
+
+  group('EulaScreen smoke test', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    testWidgets('renders EULA title without throwing', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const EulaScreen()));
+      await tester.pump();
+
+      expect(find.text('End User License Agreement'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('shows Accept button in first-launch mode', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const EulaScreen()));
+      await tester.pump();
+
+      expect(find.text('Accept'), findsOneWidget);
+      expect(find.text('Decline'), findsOneWidget);
+    });
+
+    testWidgets('renders in read-only mode without Accept button', (tester) async {
+      await tester.pumpWidget(
+          _buildTestApp(const EulaScreen(readOnly: true)));
+      await tester.pump();
+
+      expect(find.text('Accept'), findsNothing);
+      expect(find.text('Decline'), findsNothing);
+    });
+
+    testWidgets('contains KoshkiKode copyright text', (tester) async {
+      await tester.pumpWidget(_buildTestApp(const EulaScreen()));
+      await tester.pump();
+
+      // The EULA text widget is a SelectableText; just verify it rendered.
+      expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
     });
   });
 

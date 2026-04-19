@@ -8,9 +8,24 @@ const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT || 8080);
 const DB_PATH = process.env.LICENSE_DB_PATH || path.join(__dirname, 'license-db.json');
+
+// ── AWS S3 Database Backend ───────────────────────────────────────────────────
+// When AWS_S3_BUCKET is set the license database is stored in S3 instead of
+// a local file.  The S3 object is always encrypted at rest (SSE-KMS when
+// AWS_KMS_KEY_ID is set; otherwise SSE-S3/AES256).
+const S3_BUCKET = process.env.AWS_S3_BUCKET || '';
+const S3_KEY    = process.env.AWS_S3_KEY    || 'vetviona/license-db.json';
+const S3_KMS_KEY_ID = process.env.AWS_KMS_KEY_ID || '';
+const AWS_REGION    = process.env.AWS_REGION    || 'us-east-1';
 const PBKDF2_ITERATIONS = 120000;
 const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = 'sha256';
+// scrypt parameters (memory-hard; N=16384 uses 16 MB which fits the Node.js
+// default maxmem of 32 MB; increase N in production if memory allows)
+const SCRYPT_N = 16384;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 64;
 
 // ── Email configuration ─────────────────────────────────────────────────────
 // Set SMTP_HOST (and optionally SMTP_PORT/SMTP_USER/SMTP_PASS/SMTP_SECURE)
@@ -62,6 +77,16 @@ const DESKTOP_OSES = new Set(['windows', 'macos', 'linux']);
 const LICENSE_TYPES = new Set(['apple', 'android', 'desktop']);
 const TOKEN_EXPIRY_HOURS = 48;
 const GIFT_EXPIRY_HOURS = 72;
+// We generate 32 random bytes (64 hex chars), but accept any configured secret
+// that is at least this many characters.
+const MIN_LICENSE_SECRET_LENGTH = 32;
+const LICENSE_CODE_HEX_LENGTH = 24;
+const LICENSE_CODE_PREFIX_LENGTH = 3;
+const ABSOLUTE_MAX_DEVICES_PER_LICENSE = 10_000;
+const MAX_DEVICES_PER_LICENSE = Math.min(
+  Math.max(Number(process.env.MAX_DEVICES_PER_LICENSE) || 15, 1),
+  ABSOLUTE_MAX_DEVICES_PER_LICENSE,
+);
 
 // ADMIN_SECRET protects the voucher-creation endpoint.
 // In dev mode (no ADMIN_SECRET set) the server prints a one-time secret at
@@ -72,30 +97,154 @@ const _devAdminSecret = crypto.randomBytes(8).toString('hex');
 function nowIso() { return new Date().toISOString(); }
 function addHours(hours) { return new Date(Date.now() + hours * 3_600_000).toISOString(); }
 function generateToken() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+function normalizeLicenseCode(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function timingSafeEqualStrings(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function getLicenseSigningSecret(db) {
+  if (process.env.LICENSE_KEY_SECRET) return String(process.env.LICENSE_KEY_SECRET);
+  if (
+    db.meta &&
+    typeof db.meta.licenseKeySecret === 'string' &&
+    db.meta.licenseKeySecret.length >= MIN_LICENSE_SECRET_LENGTH
+  ) {
+    return db.meta.licenseKeySecret;
+  }
+  return '';
+}
+
+function ensureLicenseSigningSecret(db) {
+  if (process.env.LICENSE_KEY_SECRET) return false;
+  db.meta = db.meta || {};
+  if (
+    typeof db.meta.licenseKeySecret === 'string' &&
+    db.meta.licenseKeySecret.length >= MIN_LICENSE_SECRET_LENGTH
+  ) {
+    return false;
+  }
+  db.meta.licenseKeySecret = crypto.randomBytes(32).toString('hex');
+  return true;
+}
+
+function computeReentryLicenseCode(db, account, licenseType) {
+  const secret = getLicenseSigningSecret(db);
+  if (!secret) return null;
+  const digest = crypto
+    .createHmac('sha256', secret)
+    .update(`${account.id}:${account.email}:${licenseType}`)
+    .digest('hex')
+    .toUpperCase()
+    .slice(0, LICENSE_CODE_HEX_LENGTH);
+  const parts = [];
+  for (let i = 0; i < digest.length; i += 4) {
+    parts.push(digest.slice(i, i + 4));
+  }
+  const grouped = parts.join('-');
+  const prefix = licenseType
+    .toUpperCase()
+    .padEnd(LICENSE_CODE_PREFIX_LENGTH, 'X')
+    .slice(0, LICENSE_CODE_PREFIX_LENGTH);
+  return `${prefix}-${grouped}`;
+}
+
+function isValidReentryLicenseCode(db, account, licenseType, providedCode) {
+  const expected = computeReentryLicenseCode(db, account, licenseType);
+  if (!expected) return false;
+  const normalizedExpected = normalizeLicenseCode(expected);
+  const normalizedProvided = normalizeLicenseCode(providedCode);
+  return timingSafeEqualStrings(normalizedExpected, normalizedProvided);
+}
+
+// ── S3 Client ─────────────────────────────────────────────────────────────────
+let _s3 = null;
+function getS3() {
+  if (!S3_BUCKET) return null;
+  if (_s3) return _s3;
+  try {
+    // @aws-sdk/client-s3 is an optional peer dep; install with:
+    //   npm install @aws-sdk/client-s3
+    // Credentials are resolved automatically from:
+    //   1. Env vars: AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN)
+    //   2. ~/.aws/credentials / config file
+    //   3. EC2/ECS/Lambda instance IAM role (recommended in production)
+    const { S3Client } = require('@aws-sdk/client-s3');
+    _s3 = new S3Client({ region: AWS_REGION });
+    return _s3;
+  } catch (e) {
+    console.warn(`[s3] @aws-sdk/client-s3 unavailable: ${e.message}`);
+    console.warn('[s3] Run: npm install @aws-sdk/client-s3');
+    return null;
+  }
+}
 
 // ── Database ─────────────────────────────────────────────────────────────────
-function readDb() {
-  if (!fs.existsSync(DB_PATH)) {
-    return { accounts: [], pendingGifts: [] };
+async function readDb() {
+  const s3 = getS3();
+  if (s3) {
+    try {
+      const { GetObjectCommand } = require('@aws-sdk/client-s3');
+      const response = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: S3_KEY }));
+      const chunks = [];
+      for await (const chunk of response.Body) chunks.push(chunk);
+      const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      if (!parsed || !Array.isArray(parsed.accounts)) {
+        return { accounts: [], pendingGifts: [], meta: {} };
+      }
+      if (!Array.isArray(parsed.pendingGifts)) parsed.pendingGifts = [];
+      if (!parsed.meta || typeof parsed.meta !== 'object') parsed.meta = {};
+      return parsed;
+    } catch (err) {
+      if (err.name === 'NoSuchKey') return { accounts: [], pendingGifts: [], meta: {} };
+      throw err;
+    }
   }
+  // ── Local file fallback (dev mode) ──────────────────────────────────────────
+  if (!fs.existsSync(DB_PATH)) return { accounts: [], pendingGifts: [], meta: {} };
   try {
     const raw = fs.readFileSync(DB_PATH, 'utf8');
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.accounts)) {
-      return { accounts: [], pendingGifts: [] };
+      return { accounts: [], pendingGifts: [], meta: {} };
     }
     if (!Array.isArray(parsed.pendingGifts)) parsed.pendingGifts = [];
+    if (!parsed.meta || typeof parsed.meta !== 'object') parsed.meta = {};
     return parsed;
   } catch {
-    return { accounts: [], pendingGifts: [] };
+    return { accounts: [], pendingGifts: [], meta: {} };
   }
 }
 
-function writeDb(db) {
+async function writeDb(db) {
+  const s3 = getS3();
+  const encoded = JSON.stringify(db, null, 2);
+  if (s3) {
+    const { PutObjectCommand } = require('@aws-sdk/client-s3');
+    const params = {
+      Bucket: S3_BUCKET,
+      Key: S3_KEY,
+      Body: encoded,
+      ContentType: 'application/json',
+      // Always encrypt at rest — SSE-KMS when a key ID is provided, else SSE-S3 (AES-256)
+      ServerSideEncryption: S3_KMS_KEY_ID ? 'aws:kms' : 'AES256',
+    };
+    if (S3_KMS_KEY_ID) params.SSEKMSKeyId = S3_KMS_KEY_ID;
+    await s3.send(new PutObjectCommand(params));
+    return;
+  }
+  // ── Local file fallback (dev mode) ──────────────────────────────────────────
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const fd = fs.openSync(DB_PATH, 'w', 0o600);
   try {
-    fs.writeFileSync(fd, JSON.stringify(db, null, 2), 'utf8');
+    fs.writeFileSync(fd, encoded, 'utf8');
   } finally {
     fs.closeSync(fd);
   }
@@ -133,10 +282,32 @@ function cleanupExpired(db) {
 }
 
 // ── Crypto ───────────────────────────────────────────────────────────────────
+
+/// Hash a password using scrypt (memory-hard, preferred over PBKDF2).
+/// Returns a hex string with the format: "scrypt$<hex>".
+/// Also accepts legacy PBKDF2 hashes (plain hex, no prefix) so that existing
+/// accounts stored before the scrypt migration continue to work.
 function hashPassword(password, salt) {
-  return crypto
-    .pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST)
+  return 'scrypt$' + crypto
+    .scryptSync(password, salt, SCRYPT_KEYLEN, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P })
     .toString('hex');
+}
+
+/// Verify a password against a stored hash, supporting both scrypt (new) and
+/// PBKDF2-SHA256 (legacy) formats so that pre-migration accounts still work.
+function verifyPassword(password, salt, storedHash) {
+  if (storedHash.startsWith('scrypt$')) {
+    const expected = Buffer.from(storedHash.slice('scrypt$'.length), 'hex');
+    const actual = crypto.scryptSync(
+      password, salt, SCRYPT_KEYLEN,
+      { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P },
+    );
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  }
+  // Legacy PBKDF2-SHA256 path — no prefix, plain hex.
+  const actual = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
+  const expected = Buffer.from(storedHash, 'hex');
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
 function sanitizeEmail(email) {
@@ -192,6 +363,11 @@ function getLicenseDetail(account, type) {
 function publicAccount(account, db) {
   const giftedOut = getGiftedOut(account);
   const licenses = account.licenses || {};
+  const entitlements = {
+    apple: licenses.apple === true && !giftedOut.apple,
+    android: licenses.android === true && !giftedOut.android,
+    desktop: licenses.desktop === true && !giftedOut.desktop,
+  };
 
   const outgoingGifts = db
     ? (db.pendingGifts || [])
@@ -209,15 +385,16 @@ function publicAccount(account, db) {
     id: account.id,
     email: account.email,
     emailVerified: account.emailVerified === true,
-    entitlements: {
-      apple: licenses.apple === true && !giftedOut.apple,
-      android: licenses.android === true && !giftedOut.android,
-      desktop: licenses.desktop === true && !giftedOut.desktop,
-    },
+    entitlements,
     licensesDetail: {
       apple: getLicenseDetail(account, 'apple'),
       android: getLicenseDetail(account, 'android'),
       desktop: getLicenseDetail(account, 'desktop'),
+    },
+    reentryLicenseCodes: {
+      apple: entitlements.apple ? computeReentryLicenseCode(db, account, 'apple') : null,
+      android: entitlements.android ? computeReentryLicenseCode(db, account, 'android') : null,
+      desktop: entitlements.desktop ? computeReentryLicenseCode(db, account, 'desktop') : null,
     },
     outgoingGifts,
     devices: account.devices.map((d) => ({
@@ -242,10 +419,7 @@ function requireAccountAndPassword(db, email, password) {
     return { error: 'Account not found.' };
   }
 
-  const actualHash = hashPassword(String(password), account.passwordSalt);
-  const expectedHash = Buffer.from(account.passwordHash, 'hex');
-  const actual = Buffer.from(actualHash, 'hex');
-  if (expectedHash.length !== actual.length || !crypto.timingSafeEqual(expectedHash, actual)) {
+  if (!verifyPassword(String(password), account.passwordSalt, account.passwordHash)) {
     return { error: 'Invalid email or password.' };
   }
   return { account };
@@ -269,7 +443,7 @@ function applyPendingGifts(db, account) {
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
-function handleRegister(db, payload, res) {
+async function handleRegister(db, payload, res) {
   const email = sanitizeEmail(payload.email);
   const password = String(payload.password || '');
   const apple = payload.appleLicense === true;
@@ -315,7 +489,7 @@ function handleRegister(db, payload, res) {
   db.accounts.push(account);
   // Auto-apply any pending gifts that were sent to this email before registration.
   applyPendingGifts(db, account);
-  writeDb(db);
+  await writeDb(db);
 
   sendEmail(
     email,
@@ -328,7 +502,7 @@ function handleRegister(db, payload, res) {
   return sendJson(res, 201, response);
 }
 
-function handleVerifyEmail(db, payload, res) {
+async function handleVerifyEmail(db, payload, res) {
   const email = sanitizeEmail(payload.email);
   const token = String(payload.token || '').trim().toUpperCase();
 
@@ -356,12 +530,12 @@ function handleVerifyEmail(db, payload, res) {
   account.emailVerificationToken = null;
   account.emailVerificationExpiry = null;
   account.updatedAt = nowIso();
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, { ok: true, message: 'Email verified successfully.' });
 }
 
-function handleResendVerification(db, payload, res) {
+async function handleResendVerification(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -373,7 +547,7 @@ function handleResendVerification(db, payload, res) {
   account.emailVerificationToken = token;
   account.emailVerificationExpiry = addHours(TOKEN_EXPIRY_HOURS);
   account.updatedAt = nowIso();
-  writeDb(db);
+  await writeDb(db);
 
   sendEmail(
     account.email,
@@ -386,7 +560,7 @@ function handleResendVerification(db, payload, res) {
   return sendJson(res, 200, response);
 }
 
-function handleChangePassword(db, payload, res) {
+async function handleChangePassword(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.currentPassword);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -407,24 +581,28 @@ function handleChangePassword(db, payload, res) {
   account.passwordSalt = crypto.randomBytes(16).toString('hex');
   account.passwordHash = hashPassword(newPassword, account.passwordSalt);
   account.updatedAt = nowIso();
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, { ok: true, message: 'Password changed successfully.' });
 }
 
-function handleVerify(db, payload, res) {
-  const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
-  if (error) {
-    return sendJson(res, 401, { ok: false, message: error });
-  }
-
+async function handleVerify(db, payload, res) {
+  const email = sanitizeEmail(payload.email);
+  const password = String(payload.password || '');
+  const licenseCode = String(payload.licenseCode || '');
   const appType = String(payload.appType || '').toLowerCase();
   const os = String(payload.os || '').toLowerCase();
   const deviceId = String(payload.deviceId || '').trim();
   const appVersion = String(payload.appVersion || '');
 
+  if (!email) {
+    return sendJson(res, 400, { ok: false, message: 'Email is required.' });
+  }
   if (!LICENSE_TYPES.has(appType)) {
     return sendJson(res, 400, { ok: false, message: 'appType must be "apple", "android", or "desktop".' });
+  }
+  if (!password && !licenseCode) {
+    return sendJson(res, 400, { ok: false, message: 'Provide password or licenseCode.' });
   }
   if (deviceId.length < 4 || deviceId.length > 128) {
     return sendJson(res, 400, { ok: false, message: 'deviceId must be 4-128 characters.' });
@@ -443,6 +621,19 @@ function handleVerify(db, payload, res) {
     });
   }
 
+  let account;
+  if (password) {
+    const auth = requireAccountAndPassword(db, email, password);
+    if (auth.error) return sendJson(res, 401, { ok: false, message: auth.error });
+    account = auth.account;
+  } else {
+    account = db.accounts.find((a) => a.email === email);
+    if (!account) return sendJson(res, 401, { ok: false, message: 'Account not found.' });
+    if (!isValidReentryLicenseCode(db, account, appType, licenseCode)) {
+      return sendJson(res, 401, { ok: false, message: 'Invalid license code.' });
+    }
+  }
+
   const giftedOut = getGiftedOut(account);
   let entitled = false;
   if (appType === 'apple') entitled = account.licenses.apple === true && !giftedOut.apple;
@@ -458,6 +649,16 @@ function handleVerify(db, payload, res) {
 
   const now = nowIso();
   const existing = account.devices.find((d) => d.id === deviceId);
+  const currentTypeCount = account.devices.filter((d) => d.appType === appType).length;
+  const alreadyVerifiedForType = existing && existing.appType === appType;
+  if (!alreadyVerifiedForType && currentTypeCount >= MAX_DEVICES_PER_LICENSE) {
+    return sendJson(res, 403, {
+      ok: false,
+      message: `This ${appType} license has reached the limit of ${MAX_DEVICES_PER_LICENSE} devices/computers.`,
+      deviceLimitPerLicense: MAX_DEVICES_PER_LICENSE,
+      devicesUsedForLicense: currentTypeCount,
+    });
+  }
   if (existing) {
     existing.appType = appType;
     existing.os = os;
@@ -474,15 +675,19 @@ function handleVerify(db, payload, res) {
     });
   }
   account.updatedAt = now;
-  writeDb(db);
+  await writeDb(db);
 
   const pub = publicAccount(account, db);
+  const devicesUsedForLicense = account.devices.filter((d) => d.appType === appType).length;
   return sendJson(res, 200, {
     ok: true,
     message: 'License verified.',
     entitlements: pub.entitlements,
     emailVerified: pub.emailVerified,
     licensesDetail: pub.licensesDetail,
+    reentryLicenseCodes: pub.reentryLicenseCodes,
+    deviceLimitPerLicense: MAX_DEVICES_PER_LICENSE,
+    devicesUsedForLicense,
     devices: pub.devices,
   });
 }
@@ -507,10 +712,11 @@ function handleSync(db, payload, res) {
     ok: true,
     account: publicAccount(account, db),
     incomingGifts,
+    deviceLimitPerLicense: MAX_DEVICES_PER_LICENSE,
   });
 }
 
-function handleGiftInitiate(db, payload, res) {
+async function handleGiftInitiate(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -568,7 +774,7 @@ function handleGiftInitiate(db, payload, res) {
   account.giftedOut[licenseType] = gift.id;
   account.updatedAt = nowIso();
   db.pendingGifts.push(gift);
-  writeDb(db);
+  await writeDb(db);
 
   sendEmail(
     toEmail,
@@ -585,7 +791,7 @@ function handleGiftInitiate(db, payload, res) {
   return sendJson(res, 200, response);
 }
 
-function handleGiftClaim(db, payload, res) {
+async function handleGiftClaim(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -613,7 +819,7 @@ function handleGiftClaim(db, payload, res) {
   }
   if (new Date(gift.expiresAt) < new Date()) {
     db.pendingGifts = db.pendingGifts.filter((g) => g.id !== gift.id);
-    writeDb(db);
+    await writeDb(db);
     return sendJson(res, 410, { ok: false, message: 'This gift has expired.' });
   }
 
@@ -633,7 +839,7 @@ function handleGiftClaim(db, payload, res) {
   account.licenses[licenseType] = true;
   account.updatedAt = nowIso();
   db.pendingGifts = db.pendingGifts.filter((g) => g.id !== gift.id);
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, {
     ok: true,
@@ -642,7 +848,7 @@ function handleGiftClaim(db, payload, res) {
   });
 }
 
-function handleGiftCancel(db, payload, res) {
+async function handleGiftCancel(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -674,7 +880,7 @@ function handleGiftCancel(db, payload, res) {
   account.giftedOut[gift.licenseType] = null;
   account.updatedAt = nowIso();
   db.pendingGifts = db.pendingGifts.filter((g) => g.id !== gift.id);
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, {
     ok: true,
@@ -692,7 +898,7 @@ function handleGiftCancel(db, payload, res) {
 //
 // Protect this endpoint by setting the ADMIN_SECRET env var.  In dev mode
 // (no env var) a one-time secret is logged at startup.
-function handleVoucherCreate(db, payload, res) {
+async function handleVoucherCreate(db, payload, res) {
   const configuredSecret = process.env.ADMIN_SECRET || _devAdminSecret;
   if (!payload.adminSecret || payload.adminSecret !== configuredSecret) {
     return sendJson(res, 403, { ok: false, message: 'Invalid admin secret.' });
@@ -727,7 +933,7 @@ function handleVoucherCreate(db, payload, res) {
     db.pendingGifts.push(voucher);
     vouchers.push({ id: voucher.id, token, licenseType, expiresAt: expiry });
   }
-  writeDb(db);
+  await writeDb(db);
 
   if (fromEmail) {
     sendEmail(
@@ -768,8 +974,9 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 400, { ok: false, message: err.message || 'Bad request.' });
   }
 
-  const db = readDb();
-  if (cleanupExpired(db)) writeDb(db);
+  const db = await readDb();
+  const dbChanged = cleanupExpired(db) || ensureLicenseSigningSecret(db);
+  if (dbChanged) await writeDb(db);
 
   const routes = {
     '/v1/account/register': handleRegister,
@@ -785,7 +992,7 @@ const server = http.createServer(async (req, res) => {
   };
 
   const handler = routes[url.pathname];
-  if (handler) return handler(db, payload, res);
+  if (handler) return await handler(db, payload, res);
   return sendJson(res, 404, { ok: false, message: 'Not found.' });
 });
 
@@ -793,7 +1000,13 @@ server.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Vetviona license backend running on http://127.0.0.1:${PORT}`);
   // eslint-disable-next-line no-console
-  console.log(`License database: ${DB_PATH}`);
+  if (S3_BUCKET) {
+    // eslint-disable-next-line no-console
+    console.log(`License database: s3://${S3_BUCKET}/${S3_KEY} (${AWS_REGION}) encryption=${S3_KMS_KEY_ID ? 'SSE-KMS' : 'SSE-S3/AES256'}`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`License database: ${DB_PATH} (local file — set AWS_S3_BUCKET for production)`);
+  }
   // eslint-disable-next-line no-console
   console.log(
     EMAIL_DEV_MODE
@@ -806,5 +1019,8 @@ server.listen(PORT, () => {
     // eslint-disable-next-line no-console
     console.log('[DEV] Set ADMIN_SECRET env var to use a permanent admin secret.\n');
   }
+  if (S3_BUCKET && !process.env.LICENSE_KEY_SECRET) {
+    // eslint-disable-next-line no-console
+    console.warn('\n[WARN] LICENSE_KEY_SECRET is not set. Re-entry license codes will change on restart when using S3 storage. Set LICENSE_KEY_SECRET to a stable ≥ 32-char secret.\n');
+  }
 });
-
