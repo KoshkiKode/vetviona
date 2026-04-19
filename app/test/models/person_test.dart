@@ -103,22 +103,25 @@ void main() {
         expect(restored.treeId, original.treeId);
       });
 
-      test('empty lists serialise to empty strings and deserialise correctly', () {
-        final p = Person(id: 'x', name: 'X');
-        final map = p.toMap();
-        expect(map['parentIds'], '');
-        expect(map['childIds'], '');
-        expect(map['photoPaths'], '');
-        expect(map['sourceIds'], '');
-        expect(map['parentRelTypes'], '');
+      test(
+        'empty lists serialise to empty strings and deserialise correctly',
+        () {
+          final p = Person(id: 'x', name: 'X');
+          final map = p.toMap();
+          expect(map['parentIds'], '');
+          expect(map['childIds'], '');
+          expect(map['photoPaths'], '');
+          expect(map['sourceIds'], '');
+          expect(map['parentRelTypes'], '');
 
-        final restored = Person.fromMap(map);
-        expect(restored.parentIds, isEmpty);
-        expect(restored.childIds, isEmpty);
-        expect(restored.photoPaths, isEmpty);
-        expect(restored.sourceIds, isEmpty);
-        expect(restored.parentRelTypes, isEmpty);
-      });
+          final restored = Person.fromMap(map);
+          expect(restored.parentIds, isEmpty);
+          expect(restored.childIds, isEmpty);
+          expect(restored.photoPaths, isEmpty);
+          expect(restored.sourceIds, isEmpty);
+          expect(restored.parentRelTypes, isEmpty);
+        },
+      );
 
       test('fromMap with null list fields returns empty lists', () {
         final map = <String, dynamic>{'id': 'x', 'name': 'Test'};
@@ -246,13 +249,28 @@ void main() {
         final p = Person(id: 'x', name: 'X');
         expect(p.findAGraveId, isNull);
       });
+
+      test('familySearchId defaults to null', () {
+        final p = Person(id: 'x', name: 'X');
+        expect(p.familySearchId, isNull);
+      });
     });
 
     group('allBloodTypes', () {
       test('contains all expected ABO/Rh types', () {
         expect(
           Person.allBloodTypes,
-          containsAll(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown']),
+          containsAll([
+            'A+',
+            'A-',
+            'B+',
+            'B-',
+            'O+',
+            'O-',
+            'AB+',
+            'AB-',
+            'Unknown',
+          ]),
         );
       });
 
@@ -303,7 +321,11 @@ void main() {
       });
 
       test('fromMap with null isPrivate defaults to false', () {
-        final map = <String, dynamic>{'id': 'x', 'name': 'T', 'isPrivate': null};
+        final map = <String, dynamic>{
+          'id': 'x',
+          'name': 'T',
+          'isPrivate': null,
+        };
         expect(Person.fromMap(map).isPrivate, false);
       });
 
@@ -330,24 +352,22 @@ void main() {
       });
 
       test('aliases serialise with semicolon separator', () {
-        final p = Person(
-          id: 'x',
-          name: 'Alice',
-          aliases: ['Ally', 'Ali'],
-        );
+        final p = Person(id: 'x', name: 'Alice', aliases: ['Ally', 'Ali']);
         final map = p.toMap();
         expect(map['aliases'], 'Ally;Ali');
         final r = Person.fromMap(map);
         expect(r.aliases, ['Ally', 'Ali']);
       });
 
-      test('empty aliases serialises to empty string and deserialises correctly',
-          () {
-        final p = Person(id: 'x', name: 'X');
-        final map = p.toMap();
-        expect(map['aliases'], '');
-        expect(Person.fromMap(map).aliases, isEmpty);
-      });
+      test(
+        'empty aliases serialises to empty string and deserialises correctly',
+        () {
+          final p = Person(id: 'x', name: 'X');
+          final map = p.toMap();
+          expect(map['aliases'], '');
+          expect(Person.fromMap(map).aliases, isEmpty);
+        },
+      );
 
       test('fromMap with null aliases returns empty list', () {
         final map = <String, dynamic>{'id': 'x', 'name': 'T'};
@@ -410,6 +430,18 @@ void main() {
         final p = Person(id: 'x', name: 'X');
         final r = Person.fromMap(p.toMap());
         expect(r.findAGraveId, isNull);
+      });
+
+      test('familySearchId survives roundtrip', () {
+        final p = Person(id: 'x', name: 'Jane', familySearchId: 'KW7S-BBQ');
+        final r = Person.fromMap(p.toMap());
+        expect(r.familySearchId, 'KW7S-BBQ');
+      });
+
+      test('null familySearchId roundtrips to null', () {
+        final p = Person(id: 'x', name: 'X');
+        final r = Person.fromMap(p.toMap());
+        expect(r.familySearchId, isNull);
       });
 
       test('postal code fields survive roundtrip', () {
@@ -482,6 +514,7 @@ void main() {
           updatedAt: 1700000000000,
           wikitreeId: 'Dupont-42',
           findAGraveId: '9876',
+          familySearchId: 'KW7S-BBQ',
         );
         final r = Person.fromMap(original.toMap());
         expect(r.occupation, original.occupation);
@@ -504,6 +537,7 @@ void main() {
         expect(r.updatedAt, original.updatedAt);
         expect(r.wikitreeId, original.wikitreeId);
         expect(r.findAGraveId, original.findAGraveId);
+        expect(r.familySearchId, original.familySearchId);
       });
     });
   });

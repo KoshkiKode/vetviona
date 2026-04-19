@@ -59,10 +59,7 @@ class _WikiTreeScreenState extends State<WikiTreeScreen>
         ),
         body: TabBarView(
           controller: _tabs,
-          children: const [
-            _WikiTreeTab(),
-            _FindAGraveTab(),
-          ],
+          children: const [_WikiTreeTab(), _FindAGraveTab()],
         ),
       ),
     );
@@ -104,8 +101,10 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
       _results = [];
     });
     final year = int.tryParse(_birthYearCtrl.text.trim());
-    final results =
-        await WikiTreeService.instance.searchPerson(q, birthYear: year);
+    final results = await WikiTreeService.instance.searchPerson(
+      q,
+      birthYear: year,
+    );
     if (!mounted) return;
     setState(() {
       _searching = false;
@@ -122,30 +121,39 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
     setState(() => _refreshing = true);
     int updated = 0;
     for (final person in linked) {
-      final profile =
-          await WikiTreeService.instance.getProfile(person.wikitreeId!);
+      final profile = await WikiTreeService.instance.getProfile(
+        person.wikitreeId!,
+      );
       if (profile != null) {
-        final updatedPerson =
-            WikiTreeService.instance.profileToPerson(profile, existing: person);
+        final updatedPerson = WikiTreeService.instance.profileToPerson(
+          profile,
+          existing: person,
+        );
         await provider.updatePerson(updatedPerson);
         updated++;
       }
     }
     if (!mounted) return;
     setState(() => _refreshing = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Refreshed $updated person${updated == 1 ? '' : 's'} from WikiTree.'),
-      behavior: SnackBarBehavior.floating,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Refreshed $updated person${updated == 1 ? '' : 's'} from WikiTree.',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _downloadGedcom(TreeProvider provider) async {
     final svc = WikiTreeService.instance;
     if (!svc.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Log in to WikiTree to download your GEDCOM.'),
-        behavior: SnackBarBehavior.floating,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Log in to WikiTree to download your GEDCOM.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
     // Use the logged-in user's own WikiTree ID (username is the WikiTree ID)
@@ -168,11 +176,14 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
     if (!mounted) return;
     Navigator.pop(context);
     if (gedcom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
-            'Could not download GEDCOM. Check your login and WikiTree ID.'),
-        behavior: SnackBarBehavior.floating,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not download GEDCOM. Check your login and WikiTree ID.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
     // Save to a temp file and open the GEDCOM import screen
@@ -183,10 +194,8 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
     Navigator.push(
       context,
       fadeSlideRoute(
-        builder: (_) => GedcomImportScreen(
-          filePath: file.path,
-          mergeMode: true,
-        ),
+        builder: (_) =>
+            GedcomImportScreen(filePath: file.path, mergeMode: true),
       ),
     );
   }
@@ -211,22 +220,29 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
               title: 'WikiTree Account',
               children: [
                 if (svc.isLoggedIn) ...[
-                  Row(children: [
-                    Icon(Icons.check_circle_outline,
-                        color: colorScheme.primary, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('Logged in as ${svc.loggedInUser}',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        await svc.logout();
-                        if (mounted) setState(() {});
-                      },
-                      child: const Text('Log out'),
-                    ),
-                  ]),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        color: colorScheme.primary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Logged in as ${svc.loggedInUser}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          await svc.logout();
+                          if (mounted) setState(() {});
+                        },
+                        child: const Text('Log out'),
+                      ),
+                    ],
+                  ),
                   if (linked.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     FilledButton.icon(
@@ -238,11 +254,15 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator.adaptive(
-                                  strokeWidth: 2))
+                                strokeWidth: 2,
+                              ),
+                            )
                           : const Icon(Icons.refresh, size: 18),
-                      label: Text(_refreshing
-                          ? 'Refreshing…'
-                          : 'Refresh ${linked.length} Linked Person${linked.length == 1 ? '' : 's'}'),
+                      label: Text(
+                        _refreshing
+                            ? 'Refreshing…'
+                            : 'Refresh ${linked.length} Linked Person${linked.length == 1 ? '' : 's'}',
+                      ),
                     ),
                     const SizedBox(height: 4),
                     OutlinedButton.icon(
@@ -264,73 +284,75 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
                 icon: Icons.link,
                 title: 'Linked to WikiTree (${linked.length})',
                 children: linked
-                    .map((p) => _LinkedPersonTile(
-                          person: p,
-                          onRefresh: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            final profile = await WikiTreeService.instance
-                                .getProfile(p.wikitreeId!);
-                            if (profile == null) return;
-                            final updated =
-                                WikiTreeService.instance.profileToPerson(
-                              profile,
-                              existing: p,
-                            );
-                            await provider.updatePerson(updated);
-                            if (mounted) {
-                              messenger.showSnackBar(SnackBar(
+                    .map(
+                      (p) => _LinkedPersonTile(
+                        person: p,
+                        onRefresh: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final profile = await WikiTreeService.instance
+                              .getProfile(p.wikitreeId!);
+                          if (profile == null) return;
+                          final updated = WikiTreeService.instance
+                              .profileToPerson(profile, existing: p);
+                          await provider.updatePerson(updated);
+                          if (mounted) {
+                            messenger.showSnackBar(
+                              SnackBar(
                                 content: Text(
-                                    '${p.name} refreshed from WikiTree.'),
+                                  '${p.name} refreshed from WikiTree.',
+                                ),
                                 behavior: SnackBarBehavior.floating,
-                              ));
-                            }
-                          },
-                          onUnlink: () async {
-                            final updated = Person(
-                              id: p.id,
-                              name: p.name,
-                              wikitreeId: null,
-                              birthDate: p.birthDate,
-                              birthPlace: p.birthPlace,
-                              deathDate: p.deathDate,
-                              deathPlace: p.deathPlace,
-                              gender: p.gender,
-                              parentIds: p.parentIds,
-                              childIds: p.childIds,
-                              parentRelTypes: p.parentRelTypes,
-                              photoPaths: p.photoPaths,
-                              sourceIds: p.sourceIds,
-                              notes: p.notes,
-                              treeId: p.treeId,
-                              occupation: p.occupation,
-                              nationality: p.nationality,
-                              maidenName: p.maidenName,
-                              burialDate: p.burialDate,
-                              burialPlace: p.burialPlace,
-                              birthCoord: p.birthCoord,
-                              deathCoord: p.deathCoord,
-                              burialCoord: p.burialCoord,
-                              birthPostalCode: p.birthPostalCode,
-                              deathPostalCode: p.deathPostalCode,
-                              burialPostalCode: p.burialPostalCode,
-                              isPrivate: p.isPrivate,
-                              syncMedical: p.syncMedical,
-                              preferredSourceIds: p.preferredSourceIds,
-                              aliases: p.aliases,
-                              findAGraveId: p.findAGraveId,
-                              causeOfDeath: p.causeOfDeath,
-                              bloodType: p.bloodType,
-                              eyeColour: p.eyeColour,
-                              hairColour: p.hairColour,
-                              height: p.height,
-                              religion: p.religion,
-                              education: p.education,
-                              updatedAt:
-                                  DateTime.now().millisecondsSinceEpoch,
+                              ),
                             );
-                            await provider.updatePerson(updated);
-                          },
-                        ))
+                          }
+                        },
+                        onUnlink: () async {
+                          final updated = Person(
+                            id: p.id,
+                            name: p.name,
+                            wikitreeId: null,
+                            birthDate: p.birthDate,
+                            birthPlace: p.birthPlace,
+                            deathDate: p.deathDate,
+                            deathPlace: p.deathPlace,
+                            gender: p.gender,
+                            parentIds: p.parentIds,
+                            childIds: p.childIds,
+                            parentRelTypes: p.parentRelTypes,
+                            photoPaths: p.photoPaths,
+                            sourceIds: p.sourceIds,
+                            notes: p.notes,
+                            treeId: p.treeId,
+                            occupation: p.occupation,
+                            nationality: p.nationality,
+                            maidenName: p.maidenName,
+                            burialDate: p.burialDate,
+                            burialPlace: p.burialPlace,
+                            birthCoord: p.birthCoord,
+                            deathCoord: p.deathCoord,
+                            burialCoord: p.burialCoord,
+                            birthPostalCode: p.birthPostalCode,
+                            deathPostalCode: p.deathPostalCode,
+                            burialPostalCode: p.burialPostalCode,
+                            isPrivate: p.isPrivate,
+                            syncMedical: p.syncMedical,
+                            preferredSourceIds: p.preferredSourceIds,
+                            aliases: p.aliases,
+                            findAGraveId: p.findAGraveId,
+                            familySearchId: p.familySearchId,
+                            causeOfDeath: p.causeOfDeath,
+                            bloodType: p.bloodType,
+                            eyeColour: p.eyeColour,
+                            hairColour: p.hairColour,
+                            height: p.height,
+                            religion: p.religion,
+                            education: p.education,
+                            updatedAt: DateTime.now().millisecondsSinceEpoch,
+                          );
+                          await provider.updatePerson(updated);
+                        },
+                      ),
+                    )
                     .toList(),
               ),
               const SizedBox(height: 12),
@@ -343,10 +365,9 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
               children: [
                 Text(
                   'Find a WikiTree profile to link to a local person or import data.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -362,48 +383,60 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
                   onSubmitted: (_) => _search(),
                 ),
                 const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _birthYearCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Birth year (optional)',
-                        hintText: '1874',
-                        prefixIcon: Icon(Icons.date_range_outlined),
-                        border: OutlineInputBorder(),
-                        isDense: true,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _birthYearCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Birth year (optional)',
+                          hintText: '1874',
+                          prefixIcon: Icon(Icons.date_range_outlined),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => _search(),
                       ),
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => _search(),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _searching ? null : _search,
-                    icon: _searching
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2))
-                        : const Icon(Icons.search, size: 18),
-                    label: const Text('Search'),
-                  ),
-                ]),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _searching ? null : _search,
+                      icon: _searching
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator.adaptive(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.search, size: 18),
+                      label: const Text('Search'),
+                    ),
+                  ],
+                ),
                 if (_searchError != null) ...[
                   const SizedBox(height: 8),
-                  Text(_searchError!,
-                      style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                  Text(
+                    _searchError!,
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  ),
                 ],
-                ..._results.map((p) => _SearchResultTile(
-                      profile: p,
-                      persons: provider.persons,
-                      onImport: (profile, existing) async {
-                        await _importProfile(context, provider, profile,
-                            existing: existing);
-                      },
-                    )),
+                ..._results.map(
+                  (p) => _SearchResultTile(
+                    profile: p,
+                    persons: provider.persons,
+                    onImport: (profile, existing) async {
+                      await _importProfile(
+                        context,
+                        provider,
+                        profile,
+                        existing: existing,
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           ],
@@ -422,10 +455,7 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
       profile,
       existing: existing,
     );
-    final source = WikiTreeService.instance.profileToSource(
-      profile,
-      person.id,
-    );
+    final source = WikiTreeService.instance.profileToSource(profile, person.id);
 
     if (existing != null) {
       await provider.updatePerson(person);
@@ -434,18 +464,23 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
     }
     // Add source if not already present
     final alreadyHasSource = provider.sources.any(
-        (s) => s.personId == person.id && s.url.contains(profile.wikiTreeId));
+      (s) => s.personId == person.id && s.url.contains(profile.wikiTreeId),
+    );
     if (!alreadyHasSource) {
       await provider.addSource(source);
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(existing != null
-          ? '${person.name} updated from WikiTree.'
-          : '${person.name} imported from WikiTree.'),
-      behavior: SnackBarBehavior.floating,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          existing != null
+              ? '${person.name} updated from WikiTree.'
+              : '${person.name} imported from WikiTree.',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
     setState(() => _results = []);
   }
 }
@@ -479,8 +514,10 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
     final extracted =
         FindAGraveService.instance.extractIdFromUrl(input) ?? input;
     if (extracted.isEmpty || !RegExp(r'^\d+$').hasMatch(extracted)) {
-      setState(() => _error =
-          'Enter a memorial ID (e.g. 1836) or paste the full memorial URL.');
+      setState(
+        () => _error =
+            'Enter a memorial ID (e.g. 1836) or paste the full memorial URL.',
+      );
       return;
     }
     setState(() {
@@ -488,8 +525,7 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
       _error = null;
       _memorial = null;
     });
-    final memorial =
-        await FindAGraveService.instance.fetchMemorial(extracted);
+    final memorial = await FindAGraveService.instance.fetchMemorial(extracted);
     if (!mounted) return;
     setState(() {
       _fetching = false;
@@ -523,10 +559,9 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
               'on each person so you can link profiles and open them in your '
               'browser. Data import is attempted via page parsing — results '
               'depend on Find A Grave\'s response to automated requests.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -541,7 +576,8 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
               controller: _idCtrl,
               decoration: const InputDecoration(
                 labelText: 'Memorial ID or URL',
-                hintText: 'e.g. 1836  or  https://www.findagrave.com/memorial/1836/…',
+                hintText:
+                    'e.g. 1836  or  https://www.findagrave.com/memorial/1836/…',
                 prefixIcon: Icon(Icons.location_on_outlined),
                 border: OutlineInputBorder(),
                 isDense: true,
@@ -551,40 +587,46 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
               onSubmitted: (_) => _fetch(),
             ),
             const SizedBox(height: 8),
-            Row(children: [
-              FilledButton.icon(
-                onPressed: _fetching ? null : _fetch,
-                icon: _fetching
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2))
-                    : const Icon(Icons.search, size: 18),
-                label: const Text('Fetch Data'),
-              ),
-              const SizedBox(width: 8),
-              if (_idCtrl.text.isNotEmpty)
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final raw = _idCtrl.text.trim();
-                    final id = FindAGraveService.instance
-                            .extractIdFromUrl(raw) ??
-                        raw;
-                    final url =
-                        FindAGraveService.instance.memorialUrl(id);
-                    await launchUrl(Uri.parse(url),
-                        mode: LaunchMode.externalApplication);
-                  },
-                  icon: const Icon(Icons.open_in_new, size: 16),
-                  label: const Text('Open in Browser'),
+            Row(
+              children: [
+                FilledButton.icon(
+                  onPressed: _fetching ? null : _fetch,
+                  icon: _fetching
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.search, size: 18),
+                  label: const Text('Fetch Data'),
                 ),
-            ]),
+                const SizedBox(width: 8),
+                if (_idCtrl.text.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final raw = _idCtrl.text.trim();
+                      final id =
+                          FindAGraveService.instance.extractIdFromUrl(raw) ??
+                          raw;
+                      final url = FindAGraveService.instance.memorialUrl(id);
+                      await launchUrl(
+                        Uri.parse(url),
+                        mode: LaunchMode.externalApplication,
+                      );
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('Open in Browser'),
+                  ),
+              ],
+            ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!,
-                  style: TextStyle(
-                      color: colorScheme.error, fontSize: 12)),
+              Text(
+                _error!,
+                style: TextStyle(color: colorScheme.error, fontSize: 12),
+              ),
             ],
             if (_memorial != null) ...[
               const SizedBox(height: 12),
@@ -593,8 +635,9 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                 persons: provider.persons,
                 onLink: (personId) async {
                   final messenger = ScaffoldMessenger.of(context);
-                  final person =
-                      provider.persons.firstWhere((p) => p.id == personId);
+                  final person = provider.persons.firstWhere(
+                    (p) => p.id == personId,
+                  );
                   final updated = Person(
                     id: person.id,
                     name: person.name,
@@ -627,6 +670,7 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                     preferredSourceIds: person.preferredSourceIds,
                     aliases: person.aliases,
                     wikitreeId: person.wikitreeId,
+                    familySearchId: person.familySearchId,
                     causeOfDeath: person.causeOfDeath,
                     bloodType: person.bloodType,
                     eyeColour: person.eyeColour,
@@ -638,15 +682,20 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                   );
                   await provider.updatePerson(updated);
                   // Create source record
-                  final source = FindAGraveService.instance
-                      .memorialToSource(_memorial!, personId);
+                  final source = FindAGraveService.instance.memorialToSource(
+                    _memorial!,
+                    personId,
+                  );
                   await provider.addSource(source);
                   if (mounted) {
-                    messenger.showSnackBar(SnackBar(
-                      content: Text(
-                          '${person.name} linked to Find A Grave memorial #${_memorial!.memorialId}.'),
-                      behavior: SnackBarBehavior.floating,
-                    ));
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${person.name} linked to Find A Grave memorial #${_memorial!.memorialId}.',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   }
                 },
               ),
@@ -662,42 +711,42 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
             icon: Icons.link,
             title: 'Linked to Find A Grave (${fagLinked.length})',
             children: fagLinked
-                .map((p) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        radius: 18,
-                        backgroundColor:
-                            colorScheme.primaryContainer,
-                        child: Text(
-                          p.name.isNotEmpty
-                              ? p.name[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                              color:
-                                  colorScheme.onPrimaryContainer,
-                              fontSize: 14),
+                .map(
+                  (p) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Text(
+                        p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          color: colorScheme.onPrimaryContainer,
+                          fontSize: 14,
                         ),
                       ),
-                      title: Text(p.name),
-                      subtitle: Text(
-                          'Memorial #${p.findAGraveId}',
-                          style: TextStyle(
-                              color:
-                                  colorScheme.onSurfaceVariant,
-                              fontSize: 12)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.open_in_new,
-                            size: 18),
-                        onPressed: () async {
-                          final url =
-                              FindAGraveService.instance
-                                  .memorialUrl(p.findAGraveId!);
-                          await launchUrl(Uri.parse(url),
-                              mode: LaunchMode
-                                  .externalApplication);
-                        },
+                    ),
+                    title: Text(p.name),
+                    subtitle: Text(
+                      'Memorial #${p.findAGraveId}',
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
                       ),
-                    ))
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      onPressed: () async {
+                        final url = FindAGraveService.instance.memorialUrl(
+                          p.findAGraveId!,
+                        );
+                        await launchUrl(
+                          Uri.parse(url),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      },
+                    ),
+                  ),
+                )
                 .toList(),
           ),
       ],
@@ -755,7 +804,8 @@ class _LoginFormState extends State<_LoginForm> {
         setState(() => _error = 'WikiTree account not found.');
       case WikiTreeLoginResult.networkError:
         setState(
-            () => _error = 'Network error. Check your connection and try again.');
+          () => _error = 'Network error. Check your connection and try again.',
+        );
     }
   }
 
@@ -766,12 +816,9 @@ class _LoginFormState extends State<_LoginForm> {
         Text(
           'Log in to WikiTree to refresh linked profiles, download your GEDCOM, '
           'and import your family data.',
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(
-                  color:
-                      Theme.of(context).colorScheme.onSurfaceVariant),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -796,8 +843,7 @@ class _LoginFormState extends State<_LoginForm> {
             border: const OutlineInputBorder(),
             isDense: true,
             suffixIcon: IconButton(
-              icon:
-                  Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+              icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
           ),
@@ -806,10 +852,13 @@ class _LoginFormState extends State<_LoginForm> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 8),
-          Text(_error!,
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontSize: 12)),
+          Text(
+            _error!,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.error,
+              fontSize: 12,
+            ),
+          ),
         ],
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -818,15 +867,17 @@ class _LoginFormState extends State<_LoginForm> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child:
-                      CircularProgressIndicator.adaptive(strokeWidth: 2))
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                )
               : const Icon(Icons.login, size: 18),
           label: const Text('Log In to WikiTree'),
         ),
         const SizedBox(height: 4),
         TextButton(
           onPressed: () => launchUrl(
-            Uri.parse('https://www.wikitree.com/index.php?title=Special:CreateAccount'),
+            Uri.parse(
+              'https://www.wikitree.com/index.php?title=Special:CreateAccount',
+            ),
             mode: LaunchMode.externalApplication,
           ),
           child: const Text('Create a WikiTree account'),
@@ -889,68 +940,80 @@ class _SearchResultTileState extends State<_SearchResultTile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Expanded(
-                child: Text(
-                  widget.profile.displayName,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.profile.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-              if (existing != null)
-                Chip(
-                  label: const Text('Linked'),
-                  backgroundColor:
-                      colorScheme.primaryContainer,
-                  labelStyle: TextStyle(
+                if (existing != null)
+                  Chip(
+                    label: const Text('Linked'),
+                    backgroundColor: colorScheme.primaryContainer,
+                    labelStyle: TextStyle(
                       color: colorScheme.onPrimaryContainer,
-                      fontSize: 11),
-                  visualDensity: VisualDensity.compact,
-                ),
-            ]),
-            Text(_subtitle(),
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colorScheme.onSurfaceVariant)),
+                      fontSize: 11,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            Text(
+              _subtitle(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 8),
-            Wrap(spacing: 8, children: [
-              FilledButton.icon(
-                onPressed: _importing
-                    ? null
-                    : () async {
-                        setState(() => _importing = true);
-                        await widget.onImport(widget.profile, existing);
-                        if (mounted) setState(() => _importing = false);
-                      },
-                icon: _importing
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2))
-                    : Icon(
-                        existing != null ? Icons.refresh : Icons.download,
-                        size: 16),
-                label: Text(existing != null
-                    ? 'Refresh ${existing.name}'
-                    : 'Import Profile'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+            Wrap(
+              spacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: _importing
+                      ? null
+                      : () async {
+                          setState(() => _importing = true);
+                          await widget.onImport(widget.profile, existing);
+                          if (mounted) setState(() => _importing = false);
+                        },
+                  icon: _importing
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          existing != null ? Icons.refresh : Icons.download,
+                          size: 16,
+                        ),
+                  label: Text(
+                    existing != null
+                        ? 'Refresh ${existing.name}'
+                        : 'Import Profile',
+                  ),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse(
-                      'https://www.wikitree.com/wiki/${widget.profile.wikiTreeId}'),
-                  mode: LaunchMode.externalApplication,
+                OutlinedButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse(
+                      'https://www.wikitree.com/wiki/${widget.profile.wikiTreeId}',
+                    ),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.open_in_new, size: 14),
+                  label: const Text('View on WikiTree'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
-                icon: const Icon(Icons.open_in_new, size: 14),
-                label: const Text('View on WikiTree'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ]),
+              ],
+            ),
           ],
         ),
       ),
@@ -992,15 +1055,13 @@ class _LinkedPersonTileState extends State<_LinkedPersonTile> {
           widget.person.name.isNotEmpty
               ? widget.person.name[0].toUpperCase()
               : '?',
-          style: TextStyle(
-              color: colorScheme.onPrimaryContainer, fontSize: 14),
+          style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 14),
         ),
       ),
       title: Text(widget.person.name),
       subtitle: Text(
         widget.person.wikitreeId!,
-        style: TextStyle(
-            color: colorScheme.onSurfaceVariant, fontSize: 12),
+        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1031,7 +1092,8 @@ class _LinkedPersonTileState extends State<_LinkedPersonTile> {
             tooltip: 'View on WikiTree',
             onPressed: () => launchUrl(
               Uri.parse(
-                  'https://www.wikitree.com/wiki/${widget.person.wikitreeId}'),
+                'https://www.wikitree.com/wiki/${widget.person.wikitreeId}',
+              ),
               mode: LaunchMode.externalApplication,
             ),
           ),
@@ -1075,54 +1137,66 @@ class _MemorialCardState extends State<_MemorialCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Memorial #${m.memorialId}',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 16)),
+            Text(
+              'Memorial #${m.memorialId}',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
             if (m.fullName != null) Text(m.fullName!),
             const SizedBox(height: 4),
             if (m.birthYear != null)
-              _InfoRow(Icons.cake_outlined,
-                  'Born ${m.birthYear}${m.birthPlace != null ? ' · ${m.birthPlace}' : ''}'),
+              _InfoRow(
+                Icons.cake_outlined,
+                'Born ${m.birthYear}${m.birthPlace != null ? ' · ${m.birthPlace}' : ''}',
+              ),
             if (m.deathYear != null)
-              _InfoRow(Icons.star_half,
-                  'Died ${m.deathYear}${m.deathPlace != null ? ' · ${m.deathPlace}' : ''}'),
+              _InfoRow(
+                Icons.star_half,
+                'Died ${m.deathYear}${m.deathPlace != null ? ' · ${m.deathPlace}' : ''}',
+              ),
             if (m.cemeteryName != null)
-              _InfoRow(Icons.location_on_outlined,
-                  'Buried at ${m.cemeteryName}'),
+              _InfoRow(
+                Icons.location_on_outlined,
+                'Buried at ${m.cemeteryName}',
+              ),
             const Divider(height: 16),
-            Text('Link to local person:',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant)),
+            Text(
+              'Link to local person:',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               initialValue: _selectedPersonId,
               isExpanded: true,
               decoration: const InputDecoration(
-                  border: OutlineInputBorder(), isDense: true),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
               hint: const Text('Select person…'),
               items: widget.persons
-                  .map((p) => DropdownMenuItem(
-                      value: p.id, child: Text(p.name)))
+                  .map(
+                    (p) => DropdownMenuItem(value: p.id, child: Text(p.name)),
+                  )
                   .toList(),
               onChanged: (v) => setState(() => _selectedPersonId = v),
             ),
             const SizedBox(height: 8),
             FilledButton.icon(
-              onPressed:
-                  _selectedPersonId == null || _linking
-                      ? null
-                      : () async {
-                          setState(() => _linking = true);
-                          await widget.onLink(_selectedPersonId!);
-                          if (mounted) setState(() => _linking = false);
-                        },
+              onPressed: _selectedPersonId == null || _linking
+                  ? null
+                  : () async {
+                      setState(() => _linking = true);
+                      await widget.onLink(_selectedPersonId!);
+                      if (mounted) setState(() => _linking = false);
+                    },
               icon: _linking
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2))
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
                   : const Icon(Icons.link, size: 16),
               label: const Text('Link & Create Source'),
             ),
@@ -1140,18 +1214,25 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(children: [
-          Icon(icon,
-              size: 14,
-              color: Theme.of(context).colorScheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Expanded(
-              child: Text(text,
-                  style: const TextStyle(fontSize: 13),
-                  overflow: TextOverflow.ellipsis)),
-        ]),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Icon(
+          icon,
+          size: 14,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1162,10 +1243,11 @@ class _SectionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final List<Widget> children;
-  const _SectionCard(
-      {required this.icon,
-      required this.title,
-      required this.children});
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1176,17 +1258,19 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(icon, size: 18, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface)),
-            ]),
+            Row(
+              children: [
+                Icon(icon, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
             const Divider(height: 20),
             ...children,
           ],

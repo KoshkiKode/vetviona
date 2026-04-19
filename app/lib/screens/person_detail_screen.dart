@@ -23,6 +23,7 @@ import 'research_tasks_screen.dart';
 import 'descendants_screen.dart';
 import 'wikitree_screen.dart';
 import '../models/geo_coord.dart';
+import '../services/family_search_service.dart';
 import '../services/find_a_grave_service.dart';
 import '../services/place_service.dart';
 import '../services/wikitree_service.dart';
@@ -74,34 +75,42 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   // External IDs
   String? _wikitreeId;
   String? _findAGraveId;
+  String? _familySearchId;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
 
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.person?.name ?? '');
-    _birthPlaceController =
-        TextEditingController(text: widget.person?.birthPlace ?? '');
-    _deathPlaceController =
-        TextEditingController(text: widget.person?.deathPlace ?? '');
-    _notesController =
-        TextEditingController(text: widget.person?.notes ?? '');
-    _occupationController =
-        TextEditingController(text: widget.person?.occupation ?? '');
-    _nationalityController =
-        TextEditingController(text: widget.person?.nationality ?? '');
-    _maidenNameController =
-        TextEditingController(text: widget.person?.maidenName ?? '');
-    _burialPlaceController =
-        TextEditingController(text: widget.person?.burialPlace ?? '');
-    _birthPostalCodeController =
-        TextEditingController(text: widget.person?.birthPostalCode ?? '');
-    _deathPostalCodeController =
-        TextEditingController(text: widget.person?.deathPostalCode ?? '');
-    _burialPostalCodeController =
-        TextEditingController(text: widget.person?.burialPostalCode ?? '');
+    _nameController = TextEditingController(text: widget.person?.name ?? '');
+    _birthPlaceController = TextEditingController(
+      text: widget.person?.birthPlace ?? '',
+    );
+    _deathPlaceController = TextEditingController(
+      text: widget.person?.deathPlace ?? '',
+    );
+    _notesController = TextEditingController(text: widget.person?.notes ?? '');
+    _occupationController = TextEditingController(
+      text: widget.person?.occupation ?? '',
+    );
+    _nationalityController = TextEditingController(
+      text: widget.person?.nationality ?? '',
+    );
+    _maidenNameController = TextEditingController(
+      text: widget.person?.maidenName ?? '',
+    );
+    _burialPlaceController = TextEditingController(
+      text: widget.person?.burialPlace ?? '',
+    );
+    _birthPostalCodeController = TextEditingController(
+      text: widget.person?.birthPostalCode ?? '',
+    );
+    _deathPostalCodeController = TextEditingController(
+      text: widget.person?.deathPostalCode ?? '',
+    );
+    _burialPostalCodeController = TextEditingController(
+      text: widget.person?.burialPostalCode ?? '',
+    );
     _gender = widget.person?.gender;
     _birthDate = widget.person?.birthDate;
     _deathDate = widget.person?.deathDate;
@@ -109,26 +118,32 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _birthCoord = widget.person?.birthCoord;
     _deathCoord = widget.person?.deathCoord;
     _burialCoord = widget.person?.burialCoord;
-    _isLiving =
-        widget.person == null || widget.person!.deathDate == null;
+    _isLiving = widget.person == null || widget.person!.deathDate == null;
     _isPrivate = widget.person?.isPrivate ?? false;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
-    _causeOfDeathController =
-        TextEditingController(text: widget.person?.causeOfDeath ?? '');
-    _eyeColourController =
-        TextEditingController(text: widget.person?.eyeColour ?? '');
-    _hairColourController =
-        TextEditingController(text: widget.person?.hairColour ?? '');
-    _heightController =
-        TextEditingController(text: widget.person?.height ?? '');
-    _religionController =
-        TextEditingController(text: widget.person?.religion ?? '');
-    _educationController =
-        TextEditingController(text: widget.person?.education ?? '');
+    _causeOfDeathController = TextEditingController(
+      text: widget.person?.causeOfDeath ?? '',
+    );
+    _eyeColourController = TextEditingController(
+      text: widget.person?.eyeColour ?? '',
+    );
+    _hairColourController = TextEditingController(
+      text: widget.person?.hairColour ?? '',
+    );
+    _heightController = TextEditingController(
+      text: widget.person?.height ?? '',
+    );
+    _religionController = TextEditingController(
+      text: widget.person?.religion ?? '',
+    );
+    _educationController = TextEditingController(
+      text: widget.person?.education ?? '',
+    );
     _bloodType = widget.person?.bloodType;
     _aliases = List<String>.from(widget.person?.aliases ?? []);
     _wikitreeId = widget.person?.wikitreeId;
     _findAGraveId = widget.person?.findAGraveId;
+    _familySearchId = widget.person?.familySearchId;
   }
 
   @override
@@ -155,7 +170,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   /// Picks one or more photos from the gallery / file system.
   Future<void> _pickPhotos() async {
-    final isDesktop = !kIsWeb &&
+    final isDesktop =
+        !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.windows ||
             defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.linux);
@@ -201,26 +217,25 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   color: colorScheme.onPrimary,
                 ),
                 onPressed: () async {
-                  final newId =
-                      isHomePerson ? null : widget.person!.id;
-                  await context
-                      .read<TreeProvider>()
-                      .setHomePersonId(newId);
+                  final newId = isHomePerson ? null : widget.person!.id;
+                  await context.read<TreeProvider>().setHomePersonId(newId);
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(
-                      content: Text(newId != null
-                          ? '${widget.person!.name} set as home person'
-                          : 'Home person cleared'),
-                    ));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          newId != null
+                              ? '${widget.person!.name} set as home person'
+                              : 'Home person cleared',
+                        ),
+                      ),
+                    );
                   }
                 },
               ),
             ),
           TextButton.icon(
             icon: Icon(Icons.save, color: colorScheme.onPrimary),
-            label: Text('Save',
-                style: TextStyle(color: colorScheme.onPrimary)),
+            label: Text('Save', style: TextStyle(color: colorScheme.onPrimary)),
             onPressed: _savePerson,
           ),
         ],
@@ -239,576 +254,643 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-            if (widget.person != null) _buildPersonHeader(context),
-            _buildSection(
-              context,
-              icon: Icons.person,
-              title: 'Basic Information',
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    helperText: 'Legal name or commonly known name',
-                    helperMaxLines: 2,
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty
-                          ? 'Name is required'
-                          : null,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _genderOptions.contains(_gender) ? _gender : null,
-                  decoration: const InputDecoration(labelText: 'Gender'),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Not specified')),
-                    ..._genderOptions.map(
-                      (g) => DropdownMenuItem(value: g, child: Text(g)),
-                    ),
-                    // Preserve legacy/custom values that aren't in the standard list
-                    if (_gender != null && !_genderOptions.contains(_gender))
-                      DropdownMenuItem(value: _gender, child: Text(_gender!)),
-                  ],
-                  onChanged: (v) => setState(() => _gender = v),
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  value: _isLiving,
-                  onChanged: (v) => setState(() => _isLiving = v),
-                  title: const Text('Currently living'),
-                  subtitle: const Text('Turn off to enter death information'),
-                  contentPadding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                SwitchListTile(
-                  value: _isPrivate,
-                  onChanged: (v) => setState(() => _isPrivate = v),
-                  title: const Text('Private (living person)'),
-                  subtitle: const Text(
-                    'Excluded from all exports & sync',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                  secondary: const Icon(Icons.lock_outline),
-                  contentPadding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildSection(
-              context,
-              icon: Icons.cake,
-              title: 'Birth',
-              children: [
-                _DatePickerTile(
-                  label: 'Birth Date',
-                  date: _birthDate,
-                  onPick: () => _selectDate(context, true),
-                  onClear: _birthDate != null
-                      ? () => setState(() => _birthDate = null)
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                _PlaceField(
-                  controller: _birthPlaceController,
-                  postalCodeController: _birthPostalCodeController,
-                  label: 'Birth Place',
-                  coord: _birthCoord,
-                  eventDate: _birthDate,
-                  onCoordChanged: (c) {
-                    setState(() {
-                      _birthCoord = c;
-                      if (c != null) {
-                        if (_birthPlaceController.text.trim().isEmpty) {
-                          _birthPlaceController.text = c.shortLabel;
-                        }
-                        if (_birthPostalCodeController.text.trim().isEmpty &&
-                            c.postalCode != null) {
-                          _birthPostalCodeController.text = c.postalCode!;
-                        }
-                      }
-                    });
-                  },
-                ),
-              ],
-            ),
-            if (!_isLiving) ...[
-              const SizedBox(height: 16),
-              _buildSection(
-                context,
-                icon: Icons.star_border,
-                title: 'Death',
-                children: [
-                  _DatePickerTile(
-                    label: 'Death Date',
-                    date: _deathDate,
-                    onPick: () => _selectDate(context, false),
-                    onClear: _deathDate != null
-                        ? () => setState(() => _deathDate = null)
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  _PlaceField(
-                    controller: _deathPlaceController,
-                    postalCodeController: _deathPostalCodeController,
-                    label: 'Death Place',
-                    coord: _deathCoord,
-                    eventDate: _deathDate,
-                    onCoordChanged: (c) {
-                      setState(() {
-                        _deathCoord = c;
-                        if (c != null) {
-                          if (_deathPlaceController.text.trim().isEmpty) {
-                            _deathPlaceController.text = c.shortLabel;
-                          }
-                          if (_deathPostalCodeController.text.trim().isEmpty &&
-                              c.postalCode != null) {
-                            _deathPostalCodeController.text = c.postalCode!;
-                          }
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _SuggestField(
-                    controller: _causeOfDeathController,
-                    decoration:
-                        const InputDecoration(labelText: 'Cause of Death'),
-                    suggestions: _kCausesOfDeath,
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 16),
-            _buildSection(
-              context,
-              icon: Icons.notes,
-              title: 'Notes',
-              children: [
-                TextFormField(
-                  controller: _notesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Notes (optional)',
-                    helperText: 'Any extra biographical details, stories, or observations',
-                    helperMaxLines: 2,
-                  ),
-                  minLines: 3,
-                  maxLines: 6,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // ── Advanced Details (collapsed by default) ───────────────────
-            Card(
-              child: ExpansionTile(
-                leading: const Icon(Icons.tune),
-                title: const Text(
-                  'Advanced Details',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text(
-                  'Physical traits, aliases & more (optional)',
-                  style: TextStyle(fontSize: 12),
-                ),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Physical Traits subsection
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 4),
-                    child: Row(
+                    if (widget.person != null) _buildPersonHeader(context),
+                    _buildSection(
+                      context,
+                      icon: Icons.person,
+                      title: 'Basic Information',
                       children: [
-                        Icon(Icons.accessibility_new,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Physical Traits',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelLarge
-                              ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary),
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Name',
+                            helperText: 'Legal name or commonly known name',
+                            helperMaxLines: 2,
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Name is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: _genderOptions.contains(_gender)
+                              ? _gender
+                              : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Gender',
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Not specified'),
+                            ),
+                            ..._genderOptions.map(
+                              (g) => DropdownMenuItem(value: g, child: Text(g)),
+                            ),
+                            // Preserve legacy/custom values that aren't in the standard list
+                            if (_gender != null &&
+                                !_genderOptions.contains(_gender))
+                              DropdownMenuItem(
+                                value: _gender,
+                                child: Text(_gender!),
+                              ),
+                          ],
+                          onChanged: (v) => setState(() => _gender = v),
+                        ),
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          value: _isLiving,
+                          onChanged: (v) => setState(() => _isLiving = v),
+                          title: const Text('Currently living'),
+                          subtitle: const Text(
+                            'Turn off to enter death information',
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        SwitchListTile(
+                          value: _isPrivate,
+                          onChanged: (v) => setState(() => _isPrivate = v),
+                          title: const Text('Private (living person)'),
+                          subtitle: const Text(
+                            'Excluded from all exports & sync',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          secondary: const Icon(Icons.lock_outline),
+                          contentPadding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  DropdownButtonFormField<String?>(
-                    initialValue: _bloodType,
-                    decoration: const InputDecoration(
-                      labelText: 'Blood Type',
-                      helperText: 'Useful for medical history tracking',
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      icon: Icons.cake,
+                      title: 'Birth',
+                      children: [
+                        _DatePickerTile(
+                          label: 'Birth Date',
+                          date: _birthDate,
+                          onPick: () => _selectDate(context, true),
+                          onClear: _birthDate != null
+                              ? () => setState(() => _birthDate = null)
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        _PlaceField(
+                          controller: _birthPlaceController,
+                          postalCodeController: _birthPostalCodeController,
+                          label: 'Birth Place',
+                          coord: _birthCoord,
+                          eventDate: _birthDate,
+                          onCoordChanged: (c) {
+                            setState(() {
+                              _birthCoord = c;
+                              if (c != null) {
+                                if (_birthPlaceController.text.trim().isEmpty) {
+                                  _birthPlaceController.text = c.shortLabel;
+                                }
+                                if (_birthPostalCodeController.text
+                                        .trim()
+                                        .isEmpty &&
+                                    c.postalCode != null) {
+                                  _birthPostalCodeController.text =
+                                      c.postalCode!;
+                                }
+                              }
+                            });
+                          },
+                        ),
+                      ],
                     ),
-                    items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('Not specified')),
-                      ...Person.allBloodTypes.map(
-                          (t) => DropdownMenuItem(value: t, child: Text(t))),
+                    if (!_isLiving) ...[
+                      const SizedBox(height: 16),
+                      _buildSection(
+                        context,
+                        icon: Icons.star_border,
+                        title: 'Death',
+                        children: [
+                          _DatePickerTile(
+                            label: 'Death Date',
+                            date: _deathDate,
+                            onPick: () => _selectDate(context, false),
+                            onClear: _deathDate != null
+                                ? () => setState(() => _deathDate = null)
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          _PlaceField(
+                            controller: _deathPlaceController,
+                            postalCodeController: _deathPostalCodeController,
+                            label: 'Death Place',
+                            coord: _deathCoord,
+                            eventDate: _deathDate,
+                            onCoordChanged: (c) {
+                              setState(() {
+                                _deathCoord = c;
+                                if (c != null) {
+                                  if (_deathPlaceController.text
+                                      .trim()
+                                      .isEmpty) {
+                                    _deathPlaceController.text = c.shortLabel;
+                                  }
+                                  if (_deathPostalCodeController.text
+                                          .trim()
+                                          .isEmpty &&
+                                      c.postalCode != null) {
+                                    _deathPostalCodeController.text =
+                                        c.postalCode!;
+                                  }
+                                }
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _SuggestField(
+                            controller: _causeOfDeathController,
+                            decoration: const InputDecoration(
+                              labelText: 'Cause of Death',
+                            ),
+                            suggestions: _kCausesOfDeath,
+                            textCapitalization: TextCapitalization.sentences,
+                          ),
+                        ],
+                      ),
                     ],
-                    onChanged: (v) => setState(() => _bloodType = v),
-                  ),
-                  const SizedBox(height: 12),
-                  _SuggestField(
-                    controller: _eyeColourController,
-                    decoration: const InputDecoration(
-                      labelText: 'Eye Colour',
-                      hintText: 'e.g. Brown, Blue, Green',
-                    ),
-                    suggestions: _kEyeColours,
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  _SuggestField(
-                    controller: _hairColourController,
-                    decoration: const InputDecoration(
-                      labelText: 'Hair Colour',
-                      hintText: 'e.g. Black, Blonde, Auburn',
-                    ),
-                    suggestions: _kHairColours,
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _heightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Height',
-                      hintText: "e.g. 178 cm or 5'10\"",
-                    ),
-                  ),
-                  const Divider(height: 28),
-                  // Aliases subsection
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      icon: Icons.notes,
+                      title: 'Notes',
                       children: [
-                        Icon(Icons.badge_outlined,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Aliases / Also Known As',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelLarge
-                              ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary),
+                        TextFormField(
+                          controller: _notesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Notes (optional)',
+                            helperText:
+                                'Any extra biographical details, stories, or observations',
+                            helperMaxLines: 2,
+                          ),
+                          minLines: 3,
+                          maxLines: 6,
                         ),
                       ],
                     ),
-                  ),
-                  Text(
-                    'Add birth names, nicknames, or other names this person was known by.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 16),
+                    // ── Advanced Details (collapsed by default) ───────────────────
+                    Card(
+                      child: ExpansionTile(
+                        leading: const Icon(Icons.tune),
+                        title: const Text(
+                          'Advanced Details',
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                  ),
-                  const SizedBox(height: 8),
-                  ..._aliases.asMap().entries.map((entry) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(entry.value,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              tooltip: 'Remove alias',
-                              onPressed: () =>
-                                  setState(() => _aliases.removeAt(entry.key)),
-                            ),
-                          ],
+                        subtitle: const Text(
+                          'Physical traits, aliases & more (optional)',
+                          style: TextStyle(fontSize: 12),
                         ),
-                      )),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Add Alias'),
-                    onPressed: () => _addAlias(context),
-                  ),
-                  const Divider(height: 28),
-                  // Additional Details subsection
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+                        childrenPadding: const EdgeInsets.fromLTRB(
+                          16,
+                          0,
+                          16,
+                          16,
+                        ),
+                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Physical Traits subsection
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, bottom: 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.accessibility_new,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Physical Traits',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          DropdownButtonFormField<String?>(
+                            initialValue: _bloodType,
+                            decoration: const InputDecoration(
+                              labelText: 'Blood Type',
+                              helperText: 'Useful for medical history tracking',
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('Not specified'),
+                              ),
+                              ...Person.allBloodTypes.map(
+                                (t) =>
+                                    DropdownMenuItem(value: t, child: Text(t)),
+                              ),
+                            ],
+                            onChanged: (v) => setState(() => _bloodType = v),
+                          ),
+                          const SizedBox(height: 12),
+                          _SuggestField(
+                            controller: _eyeColourController,
+                            decoration: const InputDecoration(
+                              labelText: 'Eye Colour',
+                              hintText: 'e.g. Brown, Blue, Green',
+                            ),
+                            suggestions: _kEyeColours,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 12),
+                          _SuggestField(
+                            controller: _hairColourController,
+                            decoration: const InputDecoration(
+                              labelText: 'Hair Colour',
+                              hintText: 'e.g. Black, Blonde, Auburn',
+                            ),
+                            suggestions: _kHairColours,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _heightController,
+                            decoration: const InputDecoration(
+                              labelText: 'Height',
+                              hintText: "e.g. 178 cm or 5'10\"",
+                            ),
+                          ),
+                          const Divider(height: 28),
+                          // Aliases subsection
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.badge_outlined,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Aliases / Also Known As',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            'Add birth names, nicknames, or other names this person was known by.',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._aliases.asMap().entries.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      entry.value,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close, size: 18),
+                                    tooltip: 'Remove alias',
+                                    onPressed: () => setState(
+                                      () => _aliases.removeAt(entry.key),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Add Alias'),
+                            onPressed: () => _addAlias(context),
+                          ),
+                          const Divider(height: 28),
+                          // Additional Details subsection
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Additional Details',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _SuggestField(
+                            controller: _occupationController,
+                            decoration: const InputDecoration(
+                              labelText: 'Occupation',
+                              hintText: 'e.g. Farmer, Teacher, Engineer',
+                            ),
+                            suggestions: _kOccupations,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 12),
+                          _SuggestField(
+                            controller: _nationalityController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nationality',
+                              hintText: 'e.g. Czech, Polish, Ukrainian',
+                            ),
+                            suggestions: _kNationalities,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _maidenNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Maiden Name',
+                              helperText: 'Birth surname before marriage',
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 12),
+                          _SuggestField(
+                            controller: _religionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Religion / Faith',
+                              hintText: 'e.g. Catholic, Orthodox, None',
+                            ),
+                            suggestions: _kReligions,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 12),
+                          _SuggestField(
+                            controller: _educationController,
+                            decoration: const InputDecoration(
+                              labelText: 'Education Level',
+                              hintText: 'e.g. Primary, Secondary, University',
+                            ),
+                            suggestions: _kEducationLevels,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!_isLiving) ...[
+                      const SizedBox(height: 16),
+                      _buildSection(
+                        context,
+                        icon: Icons.place_outlined,
+                        title: 'Burial',
+                        children: [
+                          _DatePickerTile(
+                            label: 'Burial Date',
+                            date: _burialDate,
+                            onPick: () => _selectBurialDate(context),
+                            onClear: _burialDate != null
+                                ? () => setState(() => _burialDate = null)
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          _PlaceField(
+                            controller: _burialPlaceController,
+                            postalCodeController: _burialPostalCodeController,
+                            label: 'Burial Place',
+                            coord: _burialCoord,
+                            eventDate: _burialDate,
+                            onCoordChanged: (c) {
+                              setState(() {
+                                _burialCoord = c;
+                                if (c != null) {
+                                  if (_burialPlaceController.text
+                                      .trim()
+                                      .isEmpty) {
+                                    _burialPlaceController.text = c.shortLabel;
+                                  }
+                                  if (_burialPostalCodeController.text
+                                          .trim()
+                                          .isEmpty &&
+                                      c.postalCode != null) {
+                                    _burialPostalCodeController.text =
+                                        c.postalCode!;
+                                  }
+                                }
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      icon: Icons.photo_library_outlined,
+                      title: 'Photos',
                       children: [
-                        Icon(Icons.info_outline,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Additional Details',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelLarge
-                              ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary),
+                        if (_photoPaths.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'No photos added.',
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            height: 100,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _photoPaths.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (context, i) {
+                                final path = _photoPaths[i];
+                                return Stack(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => PhotoGalleryScreen(
+                                            photoPaths: _photoPaths,
+                                            initialIndex: i,
+                                          ),
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          File(path),
+                                          width: 100,
+                                          height: 100,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, _, _) => Container(
+                                            width: 100,
+                                            height: 100,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                            child: const Icon(
+                                              Icons.broken_image,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 2,
+                                      right: 2,
+                                      child: GestureDetector(
+                                        onTap: () => setState(
+                                          () => _photoPaths.removeAt(i),
+                                        ),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .scrim
+                                                .withValues(alpha: 0.65),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.close,
+                                            size: 16,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.add_photo_alternate_outlined),
+                          label: const Text('Add Photo'),
+                          onPressed: _pickPhotos,
                         ),
                       ],
                     ),
-                  ),
-                  _SuggestField(
-                    controller: _occupationController,
-                    decoration: const InputDecoration(
-                      labelText: 'Occupation',
-                      hintText: 'e.g. Farmer, Teacher, Engineer',
+                    const SizedBox(height: 16),
+                    if (isEditing) ...[
+                      _RelationshipsSection(person: widget.person!),
+                      const SizedBox(height: 8),
+                      _LifeEventsSection(personId: widget.person!.id),
+                      const SizedBox(height: 8),
+                      _QuickLinkCard(
+                        icon: Icons.account_tree,
+                        title: 'Descendants Chart',
+                        subtitle: 'View all descendants of this person',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                DescendantsScreen(initialPerson: widget.person),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _QuickLinkCard(
+                        icon: Icons.local_hospital_outlined,
+                        title: 'Medical History',
+                        subtitle: 'Track inherited conditions',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                MedicalHistoryScreen(person: widget.person),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _QuickLinkCard(
+                        icon: Icons.assignment_outlined,
+                        title: 'Research Tasks',
+                        subtitle: 'To-do items for this person',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ResearchTasksScreen(person: widget.person),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    // ── External IDs ──────────────────────────────────────────────
+                    _buildSection(
+                      context,
+                      icon: Icons.link,
+                      title: 'External IDs',
+                      children: [
+                        _ExternalIdSection(
+                          wikitreeId: _wikitreeId,
+                          findAGraveId: _findAGraveId,
+                          familySearchId: _familySearchId,
+                          personName: _nameController.text,
+                          birthYear: _birthDate?.year,
+                          onWikiTreeIdChanged: (id) =>
+                              setState(() => _wikitreeId = id),
+                          onFindAGraveIdChanged: (id) =>
+                              setState(() => _findAGraveId = id),
+                          onFamilySearchIdChanged: (id) =>
+                              setState(() => _familySearchId = id),
+                        ),
+                      ],
                     ),
-                    suggestions: _kOccupations,
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  _SuggestField(
-                    controller: _nationalityController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nationality',
-                      hintText: 'e.g. Czech, Polish, Ukrainian',
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save Person'),
+                      onPressed: _savePerson,
                     ),
-                    suggestions: _kNationalities,
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _maidenNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Maiden Name',
-                      helperText: 'Birth surname before marriage',
-                    ),
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  _SuggestField(
-                    controller: _religionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Religion / Faith',
-                      hintText: 'e.g. Catholic, Orthodox, None',
-                    ),
-                    suggestions: _kReligions,
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  _SuggestField(
-                    controller: _educationController,
-                    decoration: const InputDecoration(
-                      labelText: 'Education Level',
-                      hintText: 'e.g. Primary, Secondary, University',
-                    ),
-                    suggestions: _kEducationLevels,
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                ],
-              ),
-            ),
-            if (!_isLiving) ...[
-              const SizedBox(height: 16),
-              _buildSection(
-                context,
-                icon: Icons.place_outlined,
-                title: 'Burial',
-                children: [
-                  _DatePickerTile(
-                    label: 'Burial Date',
-                    date: _burialDate,
-                    onPick: () => _selectBurialDate(context),
-                    onClear: _burialDate != null
-                        ? () => setState(() => _burialDate = null)
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  _PlaceField(
-                    controller: _burialPlaceController,
-                    postalCodeController: _burialPostalCodeController,
-                    label: 'Burial Place',
-                    coord: _burialCoord,
-                    eventDate: _burialDate,
-                    onCoordChanged: (c) {
-                      setState(() {
-                        _burialCoord = c;
-                        if (c != null) {
-                          if (_burialPlaceController.text.trim().isEmpty) {
-                            _burialPlaceController.text = c.shortLabel;
-                          }
-                          if (_burialPostalCodeController.text.trim().isEmpty &&
-                              c.postalCode != null) {
-                            _burialPostalCodeController.text = c.postalCode!;
-                          }
-                        }
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 16),
-            _buildSection(
-              context,
-              icon: Icons.photo_library_outlined,
-              title: 'Photos',
-              children: [
-                if (_photoPaths.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      'No photos added.',
-                      style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    height: 100,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _photoPaths.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, i) {
-                        final path = _photoPaths[i];
-                        return Stack(
-                          children: [
-                            GestureDetector(
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PhotoGalleryScreen(
-                                    photoPaths: _photoPaths,
-                                    initialIndex: i,
-                                  ),
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.file(
-                                  File(path),
-                                  width: 100,
-                                  height: 100,
-                                  fit: BoxFit.cover,
-                                 errorBuilder: (_, _, _) => Container(
-                                    width: 100,
-                                    height: 100,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest,
-                                    child: const Icon(Icons.broken_image),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 2,
-                              right: 2,
-                              child: GestureDetector(
-                                onTap: () => setState(
-                                    () => _photoPaths.removeAt(i)),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .scrim
-                                        .withValues(alpha: 0.65),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Theme.of(context).colorScheme.onPrimary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: const Text('Add Photo'),
-                  onPressed: _pickPhotos,
+                    const SizedBox(height: 16),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (isEditing) ...[
-              _RelationshipsSection(person: widget.person!),
-              const SizedBox(height: 8),
-              _LifeEventsSection(personId: widget.person!.id),
-              const SizedBox(height: 8),
-              _QuickLinkCard(
-                icon: Icons.account_tree,
-                title: 'Descendants Chart',
-                subtitle: 'View all descendants of this person',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        DescendantsScreen(initialPerson: widget.person),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _QuickLinkCard(
-                icon: Icons.local_hospital_outlined,
-                title: 'Medical History',
-                subtitle: 'Track inherited conditions',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        MedicalHistoryScreen(person: widget.person),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _QuickLinkCard(
-                icon: Icons.assignment_outlined,
-                title: 'Research Tasks',
-                subtitle: 'To-do items for this person',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ResearchTasksScreen(person: widget.person),
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            // ── External IDs ──────────────────────────────────────────────
-            _buildSection(
-              context,
-              icon: Icons.link,
-              title: 'External IDs',
-              children: [
-                _ExternalIdSection(
-                  wikitreeId: _wikitreeId,
-                  findAGraveId: _findAGraveId,
-                  personName: _nameController.text,
-                  birthYear: _birthDate?.year,
-                  onWikiTreeIdChanged: (id) =>
-                      setState(() => _wikitreeId = id),
-                  onFindAGraveIdChanged: (id) =>
-                      setState(() => _findAGraveId = id),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              icon: const Icon(Icons.save),
-              label: const Text('Save Person'),
-              onPressed: _savePerson,
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
               ),
             ),
           );
@@ -831,8 +913,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     } else {
       avatarBg = colorScheme.secondary;
     }
-    final avatarFg = ThemeData.estimateBrightnessForColor(avatarBg) ==
-            Brightness.dark
+    final avatarFg =
+        ThemeData.estimateBrightnessForColor(avatarBg) == Brightness.dark
         ? colorScheme.onPrimary
         : colorScheme.onSurface;
 
@@ -846,8 +928,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               child: _photoPaths.isNotEmpty
                   ? CircleAvatar(
                       radius: 40,
-                      backgroundImage:
-                          FileImage(File(_photoPaths.first)),
+                      backgroundImage: FileImage(File(_photoPaths.first)),
                       backgroundColor: avatarBg,
                       onBackgroundImageError: (_, _) {},
                     )
@@ -868,11 +949,12 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _nameController.text.isNotEmpty ? _nameController.text : person.name,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              _nameController.text.isNotEmpty
+                  ? _nameController.text
+                  : person.name,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -900,9 +982,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.primary,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
                 ),
               ],
             ),
@@ -923,7 +1005,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         content: TextField(
           controller: ctrl,
           decoration: const InputDecoration(
-              hintText: 'e.g. Birth name, nickname…'),
+            hintText: 'e.g. Birth name, nickname…',
+          ),
           autofocus: true,
           textCapitalization: TextCapitalization.words,
         ),
@@ -947,10 +1030,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   Future<void> _selectDate(BuildContext context, bool isBirth) async {
     final initial = (isBirth ? _birthDate : _deathDate) ?? DateTime.now();
-    final picked = await pickDateAdaptive(
-      context,
-      initialDate: initial,
-    );
+    final picked = await pickDateAdaptive(context, initialDate: initial);
     if (picked != null) {
       setState(() {
         if (isBirth) {
@@ -964,10 +1044,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
   Future<void> _selectBurialDate(BuildContext context) async {
     final initial = _burialDate ?? DateTime.now();
-    final picked = await pickDateAdaptive(
-      context,
-      initialDate: initial,
-    );
+    final picked = await pickDateAdaptive(context, initialDate: initial);
     if (picked != null) {
       setState(() => _burialDate = picked);
     }
@@ -987,8 +1064,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       deathPlace: _isLiving
           ? null
           : (_deathPlaceController.text.trim().isEmpty
-              ? null
-              : _deathPlaceController.text.trim()),
+                ? null
+                : _deathPlaceController.text.trim()),
       gender: _gender,
       photoPaths: _photoPaths,
       sourceIds: widget.person?.sourceIds ?? [],
@@ -1011,8 +1088,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       burialPlace: _isLiving
           ? null
           : (_burialPlaceController.text.trim().isEmpty
-              ? null
-              : _burialPlaceController.text.trim()),
+                ? null
+                : _burialPlaceController.text.trim()),
       birthCoord: _birthCoord,
       deathCoord: _isLiving ? null : _deathCoord,
       burialCoord: _isLiving ? null : _burialCoord,
@@ -1022,21 +1099,21 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       deathPostalCode: _isLiving
           ? null
           : (_deathPostalCodeController.text.trim().isEmpty
-              ? null
-              : _deathPostalCodeController.text.trim()),
+                ? null
+                : _deathPostalCodeController.text.trim()),
       burialPostalCode: _isLiving
           ? null
           : (_burialPostalCodeController.text.trim().isEmpty
-              ? null
-              : _burialPostalCodeController.text.trim()),
+                ? null
+                : _burialPostalCodeController.text.trim()),
       isPrivate: _isPrivate,
       syncMedical: widget.person?.syncMedical ?? false,
       preferredSourceIds: widget.person?.preferredSourceIds ?? {},
       causeOfDeath: _isLiving
           ? null
           : (_causeOfDeathController.text.trim().isEmpty
-              ? null
-              : _causeOfDeathController.text.trim()),
+                ? null
+                : _causeOfDeathController.text.trim()),
       bloodType: _bloodType,
       eyeColour: _eyeColourController.text.trim().isEmpty
           ? null
@@ -1056,6 +1133,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       aliases: _aliases,
       wikitreeId: _wikitreeId,
       findAGraveId: _findAGraveId,
+      familySearchId: _familySearchId,
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
@@ -1066,8 +1144,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(e.message),
-              backgroundColor:
-                  Theme.of(context).colorScheme.outlineVariant,
+              backgroundColor: Theme.of(context).colorScheme.outlineVariant,
             ),
           );
         }
@@ -1177,23 +1254,21 @@ class _PlaceFieldState extends State<_PlaceField> {
                 .search(query, eventDate: widget.eventDate)
                 .take(6);
           },
-          fieldViewBuilder:
-              (context, controller, focusNode, onSubmitted) {
+          fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
             return TextFormField(
               controller: controller,
               focusNode: focusNode,
               decoration: InputDecoration(
                 labelText: widget.label,
                 suffixIcon: IconButton(
-                  icon: Icon(Icons.map_outlined,
-                      color: colorScheme.primary),
+                  icon: Icon(Icons.map_outlined, color: colorScheme.primary),
                   tooltip: 'Pick on map',
                   onPressed: () async {
                     final result = await Navigator.push<GeoCoord?>(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => MapPickerScreen(
-                            initialCoord: widget.coord),
+                        builder: (_) =>
+                            MapPickerScreen(initialCoord: widget.coord),
                       ),
                     );
                     if (result != null) {
@@ -1230,7 +1305,9 @@ class _PlaceFieldState extends State<_PlaceField> {
                         onTap: () => onSelected(place),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1243,8 +1320,10 @@ class _PlaceFieldState extends State<_PlaceField> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(name,
-                                        style: const TextStyle(fontSize: 14)),
+                                    Text(
+                                      name,
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
                                     if (info.isNotEmpty) ...[
                                       const SizedBox(height: 2),
                                       Text(
@@ -1278,9 +1357,11 @@ class _PlaceFieldState extends State<_PlaceField> {
           controller: widget.postalCodeController,
           decoration: InputDecoration(
             labelText: 'Postal / ZIP code',
-            prefixIcon:
-                Icon(Icons.local_post_office_outlined, size: 18,
-                    color: colorScheme.onSurfaceVariant),
+            prefixIcon: Icon(
+              Icons.local_post_office_outlined,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
           keyboardType: TextInputType.text,
         ),
@@ -1307,15 +1388,16 @@ class _PlaceFieldState extends State<_PlaceField> {
                 ),
               // Clear coord button
               ActionChip(
-                avatar: Icon(Icons.close, size: 14,
-                    color: colorScheme.error),
-                label: Text('Clear pin',
-                    style: TextStyle(
-                        fontSize: 11, color: colorScheme.error)),
+                avatar: Icon(Icons.close, size: 14, color: colorScheme.error),
+                label: Text(
+                  'Clear pin',
+                  style: TextStyle(fontSize: 11, color: colorScheme.error),
+                ),
                 onPressed: () => widget.onCoordChanged(null),
-                side: BorderSide(color: colorScheme.error.withValues(alpha: 0.3)),
-                backgroundColor:
-                    colorScheme.error.withValues(alpha: 0.08),
+                side: BorderSide(
+                  color: colorScheme.error.withValues(alpha: 0.3),
+                ),
+                backgroundColor: colorScheme.error.withValues(alpha: 0.08),
               ),
             ],
           ),
@@ -1343,8 +1425,7 @@ class _InfoChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: colorScheme.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1355,9 +1436,10 @@ class _InfoChip extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                  fontSize: 11,
-                  color: colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w500),
+                fontSize: 11,
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w500,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1387,18 +1469,15 @@ class _DatePickerTile extends StatelessWidget {
       onTap: onPick,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: colorScheme.outline.withValues(alpha: 0.3)),
+          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            Icon(Icons.calendar_today,
-                size: 18, color: colorScheme.primary),
+            Icon(Icons.calendar_today, size: 18, color: colorScheme.primary),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1407,18 +1486,16 @@ class _DatePickerTile extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   Text(
                     date != null
                         ? DateFormat('d MMMM yyyy').format(date!)
                         : 'Tap to set date',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: date != null
-                              ? null
-                              : colorScheme.onSurfaceVariant,
-                        ),
+                      color: date != null ? null : colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -1456,7 +1533,9 @@ class _RelationshipsSection extends StatelessWidget {
     final partnerships = provider.partnershipsFor(person.id);
     final partners = partnerships
         .map((pt) {
-          final otherId = pt.person1Id == person.id ? pt.person2Id : pt.person1Id;
+          final otherId = pt.person1Id == person.id
+              ? pt.person2Id
+              : pt.person1Id;
           return provider.persons.where((p) => p.id == otherId).firstOrNull;
         })
         .whereType<Person>()
@@ -1475,16 +1554,19 @@ class _RelationshipsSection extends StatelessWidget {
             // Header row
             Row(
               children: [
-                Icon(Icons.family_restroom,
-                    size: 18, color: colorScheme.primary),
+                Icon(
+                  Icons.family_restroom,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Family Relationships',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
                   ),
                 ),
                 TextButton.icon(
@@ -1582,19 +1664,17 @@ class _RelRow extends StatelessWidget {
                 TextSpan(
                   text: '$label: ',
                   style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface),
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
                 TextSpan(
-                  text: count == 0
-                      ? emptyHint
-                      : names.join(', '),
+                  text: count == 0 ? emptyHint : names.join(', '),
                   style: TextStyle(
                     color: count == 0
                         ? colorScheme.onSurfaceVariant
                         : colorScheme.onSurface,
-                    fontStyle:
-                        count == 0 ? FontStyle.italic : FontStyle.normal,
+                    fontStyle: count == 0 ? FontStyle.italic : FontStyle.normal,
                   ),
                 ),
               ],
@@ -1627,13 +1707,15 @@ class _QuickLinkCard extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: Icon(icon, color: colorScheme.primary),
-        title: Text(title,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle,
-            style: TextStyle(
-                color: colorScheme.onSurfaceVariant, fontSize: 12)),
-        trailing: Icon(Icons.chevron_right,
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
         onTap: onTap,
       ),
     );
@@ -1665,9 +1747,9 @@ class _LifeEventsSection extends StatelessWidget {
                 Text(
                   'Life Events',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.primary,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -1683,64 +1765,67 @@ class _LifeEventsSection extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   'No life events recorded.',
-                  style:
-                      TextStyle(color: colorScheme.onSurfaceVariant),
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
                 ),
               )
             else ...[
               const SizedBox(height: 8),
-              ...events.map((event) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor:
-                          colorScheme.tertiaryContainer,
-                      child: Icon(Icons.event,
+              ...events.map(
+                (event) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: colorScheme.tertiaryContainer,
+                    child: Icon(
+                      Icons.event,
+                      size: 18,
+                      color: colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                  title: Text(event.title),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (event.date != null)
+                        Text(DateFormat('d MMMM yyyy').format(event.date!)),
+                      if (event.place != null && event.place!.isNotEmpty)
+                        Text(
+                          event.place!,
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        ),
+                      if (event.notes != null && event.notes!.isNotEmpty)
+                        Text(
+                          event.notes!,
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        tooltip: 'Edit',
+                        onPressed: () =>
+                            _openEventSheet(context, provider, personId, event),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
                           size: 18,
-                          color: colorScheme.onTertiaryContainer),
-                    ),
-                    title: Text(event.title),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (event.date != null)
-                          Text(DateFormat('d MMMM yyyy')
-                              .format(event.date!)),
-                        if (event.place != null &&
-                            event.place!.isNotEmpty)
-                          Text(event.place!,
-                              style: TextStyle(
-                                  color:
-                                      colorScheme.onSurfaceVariant)),
-                        if (event.notes != null &&
-                            event.notes!.isNotEmpty)
-                          Text(event.notes!,
-                              style: TextStyle(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontStyle: FontStyle.italic),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          tooltip: 'Edit',
-                          onPressed: () => _openEventSheet(
-                              context, provider, personId, event),
+                          color: colorScheme.error,
                         ),
-                        IconButton(
-                          icon: Icon(Icons.delete_outline,
-                              size: 18,
-                              color: colorScheme.error),
-                          tooltip: 'Delete',
-                          onPressed: () =>
-                              provider.deleteLifeEvent(event.id),
-                        ),
-                      ],
-                    ),
-                  )),
+                        tooltip: 'Delete',
+                        onPressed: () => provider.deleteLifeEvent(event.id),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ],
         ),
@@ -1801,7 +1886,8 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
     _selectedType = isCommon ? e.title : null;
     _useCustomTitle = e != null && !isCommon;
     _titleController = TextEditingController(
-        text: _useCustomTitle ? (e?.title ?? '') : '');
+      text: _useCustomTitle ? (e?.title ?? '') : '',
+    );
     _placeController = TextEditingController(text: e?.place ?? '');
     _notesController = TextEditingController(text: e?.notes ?? '');
     _date = e?.date;
@@ -1863,15 +1949,15 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
             children: [
               Text(
                 widget.existing == null ? 'Add Life Event' : 'Edit Life Event',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context)),
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1883,10 +1969,13 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
                 border: OutlineInputBorder(),
               ),
               items: [
-                ...LifeEvent.commonTypes.map((t) =>
-                    DropdownMenuItem(value: t, child: Text(t))),
+                ...LifeEvent.commonTypes.map(
+                  (t) => DropdownMenuItem(value: t, child: Text(t)),
+                ),
                 const DropdownMenuItem(
-                    value: '__custom__', child: Text('Custom…')),
+                  value: '__custom__',
+                  child: Text('Custom…'),
+                ),
               ],
               onChanged: (v) {
                 if (v == '__custom__') {
@@ -1924,17 +2013,20 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
             },
             borderRadius: BorderRadius.circular(8),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                border:
-                    Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.5),
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today,
-                      size: 18, color: colorScheme.primary),
+                  Icon(
+                    Icons.calendar_today,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -1984,7 +2076,9 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
             width: double.infinity,
             child: FilledButton.icon(
               icon: const Icon(Icons.save),
-              label: Text(widget.existing == null ? 'Save Event' : 'Update Event'),
+              label: Text(
+                widget.existing == null ? 'Save Event' : 'Update Event',
+              ),
               onPressed: _save,
             ),
           ),
@@ -2001,18 +2095,22 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
 class _ExternalIdSection extends StatefulWidget {
   final String? wikitreeId;
   final String? findAGraveId;
+  final String? familySearchId;
   final String personName;
   final int? birthYear;
   final ValueChanged<String?> onWikiTreeIdChanged;
   final ValueChanged<String?> onFindAGraveIdChanged;
+  final ValueChanged<String?> onFamilySearchIdChanged;
 
   const _ExternalIdSection({
     required this.wikitreeId,
     required this.findAGraveId,
+    required this.familySearchId,
     required this.personName,
     required this.birthYear,
     required this.onWikiTreeIdChanged,
     required this.onFindAGraveIdChanged,
+    required this.onFamilySearchIdChanged,
   });
 
   @override
@@ -2022,6 +2120,7 @@ class _ExternalIdSection extends StatefulWidget {
 class _ExternalIdSectionState extends State<_ExternalIdSection> {
   late TextEditingController _wtCtrl;
   late TextEditingController _fagCtrl;
+  late TextEditingController _fsCtrl;
   bool _searching = false;
   List<WikiTreeProfile> _searchResults = [];
 
@@ -2030,12 +2129,14 @@ class _ExternalIdSectionState extends State<_ExternalIdSection> {
     super.initState();
     _wtCtrl = TextEditingController(text: widget.wikitreeId ?? '');
     _fagCtrl = TextEditingController(text: widget.findAGraveId ?? '');
+    _fsCtrl = TextEditingController(text: widget.familySearchId ?? '');
   }
 
   @override
   void dispose() {
     _wtCtrl.dispose();
     _fagCtrl.dispose();
+    _fsCtrl.dispose();
     super.dispose();
   }
 
@@ -2050,7 +2151,12 @@ class _ExternalIdSectionState extends State<_ExternalIdSection> {
       birthYear: widget.birthYear,
       limit: 5,
     );
-    if (mounted) setState(() { _searching = false; _searchResults = results; });
+    if (mounted) {
+      setState(() {
+        _searching = false;
+        _searchResults = results;
+      });
+    }
   }
 
   @override
@@ -2060,101 +2166,218 @@ class _ExternalIdSectionState extends State<_ExternalIdSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── WikiTree ─────────────────────────────────────────────────────
-        Row(children: [
-          Icon(Icons.account_tree_outlined, size: 16, color: colorScheme.primary),
-          const SizedBox(width: 6),
-          Text('WikiTree', style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-        ]),
+        Row(
+          children: [
+            Icon(
+              Icons.account_tree_outlined,
+              size: 16,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'WikiTree',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 6),
-        Row(children: [
-          Expanded(
-            child: TextFormField(
-              controller: _wtCtrl,
-              decoration: const InputDecoration(
-                labelText: 'WikiTree ID (e.g. Churchill-4)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              onChanged: (v) => widget.onWikiTreeIdChanged(v.trim().isEmpty ? null : v.trim()),
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (widget.wikitreeId != null && widget.wikitreeId!.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.open_in_new, size: 20),
-              tooltip: 'Open WikiTree profile',
-              onPressed: () => launchUrl(
-                Uri.parse('https://www.wikitree.com/wiki/${widget.wikitreeId}'),
-                mode: LaunchMode.externalApplication,
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _wtCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'WikiTree ID (e.g. Churchill-4)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (v) => widget.onWikiTreeIdChanged(
+                  v.trim().isEmpty ? null : v.trim(),
+                ),
               ),
             ),
-        ]),
+            const SizedBox(width: 8),
+            if (widget.wikitreeId != null && widget.wikitreeId!.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.open_in_new, size: 20),
+                tooltip: 'Open WikiTree profile',
+                onPressed: () => launchUrl(
+                  Uri.parse(
+                    'https://www.wikitree.com/wiki/${widget.wikitreeId}',
+                  ),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 4),
-        Row(children: [
-          if (_searching)
-            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator.adaptive(strokeWidth: 2))
-          else
-            TextButton.icon(
-              onPressed: _searchWikiTree,
-              icon: const Icon(Icons.search, size: 16),
-              label: const Text('Search WikiTree for this person'),
+        Row(
+          children: [
+            if (_searching)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+              )
+            else
+              TextButton.icon(
+                onPressed: _searchWikiTree,
+                icon: const Icon(Icons.search, size: 16),
+                label: const Text('Search WikiTree for this person'),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WikiTreeScreen()),
+              ),
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              child: const Text('Open WikiTree Hub →'),
             ),
-          const Spacer(),
-          TextButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WikiTreeScreen())),
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            child: const Text('Open WikiTree Hub →'),
+          ],
+        ),
+        ..._searchResults.map(
+          (p) => _WikiTreeResultChip(
+            profile: p,
+            onSelect: (id) {
+              widget.onWikiTreeIdChanged(id);
+              setState(() {
+                _wtCtrl.text = id;
+                _searchResults = [];
+              });
+            },
           ),
-        ]),
-        ..._searchResults.map((p) => _WikiTreeResultChip(
-          profile: p,
-          onSelect: (id) {
-            widget.onWikiTreeIdChanged(id);
-            setState(() { _wtCtrl.text = id; _searchResults = []; });
-          },
-        )),
+        ),
         const SizedBox(height: 12),
         // ── Find A Grave ─────────────────────────────────────────────────
-        Row(children: [
-          Icon(Icons.location_on_outlined, size: 16, color: colorScheme.secondary),
-          const SizedBox(width: 6),
-          Text('Find A Grave', style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-        ]),
+        Row(
+          children: [
+            Icon(
+              Icons.location_on_outlined,
+              size: 16,
+              color: colorScheme.secondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Find A Grave',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 6),
-        Row(children: [
-          Expanded(
-            child: TextFormField(
-              controller: _fagCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Memorial ID (e.g. 1836)',
-                hintText: 'Paste URL or memorial ID',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              keyboardType: TextInputType.url,
-              onChanged: (v) {
-                final extracted = FindAGraveService.instance.extractIdFromUrl(v) ??
-                    (RegExp(r'^\d+$').hasMatch(v.trim()) ? v.trim() : null);
-                widget.onFindAGraveIdChanged(extracted);
-                if (extracted != null && extracted != v.trim()) {
-                  _fagCtrl.text = extracted;
-                  _fagCtrl.selection = TextSelection.fromPosition(TextPosition(offset: extracted.length));
-                }
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (widget.findAGraveId != null && widget.findAGraveId!.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.open_in_new, size: 20),
-              tooltip: 'Open Find A Grave memorial',
-              onPressed: () => launchUrl(
-                Uri.parse(FindAGraveService.instance.memorialUrl(widget.findAGraveId!)),
-                mode: LaunchMode.externalApplication,
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _fagCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Memorial ID (e.g. 1836)',
+                  hintText: 'Paste URL or memorial ID',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                keyboardType: TextInputType.url,
+                onChanged: (v) {
+                  final extracted =
+                      FindAGraveService.instance.extractIdFromUrl(v) ??
+                      (RegExp(r'^\d+$').hasMatch(v.trim()) ? v.trim() : null);
+                  widget.onFindAGraveIdChanged(extracted);
+                  if (extracted != null && extracted != v.trim()) {
+                    _fagCtrl.text = extracted;
+                    _fagCtrl.selection = TextSelection.fromPosition(
+                      TextPosition(offset: extracted.length),
+                    );
+                  }
+                },
               ),
             ),
-        ]),
+            const SizedBox(width: 8),
+            if (widget.findAGraveId != null && widget.findAGraveId!.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.open_in_new, size: 20),
+                tooltip: 'Open Find A Grave memorial',
+                onPressed: () => launchUrl(
+                  Uri.parse(
+                    FindAGraveService.instance.memorialUrl(
+                      widget.findAGraveId!,
+                    ),
+                  ),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // ── FamilySearch ───────────────────────────────────────────────────
+        Row(
+          children: [
+            Icon(
+              Icons.people_alt_outlined,
+              size: 16,
+              color: colorScheme.tertiary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'FamilySearch',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _fsCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Person ID (e.g. KW7S-BBQ)',
+                  hintText: 'Paste URL or FamilySearch ID',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                keyboardType: TextInputType.url,
+                onChanged: (v) {
+                  final extracted = FamilySearchService.instance
+                      .extractPersonId(v);
+                  widget.onFamilySearchIdChanged(extracted);
+                  if (extracted != null && extracted != v.trim()) {
+                    _fsCtrl.text = extracted;
+                    _fsCtrl.selection = TextSelection.fromPosition(
+                      TextPosition(offset: extracted.length),
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (widget.familySearchId != null &&
+                widget.familySearchId!.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.open_in_new, size: 20),
+                tooltip: 'Open FamilySearch profile',
+                onPressed: () => launchUrl(
+                  Uri.parse(
+                    FamilySearchService.instance.personUrl(
+                      widget.familySearchId!,
+                    ),
+                  ),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -2184,15 +2407,43 @@ class _WikiTreeResultChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: colorScheme.primaryContainer, width: 1),
         ),
-        child: Row(children: [
-          Icon(Icons.account_tree_outlined, size: 14, color: colorScheme.primary),
-          const SizedBox(width: 6),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(profile.displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            Text(sub, style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
-          ])),
-          Icon(Icons.check_circle_outline, size: 16, color: colorScheme.primary),
-        ]),
+        child: Row(
+          children: [
+            Icon(
+              Icons.account_tree_outlined,
+              size: 14,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.displayName,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    sub,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.check_circle_outline,
+              size: 16,
+              color: colorScheme.primary,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2251,8 +2502,7 @@ class _SuggestFieldState extends State<_SuggestField> {
             .where((s) => s.toLowerCase().contains(query))
             .take(6);
       },
-      fieldViewBuilder:
-          (context, controller, focusNode, onSubmitted) {
+      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
         return TextFormField(
           controller: controller,
           focusNode: focusNode,
@@ -2279,9 +2529,10 @@ class _SuggestFieldState extends State<_SuggestField> {
                     onTap: () => onSelected(option),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      child: Text(option,
-                          style: const TextStyle(fontSize: 14)),
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      child: Text(option, style: const TextStyle(fontSize: 14)),
                     ),
                   );
                 },
@@ -2299,83 +2550,317 @@ class _SuggestFieldState extends State<_SuggestField> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const List<String> _kOccupations = [
-  'Accountant', 'Actor', 'Agriculture Labourer', 'Architect', 'Baker',
-  'Blacksmith', 'Boatman', 'Bookkeeper', 'Bricklayer', 'Butcher',
-  'Cabinet Maker', 'Carpenter', 'Carter', 'Charwoman', 'Civil Servant',
-  'Clerk', 'Coachman', 'Coal Miner', 'Cook', 'Coppersmith',
-  'Cooper', 'Cutler', 'Dentist', 'Domestic Servant', 'Dressmaker',
-  'Driver', 'Engineer', 'Factory Worker', 'Farmer', 'Farrier',
-  'Fisherman', 'Glazier', 'Grocer', 'Groom', 'Hatter',
-  'Housemaid', 'Innkeeper', 'Jeweller', 'Joiner', 'Labourer',
-  'Lace Maker', 'Lawyer', 'Mason', 'Merchant', 'Midwife',
-  'Miller', 'Miner', 'Nurse', 'Painter', 'Pharmacist',
-  'Physician', 'Plasterer', 'Plumber', 'Potter', 'Priest',
-  'Printer', 'Rabbi', 'Railway Worker', 'Sailor', 'Seamstress',
-  'Servant', 'Shoemaker', 'Soldier', 'Spinner', 'Stonecutter',
-  'Surgeon', 'Tailor', 'Teacher', 'Tinsmith', 'Trader',
-  'Upholsterer', 'Watchmaker', 'Weaver', 'Wheelwright', 'Woodcutter',
+  'Accountant',
+  'Actor',
+  'Agriculture Labourer',
+  'Architect',
+  'Baker',
+  'Blacksmith',
+  'Boatman',
+  'Bookkeeper',
+  'Bricklayer',
+  'Butcher',
+  'Cabinet Maker',
+  'Carpenter',
+  'Carter',
+  'Charwoman',
+  'Civil Servant',
+  'Clerk',
+  'Coachman',
+  'Coal Miner',
+  'Cook',
+  'Coppersmith',
+  'Cooper',
+  'Cutler',
+  'Dentist',
+  'Domestic Servant',
+  'Dressmaker',
+  'Driver',
+  'Engineer',
+  'Factory Worker',
+  'Farmer',
+  'Farrier',
+  'Fisherman',
+  'Glazier',
+  'Grocer',
+  'Groom',
+  'Hatter',
+  'Housemaid',
+  'Innkeeper',
+  'Jeweller',
+  'Joiner',
+  'Labourer',
+  'Lace Maker',
+  'Lawyer',
+  'Mason',
+  'Merchant',
+  'Midwife',
+  'Miller',
+  'Miner',
+  'Nurse',
+  'Painter',
+  'Pharmacist',
+  'Physician',
+  'Plasterer',
+  'Plumber',
+  'Potter',
+  'Priest',
+  'Printer',
+  'Rabbi',
+  'Railway Worker',
+  'Sailor',
+  'Seamstress',
+  'Servant',
+  'Shoemaker',
+  'Soldier',
+  'Spinner',
+  'Stonecutter',
+  'Surgeon',
+  'Tailor',
+  'Teacher',
+  'Tinsmith',
+  'Trader',
+  'Upholsterer',
+  'Watchmaker',
+  'Weaver',
+  'Wheelwright',
+  'Woodcutter',
 ];
 
 const List<String> _kNationalities = [
-  'Afghan', 'Albanian', 'Algerian', 'American', 'Angolan',
-  'Argentine', 'Armenian', 'Australian', 'Austrian', 'Azerbaijani',
-  'Belarusian', 'Belgian', 'Bolivian', 'Bosnian', 'Brazilian',
-  'British', 'Bulgarian', 'Burmese', 'Cambodian', 'Canadian',
-  'Chilean', 'Chinese', 'Colombian', 'Congolese', 'Croatian',
-  'Cuban', 'Czech', 'Danish', 'Dutch', 'Egyptian',
-  'English', 'Estonian', 'Ethiopian', 'Finnish', 'French',
-  'Galician', 'Georgian', 'German', 'Ghanaian', 'Greek',
-  'Guatemalan', 'Hungarian', 'Indian', 'Indonesian', 'Iranian',
-  'Iraqi', 'Irish', 'Israeli', 'Italian', 'Japanese',
-  'Kenyan', 'Korean', 'Latvian', 'Lebanese', 'Lithuanian',
-  'Macedonian', 'Malaysian', 'Mexican', 'Moldovan', 'Montenegrin',
-  'Moroccan', 'Nigerian', 'Norwegian', 'Pakistani', 'Palestinian',
-  'Peruvian', 'Philippine', 'Polish', 'Portuguese', 'Romanian',
-  'Russian', 'Saudi', 'Scottish', 'Serbian', 'Slovak',
-  'Slovenian', 'South African', 'Spanish', 'Swedish', 'Swiss',
-  'Syrian', 'Taiwanese', 'Thai', 'Turkish', 'Ukrainian',
-  'Uzbek', 'Venezuelan', 'Vietnamese', 'Welsh', 'Zimbabwean',
+  'Afghan',
+  'Albanian',
+  'Algerian',
+  'American',
+  'Angolan',
+  'Argentine',
+  'Armenian',
+  'Australian',
+  'Austrian',
+  'Azerbaijani',
+  'Belarusian',
+  'Belgian',
+  'Bolivian',
+  'Bosnian',
+  'Brazilian',
+  'British',
+  'Bulgarian',
+  'Burmese',
+  'Cambodian',
+  'Canadian',
+  'Chilean',
+  'Chinese',
+  'Colombian',
+  'Congolese',
+  'Croatian',
+  'Cuban',
+  'Czech',
+  'Danish',
+  'Dutch',
+  'Egyptian',
+  'English',
+  'Estonian',
+  'Ethiopian',
+  'Finnish',
+  'French',
+  'Galician',
+  'Georgian',
+  'German',
+  'Ghanaian',
+  'Greek',
+  'Guatemalan',
+  'Hungarian',
+  'Indian',
+  'Indonesian',
+  'Iranian',
+  'Iraqi',
+  'Irish',
+  'Israeli',
+  'Italian',
+  'Japanese',
+  'Kenyan',
+  'Korean',
+  'Latvian',
+  'Lebanese',
+  'Lithuanian',
+  'Macedonian',
+  'Malaysian',
+  'Mexican',
+  'Moldovan',
+  'Montenegrin',
+  'Moroccan',
+  'Nigerian',
+  'Norwegian',
+  'Pakistani',
+  'Palestinian',
+  'Peruvian',
+  'Philippine',
+  'Polish',
+  'Portuguese',
+  'Romanian',
+  'Russian',
+  'Saudi',
+  'Scottish',
+  'Serbian',
+  'Slovak',
+  'Slovenian',
+  'South African',
+  'Spanish',
+  'Swedish',
+  'Swiss',
+  'Syrian',
+  'Taiwanese',
+  'Thai',
+  'Turkish',
+  'Ukrainian',
+  'Uzbek',
+  'Venezuelan',
+  'Vietnamese',
+  'Welsh',
+  'Zimbabwean',
 ];
 
 const List<String> _kReligions = [
-  'Anglican', 'Atheist', 'Agnostic', 'Baptist', 'Buddhist',
-  'Calvinist', 'Catholic', 'Christian', 'Confucian', 'Eastern Orthodox',
-  'Episcopal', 'Greek Orthodox', 'Hindu', 'Humanist', 'Islamic',
-  'Jehovah\'s Witness', 'Jewish', 'Lutheran', 'Mennonite', 'Methodist',
-  'Mormon', 'Muslim', 'None', 'Orthodox Jewish', 'Pentecostal',
-  'Presbyterian', 'Protestant', 'Quaker', 'Reformed', 'Russian Orthodox',
-  'Serbian Orthodox', 'Seventh-day Adventist', 'Shia Muslim', 'Shinto', 'Sikh',
-  'Sunni Muslim', 'Taoism', 'Ukrainian Greek Catholic', 'Unitarian', 'Unknown',
+  'Anglican',
+  'Atheist',
+  'Agnostic',
+  'Baptist',
+  'Buddhist',
+  'Calvinist',
+  'Catholic',
+  'Christian',
+  'Confucian',
+  'Eastern Orthodox',
+  'Episcopal',
+  'Greek Orthodox',
+  'Hindu',
+  'Humanist',
+  'Islamic',
+  'Jehovah\'s Witness',
+  'Jewish',
+  'Lutheran',
+  'Mennonite',
+  'Methodist',
+  'Mormon',
+  'Muslim',
+  'None',
+  'Orthodox Jewish',
+  'Pentecostal',
+  'Presbyterian',
+  'Protestant',
+  'Quaker',
+  'Reformed',
+  'Russian Orthodox',
+  'Serbian Orthodox',
+  'Seventh-day Adventist',
+  'Shia Muslim',
+  'Shinto',
+  'Sikh',
+  'Sunni Muslim',
+  'Taoism',
+  'Ukrainian Greek Catholic',
+  'Unitarian',
+  'Unknown',
 ];
 
 const List<String> _kEducationLevels = [
-  'None', 'Some Primary', 'Primary School', 'Some Secondary', 'Secondary School',
-  'High School Diploma', 'GED / Equivalent', 'Vocational / Trade School',
-  'Some College', 'Associate Degree', 'Bachelor\'s Degree', 'Some Postgraduate',
-  'Master\'s Degree', 'Professional Degree', 'Doctorate (PhD)',
+  'None',
+  'Some Primary',
+  'Primary School',
+  'Some Secondary',
+  'Secondary School',
+  'High School Diploma',
+  'GED / Equivalent',
+  'Vocational / Trade School',
+  'Some College',
+  'Associate Degree',
+  'Bachelor\'s Degree',
+  'Some Postgraduate',
+  'Master\'s Degree',
+  'Professional Degree',
+  'Doctorate (PhD)',
 ];
 
 const List<String> _kEyeColours = [
-  'Amber', 'Black', 'Blue', 'Blue-Grey', 'Brown',
-  'Dark Brown', 'Green', 'Grey', 'Hazel', 'Light Blue',
-  'Light Brown', 'Pale Blue', 'Unknown',
+  'Amber',
+  'Black',
+  'Blue',
+  'Blue-Grey',
+  'Brown',
+  'Dark Brown',
+  'Green',
+  'Grey',
+  'Hazel',
+  'Light Blue',
+  'Light Brown',
+  'Pale Blue',
+  'Unknown',
 ];
 
 const List<String> _kHairColours = [
-  'Auburn', 'Bald', 'Black', 'Blonde', 'Brown',
-  'Chestnut', 'Dark Brown', 'Dark Red', 'Ginger', 'Grey',
-  'Light Blonde', 'Light Brown', 'Red', 'Salt and Pepper', 'Sandy Blonde',
-  'Silver', 'Strawberry Blonde', 'White', 'Unknown',
+  'Auburn',
+  'Bald',
+  'Black',
+  'Blonde',
+  'Brown',
+  'Chestnut',
+  'Dark Brown',
+  'Dark Red',
+  'Ginger',
+  'Grey',
+  'Light Blonde',
+  'Light Brown',
+  'Red',
+  'Salt and Pepper',
+  'Sandy Blonde',
+  'Silver',
+  'Strawberry Blonde',
+  'White',
+  'Unknown',
 ];
 
 const List<String> _kCausesOfDeath = [
-  'Accident', 'Alzheimer\'s Disease', 'Asthma', 'Cancer', 'Cardiac Arrest',
-  'Childbirth', 'Cholera', 'Cirrhosis', 'Complications of Surgery', 'Coronary Artery Disease',
-  'COVID-19', 'Diabetes', 'Drowning', 'Emphysema', 'Epilepsy',
-  'Fall', 'Fire', 'Heart Disease', 'Heart Failure', 'Homicide',
-  'Influenza', 'Kidney Disease', 'Liver Disease', 'Malaria', 'Malnutrition',
-  'Natural Causes', 'Old Age', 'Pandemic Influenza', 'Peritonitis', 'Plague',
-  'Pneumonia', 'Scarlet Fever', 'Sepsis', 'Smallpox', 'Stroke',
-  'Suicide', 'Tuberculosis', 'Typhoid Fever', 'Typhus', 'Unknown',
-  'War', 'Whooping Cough', 'Yellow Fever',
+  'Accident',
+  'Alzheimer\'s Disease',
+  'Asthma',
+  'Cancer',
+  'Cardiac Arrest',
+  'Childbirth',
+  'Cholera',
+  'Cirrhosis',
+  'Complications of Surgery',
+  'Coronary Artery Disease',
+  'COVID-19',
+  'Diabetes',
+  'Drowning',
+  'Emphysema',
+  'Epilepsy',
+  'Fall',
+  'Fire',
+  'Heart Disease',
+  'Heart Failure',
+  'Homicide',
+  'Influenza',
+  'Kidney Disease',
+  'Liver Disease',
+  'Malaria',
+  'Malnutrition',
+  'Natural Causes',
+  'Old Age',
+  'Pandemic Influenza',
+  'Peritonitis',
+  'Plague',
+  'Pneumonia',
+  'Scarlet Fever',
+  'Sepsis',
+  'Smallpox',
+  'Stroke',
+  'Suicide',
+  'Tuberculosis',
+  'Typhoid Fever',
+  'Typhus',
+  'Unknown',
+  'War',
+  'Whooping Cough',
+  'Yellow Fever',
 ];

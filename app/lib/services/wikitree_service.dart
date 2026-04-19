@@ -215,31 +215,35 @@ class WikiTreeService extends ChangeNotifier {
   /// success.  Returns a [WikiTreeLoginResult] describing the outcome.
   Future<WikiTreeLoginResult> login(String email, String password) async {
     try {
-      final response = await _client.post(
-        Uri.parse(_base),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': _ua,
-        },
-        body: {
-          'action': 'clientLogin',
-          'email': email,
-          'password': password,
-          'doLogin': '1',
-        },
-      ).timeout(const Duration(seconds: 20));
+      final response = await _client
+          .post(
+            Uri.parse(_base),
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': _ua,
+            },
+            body: {
+              'action': 'clientLogin',
+              'email': email,
+              'password': password,
+              'doLogin': '1',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
 
       // Extract session cookie
       final setCookie = response.headers['set-cookie'] ?? '';
-      final cookieMatch =
-          RegExp(r'(wikidb_wtb|wikitree_wtb)=([^;]+)').firstMatch(setCookie);
+      final cookieMatch = RegExp(
+        r'(wikidb_wtb|wikitree_wtb)=([^;]+)',
+      ).firstMatch(setCookie);
 
       final body = _decodeBody(response.body);
       final loginResult = body['clientLogin'] as Map<String, dynamic>?;
       final result = loginResult?['result'] as String? ?? '';
 
       if (result == 'Success') {
-        final username = loginResult?['username'] as String? ??
+        final username =
+            loginResult?['username'] as String? ??
             loginResult?['userid']?.toString() ??
             email;
 
@@ -279,10 +283,10 @@ class WikiTreeService extends ChangeNotifier {
   // ── API helpers ───────────────────────────────────────────────────────────
 
   Map<String, String> _authHeaders() => {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': _ua,
-        'Cookie': ?_cookie,
-      };
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'User-Agent': _ua,
+    'Cookie': ?_cookie,
+  };
 
   Map<String, dynamic> _decodeBody(String body) {
     try {
@@ -320,19 +324,21 @@ class WikiTreeService extends ChangeNotifier {
   /// Does **not** require authentication — any public profile can be read.
   Future<WikiTreeProfile?> getProfile(String wikiTreeId) async {
     try {
-      final response = await _client.post(
-        Uri.parse(_base),
-        headers: _authHeaders(),
-        body: {
-          'action': 'getProfile',
-          'key': wikiTreeId,
-          'fields':
-              'Id,Name,FirstName,MiddleName,LastName,RealName,BirthDate,'
-              'BirthDateDecade,BirthLocation,DeathDate,DeathDateDecade,'
-              'DeathLocation,Gender,Father,Mother,Bio,Spouses,Children,'
-              'Occupation',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await _client
+          .post(
+            Uri.parse(_base),
+            headers: _authHeaders(),
+            body: {
+              'action': 'getProfile',
+              'key': wikiTreeId,
+              'fields':
+                  'Id,Name,FirstName,MiddleName,LastName,RealName,BirthDate,'
+                  'BirthDateDecade,BirthLocation,DeathDate,DeathDateDecade,'
+                  'DeathLocation,Gender,Father,Mother,Bio,Spouses,Children,'
+                  'Occupation',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) return null;
       dynamic parsed;
@@ -364,11 +370,9 @@ class WikiTreeService extends ChangeNotifier {
         'limit': '$limit',
         if (birthYear != null) 'birth_date': '$birthYear',
       };
-      final response = await _client.post(
-        Uri.parse(_base),
-        headers: _authHeaders(),
-        body: body,
-      ).timeout(const Duration(seconds: 15));
+      final response = await _client
+          .post(Uri.parse(_base), headers: _authHeaders(), body: body)
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) return [];
       dynamic parsed;
@@ -381,7 +385,8 @@ class WikiTreeService extends ChangeNotifier {
       // WikiTree may wrap response in {"response": {...}} or return it flat.
       Map<String, dynamic> data;
       if (parsed is Map) {
-        data = (parsed['response'] as Map<String, dynamic>?) ??
+        data =
+            (parsed['response'] as Map<String, dynamic>?) ??
             parsed.cast<String, dynamic>();
       } else {
         return [];
@@ -397,7 +402,8 @@ class WikiTreeService extends ChangeNotifier {
           if (personMap is Map) {
             try {
               profiles.add(
-                  WikiTreeProfile.fromJson(personMap.cast<String, dynamic>()));
+                WikiTreeProfile.fromJson(personMap.cast<String, dynamic>()),
+              );
             } catch (_) {}
           }
         }
@@ -414,18 +420,20 @@ class WikiTreeService extends ChangeNotifier {
     int depth = 4,
   }) async {
     try {
-      final response = await _client.post(
-        Uri.parse(_base),
-        headers: _authHeaders(),
-        body: {
-          'action': 'getAncestors',
-          'key': wikiTreeId,
-          'depth': '$depth',
-          'fields':
-              'Id,Name,FirstName,LastName,BirthDate,BirthLocation,'
-              'DeathDate,DeathLocation,Gender,Father,Mother',
-        },
-      ).timeout(const Duration(seconds: 20));
+      final response = await _client
+          .post(
+            Uri.parse(_base),
+            headers: _authHeaders(),
+            body: {
+              'action': 'getAncestors',
+              'key': wikiTreeId,
+              'depth': '$depth',
+              'fields':
+                  'Id,Name,FirstName,LastName,BirthDate,BirthLocation,'
+                  'DeathDate,DeathLocation,Gender,Father,Mother',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode != 200) return [];
       dynamic parsed;
@@ -442,7 +450,8 @@ class WikiTreeService extends ChangeNotifier {
           if (node.containsKey('Name')) {
             try {
               ancestors.add(
-                  WikiTreeProfile.fromJson(node.cast<String, dynamic>()));
+                WikiTreeProfile.fromJson(node.cast<String, dynamic>()),
+              );
             } catch (_) {}
           }
           for (final v in node.values) {
@@ -468,14 +477,13 @@ class WikiTreeService extends ChangeNotifier {
   Future<String?> exportGedcom(String wikiTreeId) async {
     if (!isLoggedIn) return null;
     try {
-      final response = await _client.post(
-        Uri.parse(_base),
-        headers: _authHeaders(),
-        body: {
-          'action': 'exportGEDCOM',
-          'key': wikiTreeId,
-        },
-      ).timeout(const Duration(seconds: 30));
+      final response = await _client
+          .post(
+            Uri.parse(_base),
+            headers: _authHeaders(),
+            body: {'action': 'exportGEDCOM', 'key': wikiTreeId},
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode != 200) return null;
       final body = response.body;
@@ -511,14 +519,18 @@ class WikiTreeService extends ChangeNotifier {
       name: take(existing?.name.isNotEmpty ?? false)
           ? profile.displayName
           : existing!.name,
-      birthDate:
-          take(existing?.birthDate != null) ? profile.birthDate : existing?.birthDate,
-      birthPlace:
-          take(existing?.birthPlace != null) ? profile.birthPlace : existing?.birthPlace,
-      deathDate:
-          take(existing?.deathDate != null) ? profile.deathDate : existing?.deathDate,
-      deathPlace:
-          take(existing?.deathPlace != null) ? profile.deathPlace : existing?.deathPlace,
+      birthDate: take(existing?.birthDate != null)
+          ? profile.birthDate
+          : existing?.birthDate,
+      birthPlace: take(existing?.birthPlace != null)
+          ? profile.birthPlace
+          : existing?.birthPlace,
+      deathDate: take(existing?.deathDate != null)
+          ? profile.deathDate
+          : existing?.deathDate,
+      deathPlace: take(existing?.deathPlace != null)
+          ? profile.deathPlace
+          : existing?.deathPlace,
       gender: gender,
       occupation: take(existing?.occupation != null)
           ? profile.occupation
@@ -550,6 +562,7 @@ class WikiTreeService extends ChangeNotifier {
       education: existing?.education,
       aliases: existing?.aliases ?? [],
       findAGraveId: existing?.findAGraveId,
+      familySearchId: existing?.familySearchId,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -597,7 +610,9 @@ class WikiTreeService extends ChangeNotifier {
     if (bio == null || bio.trim().isEmpty) return null;
     var text = bio
         .replaceAllMapped(
-            RegExp(r'\[\[([^\]|]+\|)?([^\]]+)\]\]'), (m) => m[2] ?? '')
+          RegExp(r'\[\[([^\]|]+\|)?([^\]]+)\]\]'),
+          (m) => m[2] ?? '',
+        )
         .replaceAllMapped(RegExp(r"'''(.+?)'''"), (m) => m[1] ?? '')
         .replaceAllMapped(RegExp(r"''(.+?)''"), (m) => m[1] ?? '')
         .replaceAll(RegExp(r'={2,}[^=]+=+'), '')
@@ -615,7 +630,17 @@ class WikiTreeService extends ChangeNotifier {
   }
 
   static const _monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 }
