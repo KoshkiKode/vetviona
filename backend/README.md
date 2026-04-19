@@ -4,7 +4,7 @@ This backend handles only:
 
 - Vetviona paid-license account registration with **email verification**
 - paid-license verification for **apple** (`ios`), **android** (`android`), and **desktop** (`windows`/`macos`/`linux`)
-- reusable, **verifiable re-entry license codes** for reinstall/another copy flows
+- reusable, **verifiable re-entry license codes** for reinstall/multi-device flows
 - a hard cap of **15 computers/devices per license type** (configurable)
 - **License gifting / transfer** — transfer a license to another account
 - account license sync (entitlements + verified devices)

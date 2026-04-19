@@ -62,9 +62,15 @@ const DESKTOP_OSES = new Set(['windows', 'macos', 'linux']);
 const LICENSE_TYPES = new Set(['apple', 'android', 'desktop']);
 const TOKEN_EXPIRY_HOURS = 48;
 const GIFT_EXPIRY_HOURS = 72;
+// We generate 32 random bytes (64 hex chars), but accept any configured secret
+// that is at least this many characters.
+const MIN_LICENSE_SECRET_LENGTH = 32;
+const LICENSE_CODE_HEX_LENGTH = 24;
+const LICENSE_CODE_PREFIX_LENGTH = 3;
+const ABSOLUTE_MAX_DEVICES_PER_LICENSE = 10_000;
 const MAX_DEVICES_PER_LICENSE = Math.min(
   Math.max(Number(process.env.MAX_DEVICES_PER_LICENSE) || 15, 1),
-  10_000,
+  ABSOLUTE_MAX_DEVICES_PER_LICENSE,
 );
 
 // ADMIN_SECRET protects the voucher-creation endpoint.
@@ -91,7 +97,11 @@ function timingSafeEqualStrings(a, b) {
 
 function getLicenseSigningSecret(db) {
   if (process.env.LICENSE_KEY_SECRET) return String(process.env.LICENSE_KEY_SECRET);
-  if (db.meta && typeof db.meta.licenseKeySecret === 'string' && db.meta.licenseKeySecret.length >= 32) {
+  if (
+    db.meta &&
+    typeof db.meta.licenseKeySecret === 'string' &&
+    db.meta.licenseKeySecret.length >= MIN_LICENSE_SECRET_LENGTH
+  ) {
     return db.meta.licenseKeySecret;
   }
   return '';
@@ -100,7 +110,10 @@ function getLicenseSigningSecret(db) {
 function ensureLicenseSigningSecret(db) {
   if (process.env.LICENSE_KEY_SECRET) return false;
   db.meta = db.meta || {};
-  if (typeof db.meta.licenseKeySecret === 'string' && db.meta.licenseKeySecret.length >= 32) {
+  if (
+    typeof db.meta.licenseKeySecret === 'string' &&
+    db.meta.licenseKeySecret.length >= MIN_LICENSE_SECRET_LENGTH
+  ) {
     return false;
   }
   db.meta.licenseKeySecret = crypto.randomBytes(32).toString('hex');
@@ -115,9 +128,17 @@ function computeReentryLicenseCode(db, account, licenseType) {
     .update(`${account.id}:${account.email}:${licenseType}`)
     .digest('hex')
     .toUpperCase()
-    .slice(0, 24);
-  const grouped = digest.match(/.{1,4}/g).join('-');
-  return `${licenseType.slice(0, 3).toUpperCase()}-${grouped}`;
+    .slice(0, LICENSE_CODE_HEX_LENGTH);
+  const parts = [];
+  for (let i = 0; i < digest.length; i += 4) {
+    parts.push(digest.slice(i, i + 4));
+  }
+  const grouped = parts.join('-');
+  const prefix = licenseType
+    .toUpperCase()
+    .padEnd(LICENSE_CODE_PREFIX_LENGTH, 'X')
+    .slice(0, LICENSE_CODE_PREFIX_LENGTH);
+  return `${prefix}-${grouped}`;
 }
 
 function isValidReentryLicenseCode(db, account, licenseType, providedCode) {
@@ -542,7 +563,7 @@ function handleVerify(db, payload, res) {
   if (!alreadyVerifiedForType && currentTypeCount >= MAX_DEVICES_PER_LICENSE) {
     return sendJson(res, 403, {
       ok: false,
-      message: `This ${appType} license has reached the limit of ${MAX_DEVICES_PER_LICENSE} computers/devices.`,
+      message: `This ${appType} license has reached the limit of ${MAX_DEVICES_PER_LICENSE} devices/computers.`,
       deviceLimitPerLicense: MAX_DEVICES_PER_LICENSE,
       devicesUsedForLicense: currentTypeCount,
     });
