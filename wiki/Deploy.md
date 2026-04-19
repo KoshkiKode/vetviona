@@ -83,7 +83,7 @@ node license_server.js
 Install optional dependencies:
 
 ```bash
-npm install nodemailer          # real email delivery
+npm install nodemailer@^7.0.11          # real email delivery
 npm install @aws-sdk/client-s3  # AWS S3 database storage (production)
 ```
 

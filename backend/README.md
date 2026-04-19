@@ -23,7 +23,7 @@ node license_server.js
 
 ```bash
 # For real email delivery (SMTP):
-npm install nodemailer
+npm install nodemailer@^7.0.11
 
 # For AWS S3 database storage (production):
 npm install @aws-sdk/client-s3
@@ -50,7 +50,7 @@ npm install @aws-sdk/client-s3
 | `AWS_ACCESS_KEY_ID` | *(IAM role / env)* | AWS access key (not needed when running on EC2/ECS/Lambda with an IAM role) |
 | `AWS_SECRET_ACCESS_KEY` | *(IAM role / env)* | AWS secret key (same as above) |
 
-**Dev mode (no SMTP):** verification codes and gift claim tokens are printed to the console **and** returned in API responses as `_devToken`.  Install nodemailer (`npm install nodemailer`) and set `SMTP_HOST` for real emails.
+**Dev mode (no SMTP):** verification codes and gift claim tokens are printed to the console **and** returned in API responses as `_devToken`.  Install nodemailer (`npm install nodemailer@^7.0.11`) and set `SMTP_HOST` for real emails.
 
 ---
 
