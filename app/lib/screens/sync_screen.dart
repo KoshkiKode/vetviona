@@ -12,6 +12,7 @@ import '../config/app_config.dart';
 import '../models/device.dart';
 import '../providers/tree_provider.dart';
 import '../services/bluetooth_sync_service.dart';
+import '../services/purchase_service.dart';
 import '../services/share_sync_service.dart';
 import '../services/sync_service.dart';
 
@@ -132,38 +133,39 @@ class _SyncScreenState extends State<SyncScreen> {
       appBar: AppBar(
         title: const Text('RootLoop\u2122 Sync'),
         actions: [
-          if (sync.isServerRunning)
-            TextButton.icon(
-              icon: Icon(Icons.stop_circle_outlined, color: cs.onPrimary),
-              label: Text('Stop', style: TextStyle(color: cs.onPrimary)),
-              onPressed: () async {
-                await sync.stopServer();
-                await ble.stopAdvertising();
-              },
-            )
-          else
-            TextButton.icon(
-              icon: Icon(Icons.play_circle_outlined, color: cs.onPrimary),
-              label: Text('Go Online', style: TextStyle(color: cs.onPrimary)),
-              // All tiers can start the server:
-              //   Free  → QR code + manual connect (no mDNS broadcast)
-              //   Pro   → QR code + manual + mDNS auto-discovery
-              onPressed: wifiEnabled
-                  ? () async {
-                      await sync.startServer();
-                      // BLE advertising for peer discovery is Pro-only.
-                      if (isProTier && bluetoothEnabled && sync.isServerRunning) {
-                        await ble.startAdvertising(
-                          serverPort: sync.serverPort,
-                          deviceId: tree.localDeviceId,
-                        );
+          if (isProTier) ...[
+            if (sync.isServerRunning)
+              TextButton.icon(
+                icon: Icon(Icons.stop_circle_outlined, color: cs.onPrimary),
+                label: Text('Stop', style: TextStyle(color: cs.onPrimary)),
+                onPressed: () async {
+                  await sync.stopServer();
+                  await ble.stopAdvertising();
+                },
+              )
+            else
+              TextButton.icon(
+                icon: Icon(Icons.play_circle_outlined, color: cs.onPrimary),
+                label: Text('Go Online', style: TextStyle(color: cs.onPrimary)),
+                onPressed: wifiEnabled
+                    ? () async {
+                        await sync.startServer();
+                        if (bluetoothEnabled && sync.isServerRunning) {
+                          await ble.startAdvertising(
+                            serverPort: sync.serverPort,
+                            deviceId: tree.localDeviceId,
+                          );
+                        }
                       }
-                    }
-                  : null,
-            ),
+                    : null,
+              ),
+          ],
         ],
       ),
-      body: ListView(
+      // ── Free-tier paywall ──────────────────────────────────────────────────
+      body: !isProTier
+          ? _SyncPaywall(onUpgrade: () => _showUpgradeDialog(context))
+          : ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // ── Status banner ────────────────────────────────────────────
@@ -521,24 +523,108 @@ class _SyncScreenState extends State<SyncScreen> {
   }
 
   void _showUpgradeDialog(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog.adaptive(
-        title: const Text('Pro Feature'),
-        content: const Text(
-          'WiFi Auto-Scan (mDNS) and Bluetooth peer discovery require the '
-          'Mobile Paid or Desktop Pro tier.\n\n'
-          'Free tier includes:\n'
-          '• QR Code Pairing (scan to connect over WiFi)\n'
-          '• Manual Connect (enter IP:port + pairing code)\n'
-          '• AirDrop / Nearby Share file export\n\n'
-          'Upgrade to unlock automatic nearby-device discovery and '
-          'Bluetooth scanning.',
+        icon: Icon(Icons.sync_lock_outlined,
+            color: colorScheme.primary, size: 40),
+        title: const Text('Sync requires Mobile Paid'),
+        content: Consumer<PurchaseService>(
+          builder: (_, purchaseService, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'RootLoop\u2122 Sync — including QR pairing, manual connect, '
+                'AirDrop / Nearby Share, WiFi auto-scan, and Bluetooth — '
+                'is included in the Mobile Paid tier.',
+              ),
+              const SizedBox(height: 12),
+              _UpgradeFeatureRow(
+                icon: Icons.qr_code_outlined,
+                label: 'QR Code & Manual Connect',
+              ),
+              _UpgradeFeatureRow(
+                icon: Icons.share_outlined,
+                label: 'AirDrop · Nearby Share · File export',
+              ),
+              _UpgradeFeatureRow(
+                icon: Icons.wifi_find_outlined,
+                label: 'WiFi auto-scan (mDNS)',
+              ),
+              _UpgradeFeatureRow(
+                icon: Icons.bluetooth_outlined,
+                label: 'Bluetooth peer discovery',
+              ),
+              _UpgradeFeatureRow(
+                icon: Icons.all_inclusive_outlined,
+                label: 'Unlimited people per tree',
+              ),
+              if (purchaseService.errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  purchaseService.errorMessage!,
+                  style: TextStyle(
+                      color: colorScheme.error, fontSize: 12),
+                ),
+              ],
+              if (purchaseService.product != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Mobile Paid: ${purchaseService.product!.price}',
+                  style: TextStyle(
+                      fontSize: 12, color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
+            child: const Text('Not Now'),
+          ),
+          Consumer<PurchaseService>(
+            builder: (_, purchaseService, _) {
+              if (purchaseService.isPurchased) {
+                return FilledButton.icon(
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('Purchased'),
+                  onPressed: () => Navigator.pop(ctx),
+                );
+              }
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: purchaseService.isLoading
+                        ? null
+                        : () => purchaseService.restorePurchases(),
+                    child: const Text('Restore'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    icon: purchaseService.isLoading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator.adaptive(),
+                          )
+                        : const Icon(Icons.shopping_cart_outlined, size: 16),
+                    label: const Text('Upgrade'),
+                    onPressed: purchaseService.isLoading
+                        ? null
+                        : () async {
+                            if (purchaseService.product == null) {
+                              await purchaseService.loadProduct();
+                            }
+                            await purchaseService.buyMobilePaid();
+                          },
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1469,6 +1555,189 @@ class _TierBadge extends StatelessWidget {
         label,
         style: TextStyle(
             fontSize: 11, color: color, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync paywall (free tier)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Full-screen paywall shown when the user is on the free mobile tier.
+///
+/// Displays a summary of what is unlocked with Mobile Paid and surfaces the
+/// [PurchaseService] buy / restore flow inline so the user can upgrade without
+/// leaving the screen.
+class _SyncPaywall extends StatelessWidget {
+  final VoidCallback onUpgrade;
+  const _SyncPaywall({required this.onUpgrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sync_lock_outlined, size: 64, color: cs.primary),
+            const SizedBox(height: 16),
+            Text(
+              'Sync requires Mobile Paid',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Upgrade once to unlock all RootLoop\u2122 Sync features '
+              'and remove the $freeMobilePersonLimit-person limit.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            // What you get list
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _UpgradeFeatureRow(
+                      icon: Icons.qr_code_outlined,
+                      label: 'QR Code & Manual Connect',
+                    ),
+                    _UpgradeFeatureRow(
+                      icon: Icons.share_outlined,
+                      label: 'AirDrop · Nearby Share · File export',
+                    ),
+                    _UpgradeFeatureRow(
+                      icon: Icons.wifi_find_outlined,
+                      label: 'WiFi auto-scan (mDNS)',
+                    ),
+                    _UpgradeFeatureRow(
+                      icon: Icons.bluetooth_outlined,
+                      label: 'Bluetooth peer discovery',
+                    ),
+                    _UpgradeFeatureRow(
+                      icon: Icons.all_inclusive_outlined,
+                      label: 'Unlimited people per tree',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // IAP buy / restore buttons via Consumer
+            Consumer<PurchaseService>(
+              builder: (_, purchaseService, _) {
+                if (purchaseService.isPurchased) {
+                  // Shouldn't normally show — isProTier would be true — but
+                  // guard against a race between IAP delivery and tier update.
+                  return FilledButton.icon(
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Purchased — restart to sync'),
+                    onPressed: null,
+                  );
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (purchaseService.product != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Mobile Paid: ${purchaseService.product!.price}',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 13),
+                        ),
+                      ),
+                    if (purchaseService.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          purchaseService.errorMessage!,
+                          style: TextStyle(color: cs.error, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        icon: purchaseService.isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator.adaptive(),
+                              )
+                            : const Icon(Icons.shopping_cart_outlined),
+                        label: const Text('Upgrade to Mobile Paid'),
+                        onPressed: purchaseService.isLoading
+                            ? null
+                            : () async {
+                                if (purchaseService.product == null) {
+                                  await purchaseService.loadProduct();
+                                }
+                                await purchaseService.buyMobilePaid();
+                              },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: purchaseService.isLoading
+                            ? null
+                            : () => purchaseService.restorePurchases(),
+                        child: const Text('Restore Purchases'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Upgrade feature row
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A single check-marked feature row used in upgrade prompts.
+class _UpgradeFeatureRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _UpgradeFeatureRow({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: cs.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
       ),
     );
   }
