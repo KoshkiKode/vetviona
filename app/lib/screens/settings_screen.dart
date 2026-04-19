@@ -22,6 +22,7 @@ import '../services/sound_service.dart';
 import '../services/sync_service.dart';
 import '../services/wikitree_service.dart';
 import 'account_management_screen.dart';
+import 'eula_screen.dart';
 import 'sync_screen.dart';
 import 'wikitree_screen.dart';
 
@@ -633,6 +634,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => _showUrl(
                   context,
                   'https://vetviona.koshkikode.com/terms',
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.article_outlined),
+                title: const Text('End User License Agreement'),
+                trailing: const Icon(Icons.chevron_right, size: 16),
+                onTap: () => Navigator.push(
+                  context,
+                  fadeSlideRoute(
+                    builder: (_) => const EulaScreen(readOnly: true),
+                  ),
                 ),
               ),
             ],

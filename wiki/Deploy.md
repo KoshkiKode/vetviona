@@ -1,6 +1,6 @@
 # Deployment
 
-This page covers everything needed to run a production Vetviona deployment: the license backend server, the app itself, and all embedded or online database/search services used in the app.
+This page covers everything needed to run a production Vetviona deployment: the license backend server, the app itself, all embedded or online database/search services, and the legal/EULA requirements.
 
 ---
 
@@ -8,6 +8,7 @@ This page covers everything needed to run a production Vetviona deployment: the 
 
 | Component | What it is | Needs manual setup? |
 |-----------|-----------|-------------------|
+| **EULA** | End User License Agreement shown at first launch | No — embedded in app binary |
 | **License backend** | Node.js HTTP server | Yes — run on your own server |
 | **App SQLite database** | Local `vetviona.db` | No — auto-created on first launch |
 | **GeoNames offline database** | Bundled SQLite asset (32 k cities) | No — included in app binary |
@@ -15,6 +16,48 @@ This page covers everything needed to run a production Vetviona deployment: the 
 | **Nominatim geocoding** | OpenStreetMap reverse-geocoding API | No key needed — requires internet |
 | **WikiTree API** | Public genealogy profiles + GEDCOM export | No key for public search; user login for full access |
 | **Find A Grave** | Grave/memorial data via HTML parsing | No key needed — requires internet |
+
+---
+
+## Legal — EULA and Copyright
+
+**Copyright © KoshkiKode. All rights reserved.**
+
+Vetviona and RootLoop™ are trademarks of KoshkiKode. The full text of the
+End User License Agreement (EULA) is embedded inline in the app source at
+`app/lib/screens/eula_screen.dart` (constant `eulaText`).  The same text is
+reproduced in the Windows installer at `packaging/windows/LICENSE.rtf`.
+
+### How the EULA is enforced
+
+| Platform | Mechanism |
+|----------|-----------|
+| Mobile (iOS / Android) | Shown on first launch before onboarding; user must scroll to bottom and tap **Accept** |
+| Desktop (Windows / macOS / Linux) | Same in-app EULA screen on first launch |
+| Windows installer (.msi) | License page shown by WiX UI during installation |
+
+### SharedPreferences key
+
+| Key | Type | Meaning |
+|-----|------|---------|
+| `eulaAccepted` | `bool` | `true` once the user has tapped **Accept** in the EULA screen |
+
+The startup router (`app/lib/app.dart → _StartupRouterState`) checks this key
+**before** onboarding and license verification.  Users who have not accepted
+the EULA are redirected to `EulaScreen` and cannot proceed until they accept.
+
+### Read-only access
+
+The EULA is also accessible at any time from **Settings → Privacy & Legal →
+End User License Agreement** (read-only mode, no buttons).
+
+### Updating the EULA
+
+1. Edit the `eulaText` constant in `app/lib/screens/eula_screen.dart`.
+2. Update `packaging/windows/LICENSE.rtf` with the same content.
+3. Bump the "Last updated" date at the top of the EULA text.
+4. Consider clearing `eulaAccepted` in SharedPreferences if the new version
+   requires fresh consent (requires a migration in `_StartupRouterState`).
 
 ---
 

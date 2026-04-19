@@ -7,6 +7,7 @@ import 'l10n/app_localizations.dart';
 import 'providers/locale_provider.dart';
 import 'providers/tree_provider.dart';
 import 'providers/theme_provider.dart';
+import 'screens/eula_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/license_verification_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -174,32 +175,40 @@ class _StartupRouter extends StatefulWidget {
 }
 
 class _StartupRouterState extends State<_StartupRouter> {
+  bool? _eulaAccepted;
   bool? _onboardingDone;
 
   @override
   void initState() {
     super.initState();
-    _checkOnboarding();
+    _checkStartupPrefs();
   }
 
-  Future<void> _checkOnboarding() async {
+  Future<void> _checkStartupPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
+        _eulaAccepted = prefs.getBool(eulaAcceptedKey) ?? false;
         _onboardingDone = prefs.getBool('onboardingDone') ?? false;
       });
     }
   }
 
-  /// Returns the correct destination widget once both the onboarding check
-  /// and the data load have completed.  Only called when [_onboardingDone]
-  /// is non-null.
+  /// Returns the correct destination widget once all startup checks and the
+  /// data load have completed.  Only called when [_eulaAccepted] and
+  /// [_onboardingDone] are non-null.
   Widget _destination() {
+    // Step 1: EULA must be accepted before anything else.
+    if (!_eulaAccepted!) {
+      return const EulaScreen(key: ValueKey('eula'));
+    }
+    // Step 2: Walk through onboarding on first launch.
     if (!_onboardingDone!) {
       return const OnboardingScreen(key: ValueKey('onboarding'));
     }
-    // IAP purchasers are verified by their store receipt — skip the backend
-    // license check.  Paid binary / desktop downloaders still go through it.
+    // Step 3: IAP purchasers are verified by their store receipt — skip the
+    // backend license check.  Paid binary / desktop downloaders still go
+    // through it.
     final purchaseService = context.read<PurchaseService>();
     final licenseService = context.read<LicenseBackendService>();
     if (!purchaseService.isPurchased &&
@@ -215,10 +224,11 @@ class _StartupRouterState extends State<_StartupRouter> {
     final purchaseService = context.watch<PurchaseService>();
     final licenseService = context.watch<LicenseBackendService>();
 
-    // Show the splash screen until both the tree data AND the onboarding
-    // check have finished.
+    // Show the splash screen until the tree data AND all startup checks have
+    // completed.
     final ready =
         provider.isLoaded &&
+        _eulaAccepted != null &&
         _onboardingDone != null &&
         purchaseService.isInitialized &&
         licenseService.isInitialized;
