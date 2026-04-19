@@ -168,8 +168,10 @@ jobs:
           dart run flutter_launcher_icons -f icons_ios.yaml
 
       - name: Set iOS deployment target
-        if: ${{ matrix.id == 'ios-paid' || matrix.id == 'ios-free' }}
-        run: sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '${IOS_DEPLOYMENT_TARGET}'/" app/ios/Podfile
+        if: ${{ (matrix.id == 'ios-paid' || matrix.id == 'ios-free') && runner.os == 'macOS' }}
+        run: |
+          sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '${IOS_DEPLOYMENT_TARGET}'/" app/ios/Podfile
+          grep -Eq "^platform :ios, '${IOS_DEPLOYMENT_TARGET}'$" app/ios/Podfile
 
       - name: Bootstrap Windows
         if: ${{ startsWith(matrix.id, 'windows-') }}
@@ -190,8 +192,10 @@ jobs:
           dart run flutter_launcher_icons -f icons_macos.yaml
 
       - name: Set macOS deployment target
-        if: ${{ matrix.id == 'macos-dmg' }}
-        run: sed -i '' "s/.*platform :osx, .*/platform :osx, '${MACOS_DEPLOYMENT_TARGET}'/" app/macos/Podfile
+        if: ${{ matrix.id == 'macos-dmg' && runner.os == 'macOS' }}
+        run: |
+          sed -i '' "s/.*platform :osx, .*/platform :osx, '${MACOS_DEPLOYMENT_TARGET}'/" app/macos/Podfile
+          grep -Eq "^platform :osx, '${MACOS_DEPLOYMENT_TARGET}'$" app/macos/Podfile
 
       - name: Copy macOS entitlements
         if: ${{ matrix.id == 'macos-dmg' }}
@@ -297,7 +301,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-windows-exe
-          path: app/build/windows/x64/runner/Release/vetviona.exe
+          path: app/build/windows/x64/runner/Release/
           retention-days: 7
 
       - name: Install WiX
