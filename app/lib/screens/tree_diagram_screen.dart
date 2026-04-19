@@ -531,10 +531,12 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       ),
       builder: (ctx) {
         Color avatarBg = colorScheme.secondary;
-        if (person.gender?.toLowerCase() == 'male')
+        if (person.gender?.toLowerCase() == 'male') {
           avatarBg = colorScheme.primary;
-        if (person.gender?.toLowerCase() == 'female')
+        }
+        if (person.gender?.toLowerCase() == 'female') {
           avatarBg = colorScheme.error;
+        }
         return Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           child: Column(
@@ -780,7 +782,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       final parentIds =
           (relation == _TreeQuickRelation.son ||
               relation == _TreeQuickRelation.daughter)
-          ? [current.id, if (visiblePartnerId != null) visiblePartnerId]
+          ? [current.id, ?visiblePartnerId]
           : <String>[];
       final parentRelTypes = {for (final pid in parentIds) pid: 'biological'};
 
@@ -823,8 +825,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             final parent = provider.persons
                 .where((p) => p.id == parentId)
                 .firstOrNull;
-            if (parent == null || parent.childIds.contains(created.id))
+            if (parent == null || parent.childIds.contains(created.id)) {
               continue;
+            }
             parent.childIds.add(created.id);
             await provider.updatePerson(parent);
           }
@@ -1687,8 +1690,8 @@ class _PersonNodeWidget extends StatelessWidget {
                           Icon(
                             Icons.star,
                             size: 10,
-                            color: colorScheme.onSurfaceVariant.withOpacity(
-                              0.6,
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
                             ),
                           ),
                       ],
@@ -2264,7 +2267,7 @@ class _LiveDotState extends State<_LiveDot>
                 'device${widget.peerCount == 1 ? '' : 's'} connected',
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) => Container(
+        builder: (_, _) => Container(
           width: 8,
           height: 8,
           decoration: BoxDecoration(

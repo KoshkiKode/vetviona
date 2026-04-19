@@ -346,7 +346,7 @@ class _PersonCard extends StatelessWidget {
                     backgroundImage:
                         FileImage(File(person.photoPaths.first)),
                     backgroundColor: avatarBg,
-                    onBackgroundImageError: (_, __) {},
+                    onBackgroundImageError: (_, _) {},
                   )
                 : CircleAvatar(
                     radius: 24,

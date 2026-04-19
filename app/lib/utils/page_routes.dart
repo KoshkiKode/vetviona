@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 
 /// True when the app is running on a platform that should use
 /// Cupertino-style navigation (native iOS swipe-back gesture, right-to-left

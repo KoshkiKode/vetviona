@@ -509,7 +509,7 @@ class _ParentRow extends StatelessWidget {
           Expanded(
             flex: 5,
             child: DropdownButtonFormField<String?>(
-              value: entry.parentId,
+              initialValue: entry.parentId,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Parent',
@@ -534,7 +534,7 @@ class _ParentRow extends StatelessWidget {
           Expanded(
             flex: 4,
             child: DropdownButtonFormField<String>(
-              value: entry.relType,
+              initialValue: entry.relType,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Type',
@@ -820,7 +820,7 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
 
             // Partner picker (disabled when editing)
             DropdownButtonFormField<String?>(
-              value: _partnerId,
+              initialValue: _partnerId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Partner'),
               items: [
@@ -837,7 +837,7 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
 
             // Status
             DropdownButtonFormField<String>(
-              value: _status,
+              initialValue: _status,
               decoration: const InputDecoration(labelText: 'Status'),
               items: Partnership.allStatuses
                   .map((s) => DropdownMenuItem(
@@ -885,7 +885,7 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
 
             const SizedBox(height: 12),
             DropdownButtonFormField<String?>(
-              value: _ceremonyType,
+              initialValue: _ceremonyType,
               decoration:
                   const InputDecoration(labelText: 'Ceremony Type (optional)'),
               items: [
@@ -1047,7 +1047,7 @@ class _SectionCard extends StatelessWidget {
                         ),
                   ),
                 ),
-                if (trailing != null) trailing!,
+                ?trailing,
               ],
             ),
             const SizedBox(height: 12),

@@ -682,7 +682,7 @@ void _showAttachmentsDialog(BuildContext context, MedicalCondition mc) {
                         width: 40,
                         height: 40,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        errorBuilder: (_, _, _) =>
                             const Icon(Icons.broken_image_outlined),
                       ),
                     )
@@ -955,7 +955,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
                 decoration: const InputDecoration(
                     labelText: 'Person',
                     border: OutlineInputBorder()),
-                value: _selectedPersonId,
+                initialValue: _selectedPersonId,
                 items: persons
                     .map((p) =>
                         DropdownMenuItem(value: p.id, child: Text(p.name)))
@@ -976,7 +976,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                   labelText: 'Category', border: OutlineInputBorder()),
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items: MedicalCondition.categories
                   .map((c) =>
                       DropdownMenuItem(value: c, child: Text(c)))
@@ -1151,7 +1151,7 @@ class _AttachmentsSection extends StatelessWidget {
                           width: 36,
                           height: 36,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorBuilder: (_, _, _) => Icon(
                             Icons.broken_image_outlined,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1190,7 +1190,7 @@ class _AttachmentsSection extends StatelessWidget {
         builder: (_) => Dialog(
           child: InteractiveViewer(
             child: Image.file(File(path),
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     const Center(child: Icon(Icons.broken_image, size: 64))),
           ),
         ),

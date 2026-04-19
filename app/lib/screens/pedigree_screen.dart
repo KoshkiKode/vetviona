@@ -153,7 +153,8 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
                     .toList(),
                 onSelected: (id) {
                   if (id == null) return;
-                  final person = persons.firstWhere((p) => p.id == id);
+                  final person = persons.firstWhere((p) => p.id == id,
+                      orElse: () => persons.first);
                   setState(() => _focusedPerson = person);
                 },
               ),

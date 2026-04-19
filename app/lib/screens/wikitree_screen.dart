@@ -267,6 +267,7 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
                     .map((p) => _LinkedPersonTile(
                           person: p,
                           onRefresh: () async {
+                            final messenger = ScaffoldMessenger.of(context);
                             final profile = await WikiTreeService.instance
                                 .getProfile(p.wikitreeId!);
                             if (profile == null) return;
@@ -277,8 +278,7 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
                             );
                             await provider.updatePerson(updated);
                             if (mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(
+                              messenger.showSnackBar(SnackBar(
                                 content: Text(
                                     '${p.name} refreshed from WikiTree.'),
                                 behavior: SnackBarBehavior.floating,
@@ -592,6 +592,7 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                 memorial: _memorial!,
                 persons: provider.persons,
                 onLink: (personId) async {
+                  final messenger = ScaffoldMessenger.of(context);
                   final person =
                       provider.persons.firstWhere((p) => p.id == personId);
                   final updated = Person(
@@ -641,7 +642,7 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                       .memorialToSource(_memorial!, personId);
                   await provider.addSource(source);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    messenger.showSnackBar(SnackBar(
                       content: Text(
                           '${person.name} linked to Find A Grave memorial #${_memorial!.memorialId}.'),
                       behavior: SnackBarBehavior.floating,
@@ -1095,7 +1096,7 @@ class _MemorialCardState extends State<_MemorialCard> {
                     color: colorScheme.onSurfaceVariant)),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _selectedPersonId,
+              initialValue: _selectedPersonId,
               isExpanded: true,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(), isDense: true),

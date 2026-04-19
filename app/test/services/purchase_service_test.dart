@@ -60,6 +60,7 @@ void main() {
 
     test('hasListeners is false initially', () {
       final svc = PurchaseService();
+      // ignore: invalid_use_of_protected_member
       expect(svc.hasListeners, isFalse);
       svc.dispose();
     });
@@ -68,6 +69,7 @@ void main() {
       final svc = PurchaseService();
       void listener() {}
       svc.addListener(listener);
+      // ignore: invalid_use_of_protected_member
       expect(svc.hasListeners, isTrue);
       svc.removeListener(listener);
       svc.dispose();

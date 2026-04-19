@@ -63,7 +63,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                   ? Image.file(
                       file,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const _BrokenImage(),
+                      errorBuilder: (_, _, _) => const _BrokenImage(),
                     )
                   : const _BrokenImage(),
             ),

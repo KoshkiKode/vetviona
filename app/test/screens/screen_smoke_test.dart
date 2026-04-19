@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vetviona_app/models/partnership.dart';
 import 'package:vetviona_app/models/person.dart';
+import 'package:vetviona_app/providers/locale_provider.dart';
 import 'package:vetviona_app/providers/theme_provider.dart';
 import 'package:vetviona_app/providers/tree_provider.dart';
 import 'package:vetviona_app/screens/ancestry_chart_screen.dart';
@@ -61,6 +62,7 @@ Widget _buildTestApp(Widget child, {TreeProvider? provider}) {
     providers: [
       ChangeNotifierProvider<TreeProvider>.value(value: treeProvider),
       ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
+      ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
       ChangeNotifierProvider<SyncService>(create: (_) => SyncService()),
       ChangeNotifierProvider<PurchaseService>(
           create: (_) => PurchaseService()),

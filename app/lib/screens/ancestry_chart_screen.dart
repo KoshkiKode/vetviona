@@ -168,8 +168,9 @@ class _AncestryLayout {
     final knotFor = <String, String>{}; // partnshipId → knotId
     for (final part in partnerships) {
       if (!genMap.containsKey(part.person1Id) ||
-          !genMap.containsKey(part.person2Id))
+          !genMap.containsKey(part.person2Id)) {
         continue;
+      }
       if (genMap[part.person1Id] != genMap[part.person2Id]) continue;
       final knotId = '__knot__${part.id}';
       final gen = genMap[part.person1Id]!;
@@ -343,7 +344,7 @@ class _AncestryLayout {
     if (nodes.isNotEmpty) {
       final minX = nodes.values.map((n) => n.x).reduce(math.min);
       if (minX < 0) {
-        for (final n in nodes.values) n.x -= minX;
+        for (final n in nodes.values) { n.x -= minX; }
       }
     }
   }

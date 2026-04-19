@@ -89,7 +89,7 @@ class _QuickAddPersonDialogState extends State<_QuickAddPersonDialog> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String?>(
-            value: _gender,
+            initialValue: _gender,
             decoration: const InputDecoration(labelText: 'Gender (optional)'),
             items: [
               const DropdownMenuItem<String?>(

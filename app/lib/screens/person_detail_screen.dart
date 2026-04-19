@@ -261,7 +261,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _genderOptions.contains(_gender) ? _gender : null,
+                  initialValue: _genderOptions.contains(_gender) ? _gender : null,
                   decoration: const InputDecoration(labelText: 'Gender'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Not specified')),
@@ -440,7 +440,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     ),
                   ),
                   DropdownButtonFormField<String?>(
-                    value: _bloodType,
+                    initialValue: _bloodType,
                     decoration: const InputDecoration(
                       labelText: 'Blood Type',
                       helperText: 'Useful for medical history tracking',
@@ -668,7 +668,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _photoPaths.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (context, i) {
                         final path = _photoPaths[i];
                         return Stack(
@@ -690,7 +690,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                   width: 100,
                                   height: 100,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                 errorBuilder: (_, _, _) => Container(
                                     width: 100,
                                     height: 100,
                                     color: Theme.of(context)
@@ -849,7 +849,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       backgroundImage:
                           FileImage(File(_photoPaths.first)),
                       backgroundColor: avatarBg,
-                      onBackgroundImageError: (_, __) {},
+                      onBackgroundImageError: (_, _) {},
                     )
                   : CircleAvatar(
                       radius: 40,
@@ -1877,7 +1877,7 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
           const SizedBox(height: 12),
           if (!_useCustomTitle) ...[
             DropdownButtonFormField<String>(
-              value: _selectedType,
+              initialValue: _selectedType,
               decoration: const InputDecoration(
                 labelText: 'Event Type',
                 border: OutlineInputBorder(),

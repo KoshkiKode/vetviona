@@ -43,7 +43,7 @@ class _RelationshipFinderScreenState
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                   labelText: 'From Person'),
-              value: _fromId,
+              initialValue: _fromId,
               items: persons
                   .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
                   .toList(),
@@ -56,7 +56,7 @@ class _RelationshipFinderScreenState
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                   labelText: 'To Person'),
-              value: _toId,
+              initialValue: _toId,
               items: persons
                   .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
                   .toList(),
@@ -147,7 +147,7 @@ class _RelationshipFinderScreenState
               Expanded(
                 child: ListView.separated(
                   itemCount: _path!.length,
-                  separatorBuilder: (_, __) => Padding(
+                  separatorBuilder: (_, _) => Padding(
                     padding: const EdgeInsets.only(left: 16),
                     child: Icon(Icons.arrow_downward,
                         color: colorScheme.onSurfaceVariant),

@@ -99,7 +99,7 @@ void main() {
         const newColor = Color(0xFF654321);
         await provider.setPrimaryColor(newColor);
         final prefs = await SharedPreferences.getInstance();
-        expect(prefs.getInt('primaryColor'), newColor.value);
+        expect(prefs.getInt('primaryColor'), newColor.toARGB32());
       });
     });
 
@@ -114,7 +114,7 @@ void main() {
       test('loadTheme restores persisted primary colour', () async {
         const savedColor = Color(0xFF112233);
         SharedPreferences.setMockInitialValues({
-          'primaryColor': savedColor.value,
+          'primaryColor': savedColor.toARGB32(),
         });
         final provider = ThemeProvider();
         await provider.loadTheme();
@@ -133,8 +133,8 @@ void main() {
         final provider = ThemeProvider();
         await provider.loadTheme();
         expect(
-          provider.primaryColor.value,
-          VetvionaPalette.lightPrimary.value,
+          provider.primaryColor.toARGB32(),
+          VetvionaPalette.lightPrimary.toARGB32(),
         );
       });
     });

@@ -641,10 +641,8 @@ void main() {
 
   group('WikiTreeService.searchPerson with birthYear', () {
     test('passes birth_date in request body', () async {
-      late Uri capturedUri;
       late Map<String, String>? capturedBody;
       final mock = MockClient((req) async {
-        capturedUri = req.url;
         capturedBody = req.bodyFields;
         return http.Response(jsonEncode({'response': {'matches': []}}), 200);
       });

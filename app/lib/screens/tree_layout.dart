@@ -169,7 +169,7 @@ class TreeLayout {
     final knotMap = <String, String>{}; // partnershipId → knotId
     for (final p in partnerships) {
       if (!personMap.containsKey(p.person1Id) ||
-          !personMap.containsKey(p.person2Id)) continue;
+          !personMap.containsKey(p.person2Id)) { continue; }
       final knotId = 'knot_${p.id}';
       final knotGen = math.min(
         generation[p.person1Id] ?? 0,

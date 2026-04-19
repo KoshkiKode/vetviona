@@ -378,7 +378,7 @@ void main() {
   // ── Step 3: Success ───────────────────────────────────────────────────────
 
   group('GiftLicenseWizard — step 3: success', () {
-    Future<void> _advanceToSuccess(WidgetTester tester,
+    Future<void> advanceToSuccess(WidgetTester tester,
         LicenseBackendService svc) async {
       await tester.pumpWidget(
         _buildApp(const GiftLicenseWizard(preselectedType: 'desktop'), svc),
@@ -435,7 +435,7 @@ void main() {
         ),
       );
 
-      await _advanceToSuccess(tester, svc);
+      await advanceToSuccess(tester, svc);
 
       expect(find.text('Transfer initiated!'), findsOneWidget);
       expect(find.textContaining('bob@example.com'), findsAtLeastNWidgets(1));
@@ -475,7 +475,7 @@ void main() {
         ),
       );
 
-      await _advanceToSuccess(tester, svc);
+      await advanceToSuccess(tester, svc);
 
       expect(find.text('Done'), findsOneWidget);
     });
@@ -514,7 +514,7 @@ void main() {
         ),
       );
 
-      await _advanceToSuccess(tester, svc);
+      await advanceToSuccess(tester, svc);
 
       // AppBar back button replaced with SizedBox.shrink() on success page.
       expect(find.byType(BackButton), findsNothing);

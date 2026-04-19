@@ -1271,7 +1271,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               backgroundImage:
                                   FileImage(File(person.photoPaths.first)),
                               backgroundColor: avatarBg,
-                              onBackgroundImageError: (_, __) {},
+                              onBackgroundImageError: (_, _) {},
                             )
                           : CircleAvatar(
                               radius: 24,
@@ -1926,7 +1926,7 @@ class _PersonCard extends StatelessWidget {
     final hasPhoto = person.photoPaths.isNotEmpty;
     final warnings = _validationWarnings();
 
-    final defaultTap = () => _openPerson(context);
+    void defaultTap() => _openPerson(context);
 
     return Card(
       child: GestureDetector(
@@ -1957,7 +1957,7 @@ class _PersonCard extends StatelessWidget {
                         backgroundImage:
                             FileImage(File(person.photoPaths.first)),
                         backgroundColor: avatarBg,
-                        onBackgroundImageError: (_, __) {},
+                        onBackgroundImageError: (_, _) {},
                       ),
                     )
                   : Hero(
