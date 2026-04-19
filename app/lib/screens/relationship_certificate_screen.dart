@@ -227,7 +227,7 @@ class _RelationshipCertificateScreenState
                       decoration: const InputDecoration(
                           labelText: 'Person A (subject)',
                           border: OutlineInputBorder()),
-                      value: _fromId,
+                      initialValue: _fromId,
                       items: persons
                           .map((p) => DropdownMenuItem(
                               value: p.id, child: Text(p.name)))
@@ -243,7 +243,7 @@ class _RelationshipCertificateScreenState
                       decoration: const InputDecoration(
                           labelText: 'Person B (ancestor / relative)',
                           border: OutlineInputBorder()),
-                      value: _toId,
+                      initialValue: _toId,
                       items: persons
                           .map((p) => DropdownMenuItem(
                               value: p.id, child: Text(p.name)))

@@ -1096,7 +1096,7 @@ class _MemorialCardState extends State<_MemorialCard> {
                     color: colorScheme.onSurfaceVariant)),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _selectedPersonId,
+              initialValue: _selectedPersonId,
               isExpanded: true,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(), isDense: true),

@@ -224,7 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       message: 'Choose how dates appear throughout the app',
                       child: DropdownButtonFormField<String>(
                         decoration: const InputDecoration(labelText: 'Date Format'),
-                        value: treeProvider.dateFormat,
+                        initialValue: treeProvider.dateFormat,
                         items: const [
                           DropdownMenuItem(
                               value: 'dd MMM yyyy',
@@ -249,7 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: DropdownButtonFormField<int>(
                         decoration: const InputDecoration(
                             labelText: 'Historical Place Names'),
-                        value: treeProvider.colonizationLevel,
+                        initialValue: treeProvider.colonizationLevel,
                         items: const [
                           DropdownMenuItem(
                               value: 0, child: Text('Modern names only')),
@@ -1125,7 +1125,7 @@ class _LanguagePicker extends StatelessWidget {
         labelText: 'App Language',
         prefixIcon: Icon(Icons.translate_outlined),
       ),
-      value: _languages.any((l) => l.tag == currentTag) ? currentTag : 'en',
+      initialValue: _languages.any((l) => l.tag == currentTag) ? currentTag : 'en',
       isExpanded: true,
       items: _languages
           .map((l) => DropdownMenuItem<String>(

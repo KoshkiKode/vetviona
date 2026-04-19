@@ -118,7 +118,7 @@ class _SourceDetailScreenState extends State<SourceDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _type,
+                      initialValue: _type,
                       decoration: const InputDecoration(
                         labelText: 'Source Type',
                         prefixIcon: Icon(Icons.category_outlined),
@@ -198,7 +198,7 @@ class _SourceDetailScreenState extends State<SourceDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String?>(
-                      value: _confidence,
+                      initialValue: _confidence,
                       decoration: const InputDecoration(
                         labelText: 'Confidence Rating (optional)',
                         prefixIcon: Icon(Icons.verified_outlined),

@@ -261,7 +261,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _genderOptions.contains(_gender) ? _gender : null,
+                  initialValue: _genderOptions.contains(_gender) ? _gender : null,
                   decoration: const InputDecoration(labelText: 'Gender'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Not specified')),
@@ -440,7 +440,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     ),
                   ),
                   DropdownButtonFormField<String?>(
-                    value: _bloodType,
+                    initialValue: _bloodType,
                     decoration: const InputDecoration(
                       labelText: 'Blood Type',
                       helperText: 'Useful for medical history tracking',
@@ -1877,7 +1877,7 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
           const SizedBox(height: 12),
           if (!_useCustomTitle) ...[
             DropdownButtonFormField<String>(
-              value: _selectedType,
+              initialValue: _selectedType,
               decoration: const InputDecoration(
                 labelText: 'Event Type',
                 border: OutlineInputBorder(),

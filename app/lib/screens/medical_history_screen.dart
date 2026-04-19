@@ -955,7 +955,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
                 decoration: const InputDecoration(
                     labelText: 'Person',
                     border: OutlineInputBorder()),
-                value: _selectedPersonId,
+                initialValue: _selectedPersonId,
                 items: persons
                     .map((p) =>
                         DropdownMenuItem(value: p.id, child: Text(p.name)))
@@ -976,7 +976,7 @@ class _ConditionSheetState extends State<_ConditionSheet> {
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                   labelText: 'Category', border: OutlineInputBorder()),
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items: MedicalCondition.categories
                   .map((c) =>
                       DropdownMenuItem(value: c, child: Text(c)))

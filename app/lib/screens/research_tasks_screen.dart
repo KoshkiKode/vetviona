@@ -630,7 +630,7 @@ class _TaskSheetState extends State<_TaskSheet> {
                 labelText: 'Linked Person (optional)',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedPersonId,
+              initialValue: _selectedPersonId,
               items: [
                 const DropdownMenuItem<String?>(
                     value: null, child: Text('— Tree-level task —')),
@@ -648,7 +648,7 @@ class _TaskSheetState extends State<_TaskSheet> {
                       labelText: 'Status',
                       border: OutlineInputBorder(),
                     ),
-                    value: _status,
+                    initialValue: _status,
                     items: ResearchTask.statuses
                         .map((s) => DropdownMenuItem(
                             value: s,
@@ -665,7 +665,7 @@ class _TaskSheetState extends State<_TaskSheet> {
                       labelText: 'Priority',
                       border: OutlineInputBorder(),
                     ),
-                    value: _priority,
+                    initialValue: _priority,
                     items: ResearchTask.priorities
                         .map((p) => DropdownMenuItem(
                             value: p,

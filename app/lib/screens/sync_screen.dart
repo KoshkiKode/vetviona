@@ -1702,7 +1702,7 @@ class _QrCodeCardState extends State<_QrCodeCard> {
         else ...[
           if (devices.length > 1) ...[
             DropdownButtonFormField<String>(
-              value: _selectedSecret,
+              initialValue: _selectedSecret,
               decoration:
                   const InputDecoration(labelText: 'Pairing code to encode'),
               items: devices
