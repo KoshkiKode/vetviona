@@ -198,7 +198,12 @@ class _StartupRouterState extends State<_StartupRouter> {
     if (!_onboardingDone!) {
       return const OnboardingScreen(key: ValueKey('onboarding'));
     }
-    if (!context.read<LicenseBackendService>().isCurrentTierVerified) {
+    // IAP purchasers are verified by their store receipt — skip the backend
+    // license check.  Paid binary / desktop downloaders still go through it.
+    final purchaseService = context.read<PurchaseService>();
+    final licenseService = context.read<LicenseBackendService>();
+    if (!purchaseService.isPurchased &&
+        !licenseService.isCurrentTierVerified) {
       return const LicenseVerificationScreen(key: ValueKey('license-verify'));
     }
     return const HomeScreen(key: ValueKey('home'));

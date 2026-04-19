@@ -6,9 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
+import '../config/build_metadata.dart';
 import '../models/device.dart';
 import '../providers/tree_provider.dart';
 import '../services/bluetooth_sync_service.dart';
@@ -577,6 +579,9 @@ class _SyncScreenState extends State<SyncScreen> {
                       fontSize: 12, color: colorScheme.onSurfaceVariant),
                 ),
               ],
+              const SizedBox(height: 12),
+              const Divider(),
+              _GetPaidAppLink(colorScheme: colorScheme),
             ],
           ),
         ),
@@ -1705,8 +1710,57 @@ class _SyncPaywall extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 16),
+            const Divider(),
+            _GetPaidAppLink(colorScheme: cs),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "Get the paid app" link
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shown below the IAP buttons in upgrade prompts.  Offers users a direct link
+/// to buy and download the Vetviona Paid binary (bypasses in-app purchase).
+class _GetPaidAppLink extends StatelessWidget {
+  final ColorScheme colorScheme;
+  const _GetPaidAppLink({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Just want the full app? ',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          InkWell(
+            onTap: () async {
+              final uri = Uri.parse(BuildMetadata.paidAppUrl);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: Text(
+              'Pay and download here \u2192',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                    decorationColor: colorScheme.primary,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
