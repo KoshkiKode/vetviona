@@ -2,6 +2,8 @@
 
 This page covers everything needed to run a production Vetviona deployment: the license backend server, the app itself, all embedded or online database/search services, and the legal/EULA requirements.
 
+> **First time deploying?** Start with the **[Step-by-Step Deployment Guide](Deploy-Step-by-Step)** — it walks through every AWS CLI command in order, from a fresh account to a fully live backend.
+
 ---
 
 ## Quick Summary
