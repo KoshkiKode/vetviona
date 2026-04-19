@@ -147,7 +147,7 @@ class _RelationshipFinderScreenState
               Expanded(
                 child: ListView.separated(
                   itemCount: _path!.length,
-                  separatorBuilder: (_, __) => Padding(
+                  separatorBuilder: (_, _) => Padding(
                     padding: const EdgeInsets.only(left: 16),
                     child: Icon(Icons.arrow_downward,
                         color: colorScheme.onSurfaceVariant),

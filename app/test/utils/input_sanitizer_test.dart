@@ -63,7 +63,7 @@ void main() {
     });
 
     test('combined: strips controls AND truncates', () {
-      final withControls = 'a\x00b\x01' + ('c' * 600);
+      final withControls = 'a\x00b\x01${'c' * 600}';
       final result = InputSanitizer.sanitize(withControls)!;
       expect(result.contains('\x00'), isFalse);
       expect(result.contains('\x01'), isFalse);

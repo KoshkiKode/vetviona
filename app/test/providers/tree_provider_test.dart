@@ -10,7 +10,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:vetviona_app/config/app_config.dart';
 import 'package:vetviona_app/models/life_event.dart';
 import 'package:vetviona_app/models/medical_condition.dart';
 import 'package:vetviona_app/models/partnership.dart';
@@ -23,7 +22,7 @@ void main() {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   /// Creates [n] persons in a linear parent→child chain: p0→p1→…→p(n-1).
-  List<Person> _linearChain(int n) => List.generate(
+  List<Person> linearChain(int n) => List.generate(
         n,
         (i) => Person(
           id: 'p$i',
@@ -230,7 +229,7 @@ void main() {
     // ── Large-tree scalability tests ─────────────────────────────────────────
 
     test('linear chain of 1 000 persons: finds end-to-end path', () {
-      provider.persons = _linearChain(1000);
+      provider.persons = linearChain(1000);
 
       final sw = Stopwatch()..start();
       final path = provider.findRelationshipPath('p0', 'p999');
@@ -244,7 +243,7 @@ void main() {
     });
 
     test('linear chain of 1 000 persons: reversed traversal', () {
-      provider.persons = _linearChain(1000);
+      provider.persons = linearChain(1000);
       final path = provider.findRelationshipPath('p999', 'p0');
       expect(path.length, 1000);
       expect(path.first, 'p999');

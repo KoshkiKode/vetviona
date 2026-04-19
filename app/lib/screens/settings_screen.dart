@@ -12,7 +12,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../config/build_metadata.dart';
-import '../l10n/app_localizations.dart';
 import '../models/person.dart';
 import '../providers/locale_provider.dart';
 import '../providers/theme_provider.dart';

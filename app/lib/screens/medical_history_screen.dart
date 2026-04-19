@@ -682,7 +682,7 @@ void _showAttachmentsDialog(BuildContext context, MedicalCondition mc) {
                         width: 40,
                         height: 40,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        errorBuilder: (_, _, _) =>
                             const Icon(Icons.broken_image_outlined),
                       ),
                     )
@@ -1151,7 +1151,7 @@ class _AttachmentsSection extends StatelessWidget {
                           width: 36,
                           height: 36,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorBuilder: (_, _, _) => Icon(
                             Icons.broken_image_outlined,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1190,7 +1190,7 @@ class _AttachmentsSection extends StatelessWidget {
         builder: (_) => Dialog(
           child: InteractiveViewer(
             child: Image.file(File(path),
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     const Center(child: Icon(Icons.broken_image, size: 64))),
           ),
         ),

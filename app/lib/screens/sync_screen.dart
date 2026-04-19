@@ -846,15 +846,14 @@ class _QrScannerCardState extends State<_QrScannerCard> {
             onPressed: () async {
               // Show scanning state immediately, then await camera start.
               setState(() => _scanning = true);
+              final messenger = ScaffoldMessenger.of(context);
               try {
                 await _cameraController.start();
               } catch (e) {
-                if (mounted) {
-                  setState(() => _scanning = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Camera unavailable: $e')),
-                  );
-                }
+                if (mounted) setState(() => _scanning = false);
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Camera unavailable: $e')),
+                );
               }
             },
           ),
@@ -1409,7 +1408,7 @@ class _SyncCard extends StatelessWidget {
                             ),
                   ),
                 ),
-                if (trailing != null) trailing!,
+                ?trailing,
               ],
             ),
             const SizedBox(height: 12),

@@ -29,15 +29,15 @@ Map<String, dynamic> _addressResponse({
     {
       'display_name': displayName ?? '$city, $country',
       'address': {
-        if (city != null) 'city': city,
-        if (town != null) 'town': town,
-        if (village != null) 'village': village,
-        if (hamlet != null) 'hamlet': hamlet,
-        if (county != null) 'county': county,
-        if (state != null) 'state': state,
-        if (country != null) 'country': country,
-        if (countryCode != null) 'country_code': countryCode,
-        if (postcode != null) 'postcode': postcode,
+        'city': ?city,
+        'town': ?town,
+        'village': ?village,
+        'hamlet': ?hamlet,
+        'county': ?county,
+        'state': ?state,
+        'country': ?country,
+        'country_code': ?countryCode,
+        'postcode': ?postcode,
       },
     };
 
@@ -346,7 +346,7 @@ void main() {
       final body = '{"display_name": 123, "address": null}';
       final svc = _serviceWith(body);
       // reverseGeocode should return null when parsing fails
-      final coord = await svc.reverseGeocode(0.0, 0.0);
+      await svc.reverseGeocode(0.0, 0.0);
       // If it throws internally, it's caught and returns null; or may succeed
       // with null address fields — either is acceptable.
       expect(true, isTrue); // Just ensure no uncaught exception.

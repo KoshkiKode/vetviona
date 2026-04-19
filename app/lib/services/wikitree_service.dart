@@ -281,7 +281,7 @@ class WikiTreeService extends ChangeNotifier {
   Map<String, String> _authHeaders() => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': _ua,
-        if (_cookie != null) 'Cookie': _cookie!,
+        'Cookie': ?_cookie,
       };
 
   Map<String, dynamic> _decodeBody(String body) {

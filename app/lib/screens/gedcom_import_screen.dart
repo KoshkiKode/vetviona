@@ -77,6 +77,7 @@ class _GedcomImportScreenState extends State<GedcomImportScreen> {
   // ── Entry point ─────────────────────────────────────────────────────────────
   Future<void> _start() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final provider = context.read<TreeProvider>();
 
     // Check for a previous interrupted import of the same file + tree.

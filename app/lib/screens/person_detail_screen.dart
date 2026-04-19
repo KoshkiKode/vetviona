@@ -668,7 +668,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _photoPaths.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (context, i) {
                         final path = _photoPaths[i];
                         return Stack(
@@ -690,7 +690,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                   width: 100,
                                   height: 100,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                 errorBuilder: (_, _, _) => Container(
                                     width: 100,
                                     height: 100,
                                     color: Theme.of(context)
@@ -849,7 +849,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       backgroundImage:
                           FileImage(File(_photoPaths.first)),
                       backgroundColor: avatarBg,
-                      onBackgroundImageError: (_, __) {},
+                      onBackgroundImageError: (_, _) {},
                     )
                   : CircleAvatar(
                       radius: 40,

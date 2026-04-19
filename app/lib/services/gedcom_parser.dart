@@ -76,7 +76,7 @@ class GEDCOMParser {
     // Pending SOUR reference from a 1 SOUR @Sx@ in an INDI record.
     Map<String, String?>? pendingSourRef;
 
-    void _flushPendingEvent(String personId) {
+    void flushPendingEvent(String personId) {
       if (pendingEvent == null) return;
       final tag = pendingEvent!['tag'] as String? ?? '';
       final title = tag == 'EVEN'
@@ -104,7 +104,7 @@ class GEDCOMParser {
       if (level == 0) {
         if (currentPerson != null && currentId != null) {
           final id = currentId;
-          if (pendingEvent != null) _flushPendingEvent(id);
+          if (pendingEvent != null) flushPendingEvent(id);
           persons[id] = currentPerson;
         }
         currentPerson = null;
@@ -131,7 +131,7 @@ class GEDCOMParser {
         }
       } else if (level == 1 && currentPerson != null) {
         // Flush any pending event when we start a new level-1 tag.
-        if (pendingEvent != null) _flushPendingEvent(currentId!);
+        if (pendingEvent != null) flushPendingEvent(currentId!);
         pendingEvent = null;
         pendingSourRef = null;
         currentTag = tag;
@@ -247,7 +247,7 @@ class GEDCOMParser {
 
     if (currentPerson != null && currentId != null) {
       final id = currentId;
-      if (pendingEvent != null) _flushPendingEvent(id);
+      if (pendingEvent != null) flushPendingEvent(id);
       persons[id] = currentPerson;
     }
 

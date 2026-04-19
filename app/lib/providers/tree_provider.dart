@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
@@ -502,16 +500,16 @@ class TreeProvider extends ChangeNotifier {
 
   // ── Load ───────────────────────────────────────────────────────────────────
   Future<void> loadPersons() async {
-    void _step(String message, double progress) {
+    void step(String message, double progress) {
       loadingMessage = message;
       loadingProgress = progress;
       notifyListeners();
     }
 
-    _step('Opening database…', 0.0);
+    step('Opening database…', 0.0);
     final db = await _database;
 
-    _step('Loading family trees…', 0.05);
+    step('Loading family trees…', 0.05);
     final treeMaps = await db.query('trees');
     trees = treeMaps
         .map((m) => {
@@ -526,7 +524,7 @@ class TreeProvider extends ChangeNotifier {
       ];
     }
 
-    _step('Loading people…', 0.15);
+    step('Loading people…', 0.15);
     final personMaps = await db.query(
       'persons',
       where: 'treeId = ?',
@@ -534,14 +532,14 @@ class TreeProvider extends ChangeNotifier {
     );
     persons = personMaps.map(Person.fromMap).toList();
 
-    _step('Loading sources…', 0.35);
+    step('Loading sources…', 0.35);
     final sourceMaps = await db.rawQuery(
       'SELECT s.* FROM sources s INNER JOIN persons p ON s.personId = p.id WHERE p.treeId = ?',
       [currentTreeId],
     );
     sources = sourceMaps.map(Source.fromMap).toList();
 
-    _step('Loading partnerships…', 0.50);
+    step('Loading partnerships…', 0.50);
     final partnershipMaps = await db.query(
       'partnerships',
       where: 'treeId = ?',
@@ -549,21 +547,21 @@ class TreeProvider extends ChangeNotifier {
     );
     partnerships = partnershipMaps.map(Partnership.fromMap).toList();
 
-    _step('Loading life events…', 0.62);
+    step('Loading life events…', 0.62);
     final lifeEventMaps = await db.rawQuery(
       'SELECT le.* FROM life_events le INNER JOIN persons p ON le.personId = p.id WHERE p.treeId = ?',
       [currentTreeId],
     );
     lifeEvents = lifeEventMaps.map(LifeEvent.fromMap).toList();
 
-    _step('Loading medical history…', 0.74);
+    step('Loading medical history…', 0.74);
     final medicalMaps = await db.rawQuery(
       'SELECT mc.* FROM medical_conditions mc INNER JOIN persons p ON mc.personId = p.id WHERE p.treeId = ?',
       [currentTreeId],
     );
     medicalConditions = medicalMaps.map(MedicalCondition.fromMap).toList();
 
-    _step('Loading research tasks…', 0.84);
+    step('Loading research tasks…', 0.84);
     final taskMaps = await db.query(
       'research_tasks',
       where: 'treeId = ?',
@@ -571,11 +569,11 @@ class TreeProvider extends ChangeNotifier {
     );
     researchTasks = taskMaps.map(ResearchTask.fromMap).toList();
 
-    _step('Loading devices…', 0.92);
+    step('Loading devices…', 0.92);
     final deviceMaps = await db.query('devices');
     pairedDevices = deviceMaps.map(Device.fromMap).toList();
 
-    _step('Loading preferences…', 0.96);
+    step('Loading preferences…', 0.96);
     final prefs = await SharedPreferences.getInstance();
     _dateFormat = prefs.getString('dateFormat') ?? 'dd MMM yyyy';
     colonizationLevel = prefs.getInt('colonizationLevel') ?? 0;

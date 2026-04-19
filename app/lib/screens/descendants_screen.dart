@@ -130,8 +130,9 @@ class _DescLayout {
     final knotMap = <String, String>{}; // partnershipId → knotId
     for (final part in partnerships) {
       if (!personMap.containsKey(part.person1Id) ||
-          !personMap.containsKey(part.person2Id))
+          !personMap.containsKey(part.person2Id)) {
         continue;
+      }
       final knotId = 'knot_${part.id}';
       final knotGen = math.min(
         generation[part.person1Id] ?? 0,
@@ -910,8 +911,8 @@ class _DescCard extends StatelessWidget {
                           Icon(
                             Icons.star,
                             size: 10,
-                            color: colorScheme.onSurfaceVariant.withOpacity(
-                              0.6,
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
                             ),
                           ),
                       ],
