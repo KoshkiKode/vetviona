@@ -550,6 +550,7 @@ class WikiTreeService extends ChangeNotifier {
       education: existing?.education,
       aliases: existing?.aliases ?? [],
       findAGraveId: existing?.findAGraveId,
+      familySearchId: existing?.familySearchId,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
   }

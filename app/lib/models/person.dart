@@ -103,6 +103,17 @@ class Person {
   /// e.g. memorial URL `https://www.findagrave.com/memorial/1836/…` → `"1836"`.
   String? findAGraveId;
 
+  /// FamilySearch person ID, e.g. `"KW7S-BBQ"`.
+  String? familySearchId;
+
+  /// Human-readable short ID in the format `FL-001` where F and L are the
+  /// first and last name initials and the number is a sequential counter.
+  ///
+  /// Always stored as a 3-digit zero-padded number (e.g. `JD-007`).  The
+  /// user-facing display drops leading zeros when ≤ 99 people share those
+  /// initials; see [PersonIdService.display].
+  String? shortId;
+
   static const List<String> allBloodTypes = [
     'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown',
   ];
@@ -155,6 +166,8 @@ class Person {
     this.updatedAt,
     this.wikitreeId,
     this.findAGraveId,
+    this.familySearchId,
+    this.shortId,
   })  : parentIds = parentIds ?? [],
         childIds = childIds ?? [],
         parentRelTypes = parentRelTypes ?? {},
@@ -231,6 +244,8 @@ class Person {
       'updatedAt': updatedAt,
       'wikitreeId': wikitreeId,
       'findAGraveId': findAGraveId,
+      'familySearchId': familySearchId,
+      'shortId': shortId,
     };
   }
 
@@ -317,6 +332,8 @@ class Person {
       updatedAt: map['updatedAt'] as int?,
       wikitreeId: map['wikitreeId'] as String?,
       findAGraveId: map['findAGraveId'] as String?,
+      familySearchId: map['familySearchId'] as String?,
+      shortId: map['shortId'] as String?,
     );
   }
 }

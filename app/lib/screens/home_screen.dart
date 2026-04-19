@@ -13,6 +13,7 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../services/pdf_report_service.dart';
+import '../services/person_id_service.dart';
 import '../services/purchase_service.dart';
 import '../utils/page_routes.dart';
 import '../utils/platform_utils.dart';
@@ -91,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final q = _searchQuery.toLowerCase();
       result = persons.where((p) {
         return p.name.toLowerCase().contains(q) ||
+            (p.shortId?.toLowerCase().contains(q) ?? false) ||
             (p.birthPlace?.toLowerCase().contains(q) ?? false) ||
             (p.deathPlace?.toLowerCase().contains(q) ?? false) ||
             (p.notes?.toLowerCase().contains(q) ?? false);
@@ -329,6 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final person = filteredPersons[i];
               return _PersonCard(
                 person: person,
+                allPersons: provider.persons,
                 onTap: () async {
                   await _saveRecentId(person.id);
                   if (context.mounted) {
@@ -1841,8 +1844,9 @@ class _StatChip extends StatelessWidget {
 
 class _PersonCard extends StatelessWidget {
   final Person person;
+  final List<Person> allPersons;
   final VoidCallback? onTap;
-  const _PersonCard({required this.person, this.onTap});
+  const _PersonCard({required this.person, required this.allPersons, this.onTap});
 
   /// Returns `(backgroundColor, foregroundColor)` based on gender.
   (Color, Color) _avatarColors(BuildContext context) {
@@ -1995,6 +1999,28 @@ class _PersonCard extends StatelessWidget {
                                 ),
                           ),
                         ),
+                        if (person.shortId != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.secondaryContainer
+                                  .withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              PersonIdService.instance
+                                  .display(person.shortId, allPersons),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSecondaryContainer,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (warnings.isNotEmpty)
                           Tooltip(
                             message: warnings.first,

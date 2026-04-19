@@ -1129,7 +1129,8 @@ void main() {
     });
   });
 
-  group('GEDCOMParser — WikiTree & Find A Grave external IDs', () {
+  group('GEDCOMParser — WikiTree, Find A Grave, and FamilySearch external IDs',
+      () {
     test('_WIKITREEID tag parses to wikitreeId', () async {
       final path = await writeGedcom('''
 0 HEAD
@@ -1174,6 +1175,21 @@ void main() {
       expect(result.persons.first.findAGraveId, '1836');
     });
 
+    test('_FAMILYSEARCHID tag parses to familySearchId', () async {
+      final path = await writeGedcom('''
+0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Jane /Smith/
+1 _FAMILYSEARCHID KW7S-BBQ
+0 TRLR
+''');
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.familySearchId, 'KW7S-BBQ');
+    });
+
     test('export writes _WIKITREEID for person with wikitreeId', () async {
       final persons = [
         Person(
@@ -1204,7 +1220,24 @@ void main() {
       expect(content, contains('1 _FINDAGRAVEID 1836'));
     });
 
-    test('export/import roundtrip preserves wikitreeId and findAGraveId',
+    test('export writes _FAMILYSEARCHID for person with familySearchId',
+        () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Jane Smith',
+          deathDate: DateTime(1901),
+          familySearchId: 'KW7S-BBQ',
+        ),
+      ];
+      final path = '${tempDir.path}/familysearch_export.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _FAMILYSEARCHID KW7S-BBQ'));
+    });
+
+    test(
+        'export/import roundtrip preserves wikitreeId, findAGraveId, and familySearchId',
         () async {
       final persons = [
         Person(
@@ -1213,6 +1246,7 @@ void main() {
           deathDate: DateTime(1934, 7, 4),
           wikitreeId: 'Curie-7',
           findAGraveId: '5555',
+          familySearchId: 'LZ2F-123',
         ),
       ];
       final path = '${tempDir.path}/roundtrip_ids.ged';
@@ -1221,6 +1255,7 @@ void main() {
       expect(result.persons, hasLength(1));
       expect(result.persons.first.wikitreeId, 'Curie-7');
       expect(result.persons.first.findAGraveId, '5555');
+      expect(result.persons.first.familySearchId, 'LZ2F-123');
     });
 
     test('person without wikitreeId does not emit _WIKITREEID tag', () async {
@@ -1232,6 +1267,7 @@ void main() {
       final content = await File(path).readAsString();
       expect(content, isNot(contains('_WIKITREEID')));
       expect(content, isNot(contains('_FINDAGRAVEID')));
+      expect(content, isNot(contains('_FAMILYSEARCHID')));
     });
   });
 

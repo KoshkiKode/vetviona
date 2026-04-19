@@ -27,6 +27,8 @@ import '../services/find_a_grave_service.dart';
 import '../services/place_service.dart';
 import '../services/wikitree_service.dart';
 import 'map_picker_screen.dart';
+import '../services/family_search_service.dart';
+import '../services/person_id_service.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final Person? person;
@@ -74,6 +76,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   // External IDs
   String? _wikitreeId;
   String? _findAGraveId;
+  String? _familySearchId;
 
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
 
@@ -129,6 +132,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _aliases = List<String>.from(widget.person?.aliases ?? []);
     _wikitreeId = widget.person?.wikitreeId;
     _findAGraveId = widget.person?.findAGraveId;
+    _familySearchId = widget.person?.familySearchId;
   }
 
   @override
@@ -791,12 +795,15 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 _ExternalIdSection(
                   wikitreeId: _wikitreeId,
                   findAGraveId: _findAGraveId,
+                  familySearchId: _familySearchId,
                   personName: _nameController.text,
                   birthYear: _birthDate?.year,
                   onWikiTreeIdChanged: (id) =>
                       setState(() => _wikitreeId = id),
                   onFindAGraveIdChanged: (id) =>
                       setState(() => _findAGraveId = id),
+                  onFamilySearchIdChanged: (id) =>
+                      setState(() => _familySearchId = id),
                 ),
               ],
             ),
@@ -823,6 +830,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   Widget _buildPersonHeader(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final person = widget.person!;
+    final allPersons = context.read<TreeProvider>().persons;
     Color avatarBg;
     if (_gender?.toLowerCase() == 'male') {
       avatarBg = colorScheme.primary;
@@ -835,6 +843,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             Brightness.dark
         ? colorScheme.onPrimary
         : colorScheme.onSurface;
+
+    final shortIdDisplay = PersonIdService.instance
+        .display(person.shortId, allPersons);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -874,6 +885,26 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   .titleLarge
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
+            if (shortIdDisplay.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colorScheme.secondaryContainer.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  shortIdDisplay,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSecondaryContainer,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1056,6 +1087,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       aliases: _aliases,
       wikitreeId: _wikitreeId,
       findAGraveId: _findAGraveId,
+      familySearchId: _familySearchId,
     );
     final provider = context.read<TreeProvider>();
     if (widget.person == null) {
@@ -2001,18 +2033,22 @@ class _LifeEventSheetState extends State<_LifeEventSheet> {
 class _ExternalIdSection extends StatefulWidget {
   final String? wikitreeId;
   final String? findAGraveId;
+  final String? familySearchId;
   final String personName;
   final int? birthYear;
   final ValueChanged<String?> onWikiTreeIdChanged;
   final ValueChanged<String?> onFindAGraveIdChanged;
+  final ValueChanged<String?> onFamilySearchIdChanged;
 
   const _ExternalIdSection({
     required this.wikitreeId,
     required this.findAGraveId,
+    required this.familySearchId,
     required this.personName,
     required this.birthYear,
     required this.onWikiTreeIdChanged,
     required this.onFindAGraveIdChanged,
+    required this.onFamilySearchIdChanged,
   });
 
   @override
@@ -2022,6 +2058,7 @@ class _ExternalIdSection extends StatefulWidget {
 class _ExternalIdSectionState extends State<_ExternalIdSection> {
   late TextEditingController _wtCtrl;
   late TextEditingController _fagCtrl;
+  late TextEditingController _fsCtrl;
   bool _searching = false;
   List<WikiTreeProfile> _searchResults = [];
 
@@ -2030,12 +2067,14 @@ class _ExternalIdSectionState extends State<_ExternalIdSection> {
     super.initState();
     _wtCtrl = TextEditingController(text: widget.wikitreeId ?? '');
     _fagCtrl = TextEditingController(text: widget.findAGraveId ?? '');
+    _fsCtrl = TextEditingController(text: widget.familySearchId ?? '');
   }
 
   @override
   void dispose() {
     _wtCtrl.dispose();
     _fagCtrl.dispose();
+    _fsCtrl.dispose();
     super.dispose();
   }
 
@@ -2151,6 +2190,46 @@ class _ExternalIdSectionState extends State<_ExternalIdSection> {
               tooltip: 'Open Find A Grave memorial',
               onPressed: () => launchUrl(
                 Uri.parse(FindAGraveService.instance.memorialUrl(widget.findAGraveId!)),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+        ]),
+        const SizedBox(height: 12),
+        // ── FamilySearch ───────────────────────────────────────────────────
+        Row(children: [
+          Icon(Icons.people_alt_outlined, size: 16, color: colorScheme.tertiary),
+          const SizedBox(width: 6),
+          Text('FamilySearch', style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(
+            child: TextFormField(
+              controller: _fsCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Person ID (e.g. KW7S-BBQ)',
+                hintText: 'Paste URL or FamilySearch ID',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.url,
+              onChanged: (v) {
+                final extracted = FamilySearchService.instance.extractPersonId(v);
+                widget.onFamilySearchIdChanged(extracted);
+                if (extracted != null && extracted != v.trim()) {
+                  _fsCtrl.text = extracted;
+                  _fsCtrl.selection = TextSelection.fromPosition(TextPosition(offset: extracted.length));
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (widget.familySearchId != null && widget.familySearchId!.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.open_in_new, size: 20),
+              tooltip: 'Open FamilySearch profile',
+              onPressed: () => launchUrl(
+                Uri.parse(FamilySearchService.instance.personUrl(widget.familySearchId!)),
                 mode: LaunchMode.externalApplication,
               ),
             ),

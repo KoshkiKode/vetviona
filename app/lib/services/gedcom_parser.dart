@@ -153,6 +153,11 @@ class GEDCOMParser {
         } else if (tag == '_FINDAGRAVEID' || tag == '_FINDAGRAVE') {
           final fagId = value.trim();
           if (fagId.isNotEmpty) currentPerson.findAGraveId = fagId;
+        } else if (tag == '_FAMILYSEARCHID' ||
+            tag == '_FAMILYSEARCH' ||
+            tag == '_FSID') {
+          final fsId = value.trim();
+          if (fsId.isNotEmpty) currentPerson.familySearchId = fsId;
         } else if (_gedcomEventTags.containsKey(tag) || tag == 'BURI' ||
             tag == 'DEAT' || tag == 'BIRT') {
           // We handle BIRT/DEAT/BURI at level 2; for event tags start tracking.
@@ -306,16 +311,22 @@ class GEDCOMParser {
 
     // Build sources and detect FindAGrave memorial IDs embedded in them.
     final findAGraveIds = <String, String>{};
+    final familySearchIds = <String, String>{};
     final builtSources = _buildSources(
       sourRefs,
       sourceDefs,
       findAGravePersonIds: findAGraveIds,
+      familySearchPersonIds: familySearchIds,
     );
 
     // Apply any discovered FindAGrave IDs to the person records.
     for (final entry in findAGraveIds.entries) {
       final person = persons[entry.key];
       if (person != null) person.findAGraveId ??= entry.value;
+    }
+    for (final entry in familySearchIds.entries) {
+      final person = persons[entry.key];
+      if (person != null) person.familySearchId ??= entry.value;
     }
 
     return GedcomResult(
@@ -367,9 +378,14 @@ class GEDCOMParser {
     List<Map<String, String?>> refs,
     Map<String, Map<String, String>> defs, {
     Map<String, String>? findAGravePersonIds,
+    Map<String, String>? familySearchPersonIds,
   }) {
     final built = <Source>[];
     final fagPattern = RegExp(r'findagrave\.com/memorial/(\d+)');
+    final fsPattern = RegExp(
+      r'familysearch\.org/tree/person/details/([A-Za-z0-9-]+)',
+      caseSensitive: false,
+    );
     for (final ref in refs) {
       final personId = ref['personId'];
       final sourceId = ref['sourceId'];
@@ -383,6 +399,10 @@ class GEDCOMParser {
         if (m != null && findAGravePersonIds != null) {
           findAGravePersonIds[personId] = m.group(1)!;
           break;
+        }
+        final fs = fsPattern.firstMatch(haystack);
+        if (fs != null && familySearchPersonIds != null) {
+          familySearchPersonIds[personId] = fs.group(1)!;
         }
       }
 
@@ -502,6 +522,10 @@ class GEDCOMParser {
         }
         if (person.findAGraveId != null && person.findAGraveId!.isNotEmpty) {
           buf.writeln('1 _FINDAGRAVEID ${person.findAGraveId}');
+        }
+        if (person.familySearchId != null &&
+            person.familySearchId!.isNotEmpty) {
+          buf.writeln('1 _FAMILYSEARCHID ${person.familySearchId}');
         }
         // Life events
         for (final event in eventsByPerson[person.id] ?? []) {
