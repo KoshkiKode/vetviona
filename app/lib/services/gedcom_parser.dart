@@ -82,16 +82,14 @@ class GEDCOMParser {
       final title = tag == 'EVEN'
           ? (pendingEvent!['type'] as String? ?? 'Event')
           : (_gedcomEventTags[tag] ?? tag);
-      builtLifeEvents.add(
-        LifeEvent(
-          id: _uuid.v4(),
-          personId: personId,
-          title: title,
-          date: pendingEvent!['date'] as DateTime?,
-          place: pendingEvent!['place'] as String?,
-          notes: pendingEvent!['notes'] as String?,
-        ),
-      );
+      builtLifeEvents.add(LifeEvent(
+        id: _uuid.v4(),
+        personId: personId,
+        title: title,
+        date: pendingEvent!['date'] as DateTime?,
+        place: pendingEvent!['place'] as String?,
+        notes: pendingEvent!['notes'] as String?,
+      ));
       pendingEvent = null;
     }
 
@@ -146,8 +144,7 @@ class GEDCOMParser {
           currentPerson.occupation = value;
         } else if (tag == 'RELI') {
           currentPerson.religion = value;
-        } else if (tag == '_WIKITREEID' ||
-            tag == '_WT_USER' ||
+        } else if (tag == '_WIKITREEID' || tag == '_WT_USER' ||
             tag == '_WIKITREE_ID') {
           // WikiTree-exported GEDCOMs include the profile page name here.
           // e.g.  1 _WIKITREEID Churchill-4
@@ -161,10 +158,8 @@ class GEDCOMParser {
             tag == '_FSID') {
           final fsId = value.trim();
           if (fsId.isNotEmpty) currentPerson.familySearchId = fsId;
-        } else if (_gedcomEventTags.containsKey(tag) ||
-            tag == 'BURI' ||
-            tag == 'DEAT' ||
-            tag == 'BIRT') {
+        } else if (_gedcomEventTags.containsKey(tag) || tag == 'BURI' ||
+            tag == 'DEAT' || tag == 'BIRT') {
           // We handle BIRT/DEAT/BURI at level 2; for event tags start tracking.
           if (_gedcomEventTags.containsKey(tag)) {
             pendingEvent = {'tag': tag};
@@ -237,9 +232,7 @@ class GEDCOMParser {
           } else if (tag == 'TYPE') {
             pendingEvent!['type'] = value;
           }
-        } else if (currentTag == 'SOUR' &&
-            pendingSourRef != null &&
-            tag == 'PAGE') {
+        } else if (currentTag == 'SOUR' && pendingSourRef != null && tag == 'PAGE') {
           // Page/citation reference for a source.
           pendingSourRef['page'] = value;
         }
@@ -351,18 +344,15 @@ class GEDCOMParser {
           ..burialPlace = InputSanitizer.shortField(p.burialPlace)
           ..religion = InputSanitizer.shortField(p.religion)
           ..education = InputSanitizer.shortField(p.education)
-          ..aliases = p.aliases
-              .map((a) => InputSanitizer.sanitizeRequired(a))
-              .toList();
+          ..aliases =
+              p.aliases.map((a) => InputSanitizer.sanitizeRequired(a)).toList();
         return p;
       }).toList(),
       partnerships: builtPartnerships,
       lifeEvents: builtLifeEvents.map((e) {
         e
           ..title = InputSanitizer.sanitizeRequired(
-            e.title,
-            maxLength: InputSanitizer.maxShortField,
-          )
+              e.title, maxLength: InputSanitizer.maxShortField)
           ..place = InputSanitizer.shortField(e.place)
           ..notes = InputSanitizer.mediumField(e.notes);
         return e;
@@ -370,9 +360,7 @@ class GEDCOMParser {
       sources: builtSources.map((s) {
         s
           ..title = InputSanitizer.sanitizeRequired(
-            s.title,
-            maxLength: InputSanitizer.maxShortField,
-          )
+              s.title, maxLength: InputSanitizer.maxShortField)
           ..author = InputSanitizer.shortField(s.author)
           ..publisher = InputSanitizer.shortField(s.publisher)
           ..volumePage = InputSanitizer.shortField(s.volumePage);
@@ -418,29 +406,24 @@ class GEDCOMParser {
         }
       }
 
-      built.add(
-        Source(
-          id: _uuid.v4(),
-          personId: personId,
-          title: title,
-          type: 'GEDCOM Record',
-          url: '',
-          author: def?['auth'],
-          publisher: def?['publ'],
-          volumePage: ref['page'],
-        ),
-      );
+      built.add(Source(
+        id: _uuid.v4(),
+        personId: personId,
+        title: title,
+        type: 'GEDCOM Record',
+        url: '',
+        author: def?['auth'],
+        publisher: def?['publ'],
+        volumePage: ref['page'],
+      ));
     }
     return built;
   }
 
   Future<void> export(
-    List<Person> persons,
-    List<Partnership> partnerships,
-    String filePath, {
-    bool includeLivingData = false,
-    List<LifeEvent> lifeEvents = const [],
-  }) async {
+      List<Person> persons, List<Partnership> partnerships, String filePath,
+      {bool includeLivingData = false,
+      List<LifeEvent> lifeEvents = const []}) async {
     final buf = StringBuffer();
     final df = DateFormat('d MMM yyyy');
 
@@ -462,9 +445,8 @@ class GEDCOMParser {
       final isLiving = person.deathDate == null;
       // When living-data is withheld, replace identifying details with a
       // generic placeholder and tag the record with RESN PRIVACY.
-      final exportName = (!includeLivingData && isLiving)
-          ? 'Living'
-          : person.name;
+      final exportName =
+          (!includeLivingData && isLiving) ? 'Living' : person.name;
 
       buf.writeln('0 @${person.id}@ INDI');
       if (exportName.isNotEmpty) {
@@ -480,7 +462,8 @@ class GEDCOMParser {
         if (person.birthDate != null || person.birthPlace != null) {
           buf.writeln('1 BIRT');
           if (person.birthDate != null) {
-            buf.writeln('2 DATE ${df.format(person.birthDate!).toUpperCase()}');
+            buf.writeln(
+                '2 DATE ${df.format(person.birthDate!).toUpperCase()}');
           }
           if (person.birthPlace != null && person.birthPlace!.isNotEmpty) {
             buf.writeln('2 PLAC ${person.birthPlace}');
@@ -489,12 +472,14 @@ class GEDCOMParser {
         if (person.deathDate != null || person.deathPlace != null) {
           buf.writeln('1 DEAT');
           if (person.deathDate != null) {
-            buf.writeln('2 DATE ${df.format(person.deathDate!).toUpperCase()}');
+            buf.writeln(
+                '2 DATE ${df.format(person.deathDate!).toUpperCase()}');
           }
           if (person.deathPlace != null && person.deathPlace!.isNotEmpty) {
             buf.writeln('2 PLAC ${person.deathPlace}');
           }
-          if (person.causeOfDeath != null && person.causeOfDeath!.isNotEmpty) {
+          if (person.causeOfDeath != null &&
+              person.causeOfDeath!.isNotEmpty) {
             buf.writeln('2 CAUS ${person.causeOfDeath}');
           }
         }
@@ -502,8 +487,7 @@ class GEDCOMParser {
           buf.writeln('1 BURI');
           if (person.burialDate != null) {
             buf.writeln(
-              '2 DATE ${df.format(person.burialDate!).toUpperCase()}',
-            );
+                '2 DATE ${df.format(person.burialDate!).toUpperCase()}');
           }
           if (person.burialPlace != null && person.burialPlace!.isNotEmpty) {
             buf.writeln('2 PLAC ${person.burialPlace}');
@@ -551,7 +535,8 @@ class GEDCOMParser {
             buf.writeln('2 TYPE ${event.title}');
           }
           if (event.date != null) {
-            buf.writeln('2 DATE ${df.format(event.date!).toUpperCase()}');
+            buf.writeln(
+                '2 DATE ${df.format(event.date!).toUpperCase()}');
           }
           if (event.place != null && event.place!.isNotEmpty) {
             buf.writeln('2 PLAC ${event.place}');
@@ -594,15 +579,15 @@ class GEDCOMParser {
       // Children of this union = intersection of both partners' child lists
       final p1Children = childMap[pt.person1Id] ?? [];
       final p2Children = childMap[pt.person2Id] ?? [];
-      for (final childId in p1Children.where((id) => p2Children.contains(id))) {
+      for (final childId
+          in p1Children.where((id) => p2Children.contains(id))) {
         buf.writeln('1 CHIL @$childId@');
       }
     }
 
     // Persons with children but no partnership record (single parents)
-    final coveredPersonIds = partnerships
-        .expand((pt) => [pt.person1Id, pt.person2Id])
-        .toSet();
+    final coveredPersonIds =
+        partnerships.expand((pt) => [pt.person1Id, pt.person2Id]).toSet();
     for (final person in persons) {
       if (coveredPersonIds.contains(person.id)) continue;
       if (person.childIds.isEmpty) continue;

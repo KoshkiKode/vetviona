@@ -56,7 +56,8 @@ String _runPbkdf2(_Pbkdf2Args args) {
   saltBlock.setAll(0, saltBytes);
   saltBlock[saltBytes.length + 3] = 1; // big-endian block index = 1
 
-  var u = Uint8List.fromList(Hmac(sha256, pwBytes).convert(saltBlock).bytes);
+  var u = Uint8List.fromList(
+      Hmac(sha256, pwBytes).convert(saltBlock).bytes);
   final t = Uint8List.fromList(u);
 
   for (int i = 1; i < args.iterations; i++) {
@@ -121,10 +122,11 @@ class TreeProvider extends ChangeNotifier {
   List<String> get treeNames => trees.map((t) => t['name']!).toList();
 
   /// Display name of the currently active tree.
-  String get currentTreeName => trees.firstWhere(
-    (t) => t['id'] == currentTreeId,
-    orElse: () => {'id': currentTreeId, 'name': 'My Family Tree'},
-  )['name']!;
+  String get currentTreeName => trees
+      .firstWhere(
+        (t) => t['id'] == currentTreeId,
+        orElse: () => {'id': currentTreeId, 'name': 'My Family Tree'},
+      )['name']!;
 
   String currentTreeId = 'default';
   List<Device> pairedDevices = [];
@@ -379,11 +381,21 @@ class TreeProvider extends ChangeNotifier {
           }
         }
         if (oldVersion < 4) {
-          await db.execute('ALTER TABLE persons ADD COLUMN occupation TEXT');
-          await db.execute('ALTER TABLE persons ADD COLUMN nationality TEXT');
-          await db.execute('ALTER TABLE persons ADD COLUMN maidenName TEXT');
-          await db.execute('ALTER TABLE persons ADD COLUMN burialDate TEXT');
-          await db.execute('ALTER TABLE persons ADD COLUMN burialPlace TEXT');
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN occupation TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN nationality TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN maidenName TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN burialDate TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE persons ADD COLUMN burialPlace TEXT',
+          );
           await db.execute('''
             CREATE TABLE life_events (
               id TEXT PRIMARY KEY,
@@ -400,23 +412,15 @@ class TreeProvider extends ChangeNotifier {
           await db.execute('ALTER TABLE persons ADD COLUMN birthCoord TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN deathCoord TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN burialCoord TEXT');
-          await db.execute(
-            'ALTER TABLE persons ADD COLUMN birthPostalCode TEXT',
-          );
-          await db.execute(
-            'ALTER TABLE persons ADD COLUMN deathPostalCode TEXT',
-          );
-          await db.execute(
-            'ALTER TABLE persons ADD COLUMN burialPostalCode TEXT',
-          );
+          await db.execute('ALTER TABLE persons ADD COLUMN birthPostalCode TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN deathPostalCode TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN burialPostalCode TEXT');
         }
         if (oldVersion < 6) {
           await db.execute(
-            'ALTER TABLE persons ADD COLUMN isPrivate INTEGER NOT NULL DEFAULT 0',
-          );
+              'ALTER TABLE persons ADD COLUMN isPrivate INTEGER NOT NULL DEFAULT 0');
           await db.execute(
-            'ALTER TABLE persons ADD COLUMN preferredSourceIds TEXT',
-          );
+              'ALTER TABLE persons ADD COLUMN preferredSourceIds TEXT');
           await db.execute('''
             CREATE TABLE medical_conditions (
               id TEXT PRIMARY KEY,
@@ -453,43 +457,38 @@ class TreeProvider extends ChangeNotifier {
           await db.execute('ALTER TABLE sources ADD COLUMN author TEXT');
           await db.execute('ALTER TABLE sources ADD COLUMN publisher TEXT');
           await db.execute(
-            'ALTER TABLE sources ADD COLUMN publicationDate TEXT',
-          );
+              'ALTER TABLE sources ADD COLUMN publicationDate TEXT');
           await db.execute('ALTER TABLE sources ADD COLUMN repository TEXT');
           await db.execute('ALTER TABLE sources ADD COLUMN volumePage TEXT');
-          await db.execute('ALTER TABLE sources ADD COLUMN retrievalDate TEXT');
+          await db.execute(
+              'ALTER TABLE sources ADD COLUMN retrievalDate TEXT');
           await db.execute('ALTER TABLE sources ADD COLUMN confidence TEXT');
           await db.execute('ALTER TABLE sources ADD COLUMN treeId TEXT');
           await db.execute('ALTER TABLE partnerships ADD COLUMN notes TEXT');
           await db.execute(
-            'ALTER TABLE partnerships ADD COLUMN ceremonyType TEXT',
-          );
+              'ALTER TABLE partnerships ADD COLUMN ceremonyType TEXT');
           await db.execute(
-            'ALTER TABLE partnerships ADD COLUMN sourceIds TEXT',
-          );
+              'ALTER TABLE partnerships ADD COLUMN sourceIds TEXT');
           await db.execute(
-            'ALTER TABLE partnerships ADD COLUMN witnesses TEXT',
-          );
+              'ALTER TABLE partnerships ADD COLUMN witnesses TEXT');
         }
         if (oldVersion < 8) {
           // Add updatedAt timestamp column to all synced tables.
           // Existing rows get NULL (treated as 0 during merge).
-          await db.execute('ALTER TABLE persons ADD COLUMN updatedAt INTEGER');
           await db.execute(
-            'ALTER TABLE partnerships ADD COLUMN updatedAt INTEGER',
-          );
-          await db.execute('ALTER TABLE sources ADD COLUMN updatedAt INTEGER');
+              'ALTER TABLE persons ADD COLUMN updatedAt INTEGER');
           await db.execute(
-            'ALTER TABLE life_events ADD COLUMN updatedAt INTEGER',
-          );
+              'ALTER TABLE partnerships ADD COLUMN updatedAt INTEGER');
+          await db.execute(
+              'ALTER TABLE sources ADD COLUMN updatedAt INTEGER');
+          await db.execute(
+              'ALTER TABLE life_events ADD COLUMN updatedAt INTEGER');
         }
         if (oldVersion < 9) {
           await db.execute(
-            'ALTER TABLE persons ADD COLUMN syncMedical INTEGER NOT NULL DEFAULT 0',
-          );
+              'ALTER TABLE persons ADD COLUMN syncMedical INTEGER NOT NULL DEFAULT 0');
           await db.execute(
-            'ALTER TABLE medical_conditions ADD COLUMN updatedAt INTEGER',
-          );
+              'ALTER TABLE medical_conditions ADD COLUMN updatedAt INTEGER');
         }
         if (oldVersion < 10) {
           // External ID columns: WikiTree profile ID and Find A Grave memorial ID.
@@ -498,9 +497,7 @@ class TreeProvider extends ChangeNotifier {
         }
         if (oldVersion < 11) {
           // External ID column: FamilySearch person ID.
-          await db.execute(
-            'ALTER TABLE persons ADD COLUMN familySearchId TEXT',
-          );
+          await db.execute('ALTER TABLE persons ADD COLUMN familySearchId TEXT');
         }
       },
     );
@@ -520,12 +517,15 @@ class TreeProvider extends ChangeNotifier {
     step('Loading family trees…', 0.05);
     final treeMaps = await db.query('trees');
     trees = treeMaps
-        .map((m) => {'id': m['id'] as String, 'name': m['name'] as String})
+        .map((m) => {
+              'id': m['id'] as String,
+              'name': m['name'] as String,
+            })
         .toList();
     if (trees.isEmpty) {
       await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
       trees = [
-        {'id': 'default', 'name': 'My Family Tree'},
+        {'id': 'default', 'name': 'My Family Tree'}
       ];
     }
 
@@ -615,11 +615,8 @@ class TreeProvider extends ChangeNotifier {
     person.treeId = currentTreeId;
     person.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.insert(
-      'persons',
-      person.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('persons', person.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     persons.add(person);
     _emitDelta(persons: [person.toMap()]);
     notifyListeners();
@@ -629,12 +626,8 @@ class TreeProvider extends ChangeNotifier {
     person.treeId ??= currentTreeId;
     person.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.update(
-      'persons',
-      person.toMap(),
-      where: 'id = ?',
-      whereArgs: [person.id],
-    );
+    await db.update('persons', person.toMap(),
+        where: 'id = ?', whereArgs: [person.id]);
     final idx = persons.indexWhere((p) => p.id == person.id);
     if (idx != -1) persons[idx] = person;
     _emitDelta(persons: [person.toMap()]);
@@ -645,23 +638,19 @@ class TreeProvider extends ChangeNotifier {
     final db = await _database;
     await db.delete('persons', where: 'id = ?', whereArgs: [id]);
     // Cascade-delete all data associated with this person.
-    await db.delete(
-      'partnerships',
-      where: 'person1Id = ? OR person2Id = ?',
-      whereArgs: [id, id],
-    );
-    partnerships.removeWhere((pt) => pt.person1Id == id || pt.person2Id == id);
+    await db.delete('partnerships',
+        where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
+    partnerships.removeWhere(
+        (pt) => pt.person1Id == id || pt.person2Id == id);
     await db.delete('sources', where: 'personId = ?', whereArgs: [id]);
     sources.removeWhere((s) => s.personId == id);
     await db.delete('life_events', where: 'personId = ?', whereArgs: [id]);
     lifeEvents.removeWhere((e) => e.personId == id);
-    await db.delete(
-      'medical_conditions',
-      where: 'personId = ?',
-      whereArgs: [id],
-    );
+    await db.delete('medical_conditions',
+        where: 'personId = ?', whereArgs: [id]);
     medicalConditions.removeWhere((mc) => mc.personId == id);
-    await db.delete('research_tasks', where: 'personId = ?', whereArgs: [id]);
+    await db.delete('research_tasks',
+        where: 'personId = ?', whereArgs: [id]);
     researchTasks.removeWhere((t) => t.personId == id);
     // Remove this person's ID from other persons' parentIds / childIds
     for (final p in persons) {
@@ -669,12 +658,8 @@ class TreeProvider extends ChangeNotifier {
       final hadChild = p.childIds.remove(id);
       if (hadParent || hadChild) {
         p.parentRelTypes.remove(id);
-        await db.update(
-          'persons',
-          p.toMap(),
-          where: 'id = ?',
-          whereArgs: [p.id],
-        );
+        await db.update('persons', p.toMap(),
+            where: 'id = ?', whereArgs: [p.id]);
       }
     }
     persons.removeWhere((p) => p.id == id);
@@ -687,22 +672,15 @@ class TreeProvider extends ChangeNotifier {
     source.treeId ??= currentTreeId;
     source.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.insert(
-      'sources',
-      source.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('sources', source.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     sources.add(source);
     if (source.personId.isNotEmpty) {
       final idx = persons.indexWhere((p) => p.id == source.personId);
       if (idx != -1 && !persons[idx].sourceIds.contains(source.id)) {
         persons[idx].sourceIds.add(source.id);
-        await db.update(
-          'persons',
-          persons[idx].toMap(),
-          where: 'id = ?',
-          whereArgs: [persons[idx].id],
-        );
+        await db.update('persons', persons[idx].toMap(),
+            where: 'id = ?', whereArgs: [persons[idx].id]);
       }
     }
     _emitDelta(sources: [source.toMap()]);
@@ -713,12 +691,8 @@ class TreeProvider extends ChangeNotifier {
     source.treeId ??= currentTreeId;
     source.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.update(
-      'sources',
-      source.toMap(),
-      where: 'id = ?',
-      whereArgs: [source.id],
-    );
+    await db.update('sources', source.toMap(),
+        where: 'id = ?', whereArgs: [source.id]);
     final idx = sources.indexWhere((s) => s.id == source.id);
     if (idx != -1) sources[idx] = source;
     _emitDelta(sources: [source.toMap()]);
@@ -734,12 +708,8 @@ class TreeProvider extends ChangeNotifier {
       final pIdx = persons.indexWhere((p) => p.id == personId);
       if (pIdx != -1) {
         persons[pIdx].sourceIds.remove(id);
-        await db.update(
-          'persons',
-          persons[pIdx].toMap(),
-          where: 'id = ?',
-          whereArgs: [persons[pIdx].id],
-        );
+        await db.update('persons', persons[pIdx].toMap(),
+            where: 'id = ?', whereArgs: [persons[pIdx].id]);
       }
     }
     sources.removeWhere((s) => s.id == id);
@@ -752,11 +722,8 @@ class TreeProvider extends ChangeNotifier {
     partnership.treeId = currentTreeId;
     partnership.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.insert(
-      'partnerships',
-      partnership.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('partnerships', partnership.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     partnerships.add(partnership);
     _emitDelta(partnerships: [partnership.toMap()]);
     notifyListeners();
@@ -766,12 +733,8 @@ class TreeProvider extends ChangeNotifier {
     partnership.treeId ??= currentTreeId;
     partnership.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.update(
-      'partnerships',
-      partnership.toMap(),
-      where: 'id = ?',
-      whereArgs: [partnership.id],
-    );
+    await db.update('partnerships', partnership.toMap(),
+        where: 'id = ?', whereArgs: [partnership.id]);
     final idx = partnerships.indexWhere((p) => p.id == partnership.id);
     if (idx != -1) partnerships[idx] = partnership;
     _emitDelta(partnerships: [partnership.toMap()]);
@@ -791,36 +754,28 @@ class TreeProvider extends ChangeNotifier {
       .toList();
 
   /// Returns the IDs of all partners of [personId].
-  List<String> partnerIdsFor(String personId) => partnershipsFor(
-    personId,
-  ).map((p) => p.person1Id == personId ? p.person2Id : p.person1Id).toList();
+  List<String> partnerIdsFor(String personId) => partnershipsFor(personId)
+      .map((p) => p.person1Id == personId ? p.person2Id : p.person1Id)
+      .toList();
 
   /// Returns the persons whose [parentIds] contains BOTH partners in [p],
   /// i.e. the children born/adopted into this specific union.
   List<Person> childrenOfPartnership(Partnership p) => persons
-      .where(
-        (child) =>
-            child.parentIds.contains(p.person1Id) &&
-            child.parentIds.contains(p.person2Id),
-      )
+      .where((child) =>
+          child.parentIds.contains(p.person1Id) &&
+          child.parentIds.contains(p.person2Id))
       .toList();
 
   // ── Life Events ────────────────────────────────────────────────────────────
   Future<void> addLifeEvent(LifeEvent event) async {
     event.id = event.id.isEmpty ? _uuid.v4() : event.id;
-    final person = persons.firstWhere(
-      (p) => p.id == event.personId,
-      orElse: () =>
-          throw StateError('Person with id ${event.personId} not found'),
-    );
+    final person = persons.firstWhere((p) => p.id == event.personId,
+        orElse: () => throw StateError('Person with id ${event.personId} not found'));
     event.treeId = person.treeId;
     event.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.insert(
-      'life_events',
-      event.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('life_events', event.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     lifeEvents.add(event);
     _emitDelta(lifeEvents: [event.toMap()]);
     notifyListeners();
@@ -830,12 +785,8 @@ class TreeProvider extends ChangeNotifier {
     event.treeId ??= currentTreeId;
     event.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.update(
-      'life_events',
-      event.toMap(),
-      where: 'id = ?',
-      whereArgs: [event.id],
-    );
+    await db.update('life_events', event.toMap(),
+        where: 'id = ?', whereArgs: [event.id]);
     final idx = lifeEvents.indexWhere((e) => e.id == event.id);
     if (idx != -1) lifeEvents[idx] = event;
     _emitDelta(lifeEvents: [event.toMap()]);
@@ -856,18 +807,14 @@ class TreeProvider extends ChangeNotifier {
   // ── Medical Conditions ─────────────────────────────────────────────────────
   Future<void> addMedicalCondition(MedicalCondition condition) async {
     condition.id = condition.id.isEmpty ? _uuid.v4() : condition.id;
-    final person = persons.firstWhere(
-      (p) => p.id == condition.personId,
-      orElse: () => throw StateError('Person ${condition.personId} not found'),
-    );
+    final person = persons.firstWhere((p) => p.id == condition.personId,
+        orElse: () =>
+            throw StateError('Person ${condition.personId} not found'));
     condition.treeId = person.treeId;
     condition.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.insert(
-      'medical_conditions',
-      condition.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('medical_conditions', condition.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     medicalConditions.add(condition);
     // Always emit; SyncService filters per-peer using syncMedical / consent.
     _emitDelta(medicalConditions: [condition.toMap()]);
@@ -878,13 +825,10 @@ class TreeProvider extends ChangeNotifier {
     condition.treeId ??= currentTreeId;
     condition.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
-    await db.update(
-      'medical_conditions',
-      condition.toMap(),
-      where: 'id = ?',
-      whereArgs: [condition.id],
-    );
-    final idx = medicalConditions.indexWhere((mc) => mc.id == condition.id);
+    await db.update('medical_conditions', condition.toMap(),
+        where: 'id = ?', whereArgs: [condition.id]);
+    final idx =
+        medicalConditions.indexWhere((mc) => mc.id == condition.id);
     if (idx != -1) medicalConditions[idx] = condition;
     // Always emit; SyncService filters per-peer using syncMedical / consent.
     _emitDelta(medicalConditions: [condition.toMap()]);
@@ -907,11 +851,8 @@ class TreeProvider extends ChangeNotifier {
     task.id = task.id.isEmpty ? _uuid.v4() : task.id;
     task.treeId = currentTreeId;
     final db = await _database;
-    await db.insert(
-      'research_tasks',
-      task.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('research_tasks', task.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     researchTasks.add(task);
     _emitDelta(researchTasks: [task.toMap()]);
     notifyListeners();
@@ -920,12 +861,8 @@ class TreeProvider extends ChangeNotifier {
   Future<void> updateResearchTask(ResearchTask task) async {
     task.treeId ??= currentTreeId;
     final db = await _database;
-    await db.update(
-      'research_tasks',
-      task.toMap(),
-      where: 'id = ?',
-      whereArgs: [task.id],
-    );
+    await db.update('research_tasks', task.toMap(),
+        where: 'id = ?', whereArgs: [task.id]);
     final idx = researchTasks.indexWhere((t) => t.id == task.id);
     if (idx != -1) researchTasks[idx] = task;
     _emitDelta(researchTasks: [task.toMap()]);
@@ -955,12 +892,8 @@ class TreeProvider extends ChangeNotifier {
 
   Future<void> renameTree(String treeId, String newName) async {
     final db = await _database;
-    await db.update(
-      'trees',
-      {'name': newName},
-      where: 'id = ?',
-      whereArgs: [treeId],
-    );
+    await db.update('trees', {'name': newName},
+        where: 'id = ?', whereArgs: [treeId]);
     final idx = trees.indexWhere((t) => t['id'] == treeId);
     if (idx != -1) trees[idx] = {'id': treeId, 'name': newName};
     notifyListeners();
@@ -975,38 +908,28 @@ class TreeProvider extends ChangeNotifier {
     if (treeId == 'default') return;
     final db = await _database;
     // Find all person IDs belonging to this tree so we can delete their sources.
-    final personMaps = await db.query(
-      'persons',
-      columns: ['id'],
-      where: 'treeId = ?',
-      whereArgs: [treeId],
-    );
+    final personMaps = await db.query('persons',
+        columns: ['id'], where: 'treeId = ?', whereArgs: [treeId]);
     final personIds = personMaps.map((m) => m['id'] as String).toList();
     if (personIds.isNotEmpty) {
       final placeholders = personIds.map((_) => '?').join(',');
-      await db.delete(
-        'sources',
-        where: 'personId IN ($placeholders)',
-        whereArgs: personIds,
-      );
-      sources.removeWhere((s) => personIds.contains(s.personId));
-      await db.delete(
-        'life_events',
-        where: 'personId IN ($placeholders)',
-        whereArgs: personIds,
-      );
+      await db.delete('sources',
+          where: 'personId IN ($placeholders)', whereArgs: personIds);
+      sources.removeWhere(
+          (s) => personIds.contains(s.personId));
+      await db.delete('life_events',
+          where: 'personId IN ($placeholders)', whereArgs: personIds);
       lifeEvents.removeWhere((e) => personIds.contains(e.personId));
-      await db.delete(
-        'medical_conditions',
-        where: 'personId IN ($placeholders)',
-        whereArgs: personIds,
-      );
+      await db.delete('medical_conditions',
+          where: 'personId IN ($placeholders)', whereArgs: personIds);
       medicalConditions.removeWhere((mc) => personIds.contains(mc.personId));
     }
     await db.delete('trees', where: 'id = ?', whereArgs: [treeId]);
     await db.delete('persons', where: 'treeId = ?', whereArgs: [treeId]);
-    await db.delete('partnerships', where: 'treeId = ?', whereArgs: [treeId]);
-    await db.delete('research_tasks', where: 'treeId = ?', whereArgs: [treeId]);
+    await db.delete('partnerships',
+        where: 'treeId = ?', whereArgs: [treeId]);
+    await db.delete('research_tasks',
+        where: 'treeId = ?', whereArgs: [treeId]);
     researchTasks.removeWhere((t) => t.treeId == treeId);
     trees.removeWhere((t) => t['id'] == treeId);
     if (currentTreeId == treeId) {
@@ -1047,10 +970,8 @@ class TreeProvider extends ChangeNotifier {
       // Start a new failure window.
       _loginFailures[username] = (count: 1, since: DateTime.now());
     } else {
-      _loginFailures[username] = (
-        count: existing.count + 1,
-        since: existing.since,
-      );
+      _loginFailures[username] =
+          (count: existing.count + 1, since: existing.since);
     }
   }
 
@@ -1077,9 +998,7 @@ class TreeProvider extends ChangeNotifier {
     if (prefs.containsKey(key)) return false;
     final salt = _uuid.v4();
     final hash = await compute(
-      _runPbkdf2,
-      _Pbkdf2Args(password, salt, _kPbkdf2Iterations),
-    );
+        _runPbkdf2, _Pbkdf2Args(password, salt, _kPbkdf2Iterations));
     await prefs.setString(key, 'pbkdf2:$salt:$_kPbkdf2Iterations:$hash');
     _currentUser = username;
     notifyListeners();
@@ -1112,9 +1031,7 @@ class TreeProvider extends ChangeNotifier {
       final iterations = int.tryParse(parts[2]) ?? _kPbkdf2Iterations;
       final storedHash = parts[3];
       final hash = await compute(
-        _runPbkdf2,
-        _Pbkdf2Args(password, salt, iterations),
-      );
+          _runPbkdf2, _Pbkdf2Args(password, salt, iterations));
       valid = hash == storedHash;
     } else if (parts.length == 2 &&
         parts[0].length == _uuidLength &&
@@ -1124,13 +1041,9 @@ class TreeProvider extends ChangeNotifier {
       if (valid) {
         final newSalt = _uuid.v4();
         final newHash = await compute(
-          _runPbkdf2,
-          _Pbkdf2Args(password, newSalt, _kPbkdf2Iterations),
-        );
+            _runPbkdf2, _Pbkdf2Args(password, newSalt, _kPbkdf2Iterations));
         await prefs.setString(
-          'user_$username',
-          'pbkdf2:$newSalt:$_kPbkdf2Iterations:$newHash',
-        );
+            'user_$username', 'pbkdf2:$newSalt:$_kPbkdf2Iterations:$newHash');
       }
     } else {
       // ── Legacy plaintext — migrate to PBKDF2 on success ──────────────────
@@ -1138,13 +1051,9 @@ class TreeProvider extends ChangeNotifier {
       if (valid) {
         final salt = _uuid.v4();
         final hash = await compute(
-          _runPbkdf2,
-          _Pbkdf2Args(password, salt, _kPbkdf2Iterations),
-        );
+            _runPbkdf2, _Pbkdf2Args(password, salt, _kPbkdf2Iterations));
         await prefs.setString(
-          'user_$username',
-          'pbkdf2:$salt:$_kPbkdf2Iterations:$hash',
-        );
+            'user_$username', 'pbkdf2:$salt:$_kPbkdf2Iterations:$hash');
       }
     }
 
@@ -1244,32 +1153,24 @@ class TreeProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> exportGEDCOM(
-    String path, {
-    bool includeLivingData = false,
-  }) async {
+  Future<void> exportGEDCOM(String path,
+      {bool includeLivingData = false}) async {
     // Private persons are always excluded from GEDCOM exports.
     // Living persons (no death date) are exported as generic placeholders
     // unless [includeLivingData] is true.
     final publicPersons = persons.where((p) => !p.isPrivate).toList();
     final publicPersonIds = publicPersons.map((p) => p.id).toSet();
     final publicPartnerships = partnerships
-        .where(
-          (pt) =>
-              publicPersonIds.contains(pt.person1Id) &&
-              publicPersonIds.contains(pt.person2Id),
-        )
+        .where((pt) =>
+            publicPersonIds.contains(pt.person1Id) &&
+            publicPersonIds.contains(pt.person2Id))
         .toList();
     final parser = GEDCOMParser();
-    await parser.export(
-      publicPersons,
-      publicPartnerships,
-      path,
-      includeLivingData: includeLivingData,
-      lifeEvents: lifeEvents
-          .where((e) => publicPersonIds.contains(e.personId))
-          .toList(),
-    );
+    await parser.export(publicPersons, publicPartnerships, path,
+        includeLivingData: includeLivingData,
+        lifeEvents: lifeEvents
+            .where((e) => publicPersonIds.contains(e.personId))
+            .toList());
   }
 
   // ── Relationship BFS ───────────────────────────────────────────────────────
@@ -1308,11 +1209,8 @@ class TreeProvider extends ChangeNotifier {
   // ── Devices ────────────────────────────────────────────────────────────────
   Future<void> addDevice(Device device) async {
     final db = await _database;
-    await db.insert(
-      'devices',
-      device.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('devices', device.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     pairedDevices.add(device);
     notifyListeners();
   }
@@ -1329,11 +1227,8 @@ class TreeProvider extends ChangeNotifier {
   Future<void> updateDevice(String oldId, Device updated) async {
     final db = await _database;
     await db.delete('devices', where: 'id = ?', whereArgs: [oldId]);
-    await db.insert(
-      'devices',
-      updated.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('devices', updated.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
     final idx = pairedDevices.indexWhere((d) => d.id == oldId);
     if (idx != -1) pairedDevices[idx] = updated;
     notifyListeners();
@@ -1355,15 +1250,16 @@ class TreeProvider extends ChangeNotifier {
     // Build O(1) lookup for the per-person syncMedical gate.
     final syncMedicalIds = includeAllMedical
         ? publicPersonIds // bulk consent: all non-private persons
-        : publicPersons.where((p) => p.syncMedical).map((p) => p.id).toSet();
+        : publicPersons
+            .where((p) => p.syncMedical)
+            .map((p) => p.id)
+            .toSet();
     return {
       'persons': publicPersons.map((p) => p.toMap()).toList(),
       'partnerships': partnerships
-          .where(
-            (pt) =>
-                publicPersonIds.contains(pt.person1Id) &&
-                publicPersonIds.contains(pt.person2Id),
-          )
+          .where((pt) =>
+              publicPersonIds.contains(pt.person1Id) &&
+              publicPersonIds.contains(pt.person2Id))
           .map((p) => p.toMap())
           .toList(),
       'sources': sources
@@ -1406,8 +1302,8 @@ class TreeProvider extends ChangeNotifier {
     final senderTier = data['senderTier'] as String?;
     final sessionCap =
         (currentAppTier == AppTier.desktopPro && senderTier == 'mobileFree')
-        ? freeMobilePersonLimit
-        : null;
+            ? freeMobilePersonLimit
+            : null;
 
     final inPersons =
         ((data['persons'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
@@ -1494,19 +1390,15 @@ class TreeProvider extends ChangeNotifier {
             .map((a) => InputSanitizer.sanitizeRequired(a))
             .toList()
         ..treeId = currentTreeId;
-      await db.insert(
-        'persons',
-        person.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('persons', person.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
       if (isNew) added++;
     }
 
     // ── Partnerships ──────────────────────────────────────────────────────────
     for (final partnership in inPartnerships) {
-      final existing = partnerships
-          .where((p) => p.id == partnership.id)
-          .firstOrNull;
+      final existing =
+          partnerships.where((p) => p.id == partnership.id).firstOrNull;
       if (existing != null) {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = partnership.updatedAt ?? 0;
@@ -1515,11 +1407,8 @@ class TreeProvider extends ChangeNotifier {
       partnership
         ..notes = InputSanitizer.mediumField(partnership.notes)
         ..treeId = currentTreeId;
-      await db.insert(
-        'partnerships',
-        partnership.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('partnerships', partnership.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // ── Sources ───────────────────────────────────────────────────────────────
@@ -1532,25 +1421,21 @@ class TreeProvider extends ChangeNotifier {
       }
       source
         ..title = InputSanitizer.sanitizeRequired(
-          source.title,
-          maxLength: InputSanitizer.maxShortField,
-        )
+            source.title, maxLength: InputSanitizer.maxShortField)
         ..extractedInfo = InputSanitizer.mediumField(source.extractedInfo)
         ..author = InputSanitizer.shortField(source.author)
         ..publisher = InputSanitizer.shortField(source.publisher)
         ..repository = InputSanitizer.shortField(source.repository)
         ..volumePage = InputSanitizer.shortField(source.volumePage)
         ..treeId ??= currentTreeId;
-      await db.insert(
-        'sources',
-        source.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('sources', source.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // ── Life Events ───────────────────────────────────────────────────────────
     for (final event in inLifeEvents) {
-      final existing = lifeEvents.where((e) => e.id == event.id).firstOrNull;
+      final existing =
+          lifeEvents.where((e) => e.id == event.id).firstOrNull;
       if (existing != null) {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = event.updatedAt ?? 0;
@@ -1558,35 +1443,26 @@ class TreeProvider extends ChangeNotifier {
       }
       event
         ..title = InputSanitizer.sanitizeRequired(
-          event.title,
-          maxLength: InputSanitizer.maxShortField,
-        )
+            event.title, maxLength: InputSanitizer.maxShortField)
         ..place = InputSanitizer.shortField(event.place)
         ..notes = InputSanitizer.mediumField(event.notes)
         ..treeId = currentTreeId;
-      await db.insert(
-        'life_events',
-        event.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('life_events', event.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // ── Medical Conditions ────────────────────────────────────────────────────
     for (final mc in inMedicalConditions) {
-      final existing = medicalConditions
-          .where((m) => m.id == mc.id)
-          .firstOrNull;
+      final existing =
+          medicalConditions.where((m) => m.id == mc.id).firstOrNull;
       if (existing != null) {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = mc.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
       mc.treeId ??= currentTreeId;
-      await db.insert(
-        'medical_conditions',
-        mc.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('medical_conditions', mc.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // ── Research Tasks ─────────────────────────────────────────────────────────
@@ -1594,11 +1470,8 @@ class TreeProvider extends ChangeNotifier {
       // Research tasks have no updatedAt timestamp, so incoming records always
       // replace local ones (unconditional last-write-wins at the payload level).
       task.treeId ??= currentTreeId;
-      await db.insert(
-        'research_tasks',
-        task.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('research_tasks', task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await loadPersons();
@@ -1656,43 +1529,25 @@ class TreeProvider extends ChangeNotifier {
     final db = await _database;
 
     // Gather existing person IDs for this tree to delete related records.
-    final personMaps = await db.query(
-      'persons',
-      columns: ['id'],
-      where: 'treeId = ?',
-      whereArgs: [currentTreeId],
-    );
+    final personMaps = await db.query('persons',
+        columns: ['id'], where: 'treeId = ?', whereArgs: [currentTreeId]);
     final existingIds = personMaps.map((m) => m['id'] as String).toList();
 
     if (existingIds.isNotEmpty) {
       final placeholders = existingIds.map((_) => '?').join(',');
-      await db.delete(
-        'life_events',
-        where: 'personId IN ($placeholders)',
-        whereArgs: existingIds,
-      );
-      await db.delete(
-        'sources',
-        where: 'personId IN ($placeholders)',
-        whereArgs: existingIds,
-      );
-      await db.delete(
-        'medical_conditions',
-        where: 'personId IN ($placeholders)',
-        whereArgs: existingIds,
-      );
+      await db.delete('life_events',
+          where: 'personId IN ($placeholders)', whereArgs: existingIds);
+      await db.delete('sources',
+          where: 'personId IN ($placeholders)', whereArgs: existingIds);
+      await db.delete('medical_conditions',
+          where: 'personId IN ($placeholders)', whereArgs: existingIds);
     }
-    await db.delete(
-      'research_tasks',
-      where: 'treeId = ?',
-      whereArgs: [currentTreeId],
-    );
-    await db.delete('persons', where: 'treeId = ?', whereArgs: [currentTreeId]);
-    await db.delete(
-      'partnerships',
-      where: 'treeId = ?',
-      whereArgs: [currentTreeId],
-    );
+    await db.delete('research_tasks',
+        where: 'treeId = ?', whereArgs: [currentTreeId]);
+    await db.delete('persons',
+        where: 'treeId = ?', whereArgs: [currentTreeId]);
+    await db.delete('partnerships',
+        where: 'treeId = ?', whereArgs: [currentTreeId]);
 
     final inPersons =
         ((data['persons'] as List?)?.cast<Map<String, dynamic>>() ?? [])
@@ -1722,51 +1577,33 @@ class TreeProvider extends ChangeNotifier {
 
     for (final person in inPersons) {
       person.treeId = currentTreeId;
-      await db.insert(
-        'persons',
-        person.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('persons', person.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     for (final partnership in inPartnerships) {
       partnership.treeId = currentTreeId;
-      await db.insert(
-        'partnerships',
-        partnership.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('partnerships', partnership.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     for (final source in inSources) {
       source.treeId ??= currentTreeId;
-      await db.insert(
-        'sources',
-        source.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('sources', source.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     for (final event in inLifeEvents) {
       event.treeId = currentTreeId;
-      await db.insert(
-        'life_events',
-        event.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('life_events', event.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     for (final mc in inMedicalConditions) {
       mc.treeId ??= currentTreeId;
-      await db.insert(
-        'medical_conditions',
-        mc.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('medical_conditions', mc.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     for (final task in inResearchTasks) {
       task.treeId ??= currentTreeId;
-      await db.insert(
-        'research_tasks',
-        task.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('research_tasks', task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await loadPersons();
@@ -1788,11 +1625,8 @@ class TreeProvider extends ChangeNotifier {
     for (final p in personList) {
       p.treeId = currentTreeId;
       p.updatedAt = now;
-      batch.insert(
-        'persons',
-        p.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('persons', p.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
     persons.addAll(personList);
@@ -1810,11 +1644,8 @@ class TreeProvider extends ChangeNotifier {
     for (final pt in list) {
       pt.treeId = currentTreeId;
       pt.updatedAt = now;
-      batch.insert(
-        'partnerships',
-        pt.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('partnerships', pt.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
     partnerships.addAll(list);
@@ -1832,11 +1663,8 @@ class TreeProvider extends ChangeNotifier {
     for (final e in list) {
       e.treeId = currentTreeId;
       e.updatedAt = now;
-      batch.insert(
-        'life_events',
-        e.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('life_events', e.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
     lifeEvents.addAll(list);
@@ -1860,11 +1688,8 @@ class TreeProvider extends ChangeNotifier {
     for (final s in list) {
       s.treeId = currentTreeId;
       s.updatedAt = now;
-      sourceBatch.insert(
-        'sources',
-        s.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      sourceBatch.insert('sources', s.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await sourceBatch.commit(noResult: true);
     sources.addAll(list);
@@ -1886,12 +1711,8 @@ class TreeProvider extends ChangeNotifier {
             p.sourceIds.add(s.id);
           }
         }
-        personsBatch.update(
-          'persons',
-          p.toMap(),
-          where: 'id = ?',
-          whereArgs: [p.id],
-        );
+        personsBatch.update('persons', p.toMap(),
+            where: 'id = ?', whereArgs: [p.id]);
       }
       await personsBatch.commit(noResult: true);
     }
@@ -2006,60 +1827,37 @@ class TreeProvider extends ChangeNotifier {
         changed = true;
       }
       if (changed) {
-        await db.update(
-          'persons',
-          p.toMap(),
-          where: 'id = ?',
-          whereArgs: [p.id],
-        );
+        await db.update('persons', p.toMap(),
+            where: 'id = ?', whereArgs: [p.id]);
       }
     }
 
     // Re-point sources from mergeId → keepId so they are preserved.
     for (final source in sources.where((s) => s.personId == mergeId).toList()) {
       source.personId = keepId;
-      await db.update(
-        'sources',
-        source.toMap(),
-        where: 'id = ?',
-        whereArgs: [source.id],
-      );
+      await db.update('sources', source.toMap(),
+          where: 'id = ?', whereArgs: [source.id]);
     }
 
     // Re-point life events from mergeId → keepId.
-    for (final event
-        in lifeEvents.where((e) => e.personId == mergeId).toList()) {
+    for (final event in lifeEvents.where((e) => e.personId == mergeId).toList()) {
       event.personId = keepId;
-      await db.update(
-        'life_events',
-        event.toMap(),
-        where: 'id = ?',
-        whereArgs: [event.id],
-      );
+      await db.update('life_events', event.toMap(),
+          where: 'id = ?', whereArgs: [event.id]);
     }
 
     // Re-point medical conditions from mergeId → keepId.
-    for (final mc
-        in medicalConditions.where((m) => m.personId == mergeId).toList()) {
+    for (final mc in medicalConditions.where((m) => m.personId == mergeId).toList()) {
       mc.personId = keepId;
-      await db.update(
-        'medical_conditions',
-        mc.toMap(),
-        where: 'id = ?',
-        whereArgs: [mc.id],
-      );
+      await db.update('medical_conditions', mc.toMap(),
+          where: 'id = ?', whereArgs: [mc.id]);
     }
 
     // Re-point research tasks linked to mergeId → keepId.
-    for (final task
-        in researchTasks.where((t) => t.personId == mergeId).toList()) {
+    for (final task in researchTasks.where((t) => t.personId == mergeId).toList()) {
       task.personId = keepId;
-      await db.update(
-        'research_tasks',
-        task.toMap(),
-        where: 'id = ?',
-        whereArgs: [task.id],
-      );
+      await db.update('research_tasks', task.toMap(),
+          where: 'id = ?', whereArgs: [task.id]);
     }
 
     // Re-point partnerships: replace mergeId with keepId, but only when keep
@@ -2069,11 +1867,11 @@ class TreeProvider extends ChangeNotifier {
         .where((p) => p.person1Id == keepId || p.person2Id == keepId)
         .map((p) => p.person1Id == keepId ? p.person2Id : p.person1Id)
         .toSet();
-    for (final pt
-        in partnerships
-            .where((p) => p.person1Id == mergeId || p.person2Id == mergeId)
-            .toList()) {
-      final otherId = pt.person1Id == mergeId ? pt.person2Id : pt.person1Id;
+    for (final pt in partnerships
+        .where((p) => p.person1Id == mergeId || p.person2Id == mergeId)
+        .toList()) {
+      final otherId =
+          pt.person1Id == mergeId ? pt.person2Id : pt.person1Id;
       // Skip if the kept person already has a partnership with this person.
       if (keepPartnerIds.contains(otherId)) continue;
       if (pt.person1Id == mergeId) {
@@ -2081,12 +1879,8 @@ class TreeProvider extends ChangeNotifier {
       } else {
         pt.person2Id = keepId;
       }
-      await db.update(
-        'partnerships',
-        pt.toMap(),
-        where: 'id = ?',
-        whereArgs: [pt.id],
-      );
+      await db.update('partnerships', pt.toMap(),
+          where: 'id = ?', whereArgs: [pt.id]);
     }
 
     // Merge photo paths (dedup).

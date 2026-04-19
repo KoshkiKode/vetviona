@@ -272,7 +272,9 @@ void main() {
     });
 
     test('exports person with INDI tag', () async {
-      final persons = [Person(id: 'P1', name: 'Alice Test', gender: 'F')];
+      final persons = [
+        Person(id: 'P1', name: 'Alice Test', gender: 'F'),
+      ];
       final path = '${tempDir.path}/out.ged';
       await parser.export(persons, [], path, includeLivingData: true);
       final content = await File(path).readAsString();
@@ -416,8 +418,7 @@ void main() {
     test('export/import roundtrip preserves person count', () async {
       final persons = List.generate(
         50,
-        (i) =>
-            Person(id: 'P$i', name: 'Person $i', gender: i.isEven ? 'M' : 'F'),
+        (i) => Person(id: 'P$i', name: 'Person $i', gender: i.isEven ? 'M' : 'F'),
       );
       final path = '${tempDir.path}/rt.ged';
       await parser.export(persons, [], path, includeLivingData: true);
@@ -445,56 +446,52 @@ void main() {
       expect(result.persons.length, 100);
     });
 
-    test(
-      'living person exported as generic when includeLivingData is false',
-      () async {
-        final persons = [
-          Person(
-            id: 'P1',
-            name: 'Alice Living',
-            gender: 'F',
-            birthDate: DateTime(1990, 5, 1),
-            birthPlace: 'London',
-            notes: 'Some private notes',
-          ),
-        ];
-        final path = '${tempDir.path}/out.ged';
-        await parser.export(persons, [], path);
-        final content = await File(path).readAsString();
-        expect(content, contains('@P1@ INDI'));
-        expect(content, contains('1 NAME Living'));
-        expect(content, contains('1 RESN PRIVACY'));
-        expect(content, isNot(contains('Alice Living')));
-        expect(content, isNot(contains('1 SEX')));
-        expect(content, isNot(contains('1 BIRT')));
-        expect(content, isNot(contains('1 NOTE')));
-      },
-    );
+    test('living person exported as generic when includeLivingData is false',
+        () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Alice Living',
+          gender: 'F',
+          birthDate: DateTime(1990, 5, 1),
+          birthPlace: 'London',
+          notes: 'Some private notes',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path);
+      final content = await File(path).readAsString();
+      expect(content, contains('@P1@ INDI'));
+      expect(content, contains('1 NAME Living'));
+      expect(content, contains('1 RESN PRIVACY'));
+      expect(content, isNot(contains('Alice Living')));
+      expect(content, isNot(contains('1 SEX')));
+      expect(content, isNot(contains('1 BIRT')));
+      expect(content, isNot(contains('1 NOTE')));
+    });
 
-    test(
-      'deceased person exported with full data even when includeLivingData is false',
-      () async {
-        final persons = [
-          Person(
-            id: 'P1',
-            name: 'Bob Deceased',
-            gender: 'M',
-            birthDate: DateTime(1920, 1, 1),
-            deathDate: DateTime(2000, 12, 31),
-            notes: 'Historical figure',
-          ),
-        ];
-        final path = '${tempDir.path}/out.ged';
-        await parser.export(persons, [], path);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 NAME Bob Deceased'));
-        expect(content, contains('1 SEX M'));
-        expect(content, contains('1 BIRT'));
-        expect(content, contains('1 DEAT'));
-        expect(content, contains('1 NOTE Historical figure'));
-        expect(content, isNot(contains('1 RESN PRIVACY')));
-      },
-    );
+    test('deceased person exported with full data even when includeLivingData is false',
+        () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Bob Deceased',
+          gender: 'M',
+          birthDate: DateTime(1920, 1, 1),
+          deathDate: DateTime(2000, 12, 31),
+          notes: 'Historical figure',
+        ),
+      ];
+      final path = '${tempDir.path}/out.ged';
+      await parser.export(persons, [], path);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 NAME Bob Deceased'));
+      expect(content, contains('1 SEX M'));
+      expect(content, contains('1 BIRT'));
+      expect(content, contains('1 DEAT'));
+      expect(content, contains('1 NOTE Historical figure'));
+      expect(content, isNot(contains('1 RESN PRIVACY')));
+    });
 
     test('exports occupation as OCCU tag', () async {
       final persons = [
@@ -564,29 +561,16 @@ void main() {
         Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
       ];
       final lifeEvents = [
-        LifeEvent(
-          id: 'e1',
-          personId: 'P1',
-          title: 'Immigration',
-          date: DateTime(1920, 4, 1),
-          place: 'New York',
-        ),
-        LifeEvent(
-          id: 'e2',
-          personId: 'P1',
-          title: 'Graduation',
-          date: DateTime(1935),
-        ),
-        LifeEvent(id: 'e3', personId: 'P1', title: 'Census', place: 'Boston'),
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Immigration',
+            date: DateTime(1920, 4, 1), place: 'New York'),
+        LifeEvent(id: 'e2', personId: 'P1', title: 'Graduation',
+            date: DateTime(1935)),
+        LifeEvent(id: 'e3', personId: 'P1', title: 'Census',
+            place: 'Boston'),
       ];
       final path = '${tempDir.path}/out_events.ged';
-      await parser.export(
-        persons,
-        [],
-        path,
-        includeLivingData: true,
-        lifeEvents: lifeEvents,
-      );
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
       final content = await File(path).readAsString();
       expect(content, contains('1 IMMI'));
       expect(content, contains('2 PLAC New York'));
@@ -600,21 +584,12 @@ void main() {
         Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
       ];
       final lifeEvents = [
-        LifeEvent(
-          id: 'e1',
-          personId: 'P1',
-          title: 'Award Ceremony',
-          date: DateTime(1965),
-        ),
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Award Ceremony',
+            date: DateTime(1965)),
       ];
       final path = '${tempDir.path}/out_even.ged';
-      await parser.export(
-        persons,
-        [],
-        path,
-        includeLivingData: true,
-        lifeEvents: lifeEvents,
-      );
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
       final content = await File(path).readAsString();
       expect(content, contains('1 EVEN'));
       expect(content, contains('2 TYPE Award Ceremony'));
@@ -633,37 +608,26 @@ void main() {
         ),
       ];
       final path = '${tempDir.path}/out_note.ged';
-      await parser.export(
-        persons,
-        [],
-        path,
-        includeLivingData: true,
-        lifeEvents: lifeEvents,
-      );
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
       final content = await File(path).readAsString();
       expect(content, contains('1 BAPM'));
       expect(content, contains('2 NOTE Baptised in St. Mary church'));
     });
 
     test(
-      'life events for living person are not exported when includeLivingData is false',
-      () async {
-        final persons = [Person(id: 'P1', name: 'Alice')];
-        final lifeEvents = [
-          LifeEvent(id: 'e1', personId: 'P1', title: 'Immigration'),
-        ];
-        final path = '${tempDir.path}/out_living_events.ged';
-        await parser.export(
-          persons,
-          [],
-          path,
-          includeLivingData: false,
-          lifeEvents: lifeEvents,
-        );
-        final content = await File(path).readAsString();
-        expect(content, isNot(contains('1 IMMI')));
-      },
-    );
+        'life events for living person are not exported when includeLivingData is false',
+        () async {
+      final persons = [Person(id: 'P1', name: 'Alice')];
+      final lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Immigration'),
+      ];
+      final path = '${tempDir.path}/out_living_events.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: false, lifeEvents: lifeEvents);
+      final content = await File(path).readAsString();
+      expect(content, isNot(contains('1 IMMI')));
+    });
   });
 
   group('GEDCOMParser.parse — extended fields', () {
@@ -818,10 +782,7 @@ void main() {
 0 TRLR
 ''');
       final result = await parser.parse(path);
-      expect(
-        result.lifeEvents.first.notes,
-        'Found in national census registry',
-      );
+      expect(result.lifeEvents.first.notes, 'Found in national census registry');
     });
 
     test('CENS tag creates Census life event', () async {
@@ -838,46 +799,30 @@ void main() {
       expect(result.lifeEvents.first.title, 'Census');
     });
 
-    test(
-      'export/import roundtrip with life events preserves event count',
-      () async {
-        final persons = [
-          Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
-        ];
-        final lifeEvents = [
-          LifeEvent(
-            id: 'e1',
-            personId: 'P1',
-            title: 'Immigration',
-            date: DateTime(1920),
-          ),
-          LifeEvent(
-            id: 'e2',
-            personId: 'P1',
-            title: 'Graduation',
-            date: DateTime(1930),
-          ),
-        ];
-        final path = '${tempDir.path}/rt_events.ged';
-        await parser.export(
-          persons,
-          [],
-          path,
-          includeLivingData: true,
-          lifeEvents: lifeEvents,
-        );
-        final result = await parser.parse(path);
-        expect(result.lifeEvents, hasLength(2));
-      },
-    );
+    test('export/import roundtrip with life events preserves event count',
+        () async {
+      final persons = [
+        Person(id: 'P1', name: 'Alice', deathDate: DateTime(2000)),
+      ];
+      final lifeEvents = [
+        LifeEvent(id: 'e1', personId: 'P1', title: 'Immigration',
+            date: DateTime(1920)),
+        LifeEvent(id: 'e2', personId: 'P1', title: 'Graduation',
+            date: DateTime(1930)),
+      ];
+      final path = '${tempDir.path}/rt_events.ged';
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
+      final result = await parser.parse(path);
+      expect(result.lifeEvents, hasLength(2));
+    });
   });
 
   // ── GEDCOMParser.parse — SOUR records ─────────────────────────────────────
   group('GEDCOMParser.parse — SOUR records', () {
-    test(
-      'SOUR record with TITL produces a source for the referencing person',
-      () async {
-        final path = await writeGedcom('''
+    test('SOUR record with TITL produces a source for the referencing person',
+        () async {
+      final path = await writeGedcom('''
 0 HEAD
 0 @I1@ INDI
 1 NAME Jane /Doe/
@@ -886,12 +831,11 @@ void main() {
 1 TITL Birth Certificate
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.sources, hasLength(1));
-        expect(result.sources.first.title, 'Birth Certificate');
-        expect(result.sources.first.personId, 'I1');
-      },
-    );
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(1));
+      expect(result.sources.first.title, 'Birth Certificate');
+      expect(result.sources.first.personId, 'I1');
+    });
 
     test('SOUR record with AUTH is stored as author on the source', () async {
       final path = await writeGedcom('''
@@ -909,10 +853,9 @@ void main() {
       expect(result.sources.first.author, 'Rev. Thomas Brown');
     });
 
-    test(
-      'SOUR record with PUBL is stored as publisher on the source',
-      () async {
-        final path = await writeGedcom('''
+    test('SOUR record with PUBL is stored as publisher on the source',
+        () async {
+      final path = await writeGedcom('''
 0 HEAD
 0 @I1@ INDI
 1 NAME Bob /Jones/
@@ -922,16 +865,14 @@ void main() {
 1 PUBL National Archives
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.sources, hasLength(1));
-        expect(result.sources.first.publisher, 'National Archives');
-      },
-    );
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(1));
+      expect(result.sources.first.publisher, 'National Archives');
+    });
 
-    test(
-      'multiple persons referencing the same source each get their own Source object',
-      () async {
-        final path = await writeGedcom('''
+    test('multiple persons referencing the same source each get their own Source object',
+        () async {
+      final path = await writeGedcom('''
 0 HEAD
 0 @I1@ INDI
 1 NAME Alice /Smith/
@@ -943,31 +884,26 @@ void main() {
 1 TITL Family Bible
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.sources, hasLength(2));
-        expect(result.sources.every((s) => s.title == 'Family Bible'), true);
-        expect(
-          result.sources.map((s) => s.personId).toSet(),
-          containsAll(['I1', 'I2']),
-        );
-      },
-    );
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(2));
+      expect(result.sources.every((s) => s.title == 'Family Bible'), true);
+      expect(result.sources.map((s) => s.personId).toSet(),
+          containsAll(['I1', 'I2']));
+    });
 
-    test(
-      'SOUR reference without a matching definition falls back to source id as title',
-      () async {
-        final path = await writeGedcom('''
+    test('SOUR reference without a matching definition falls back to source id as title',
+        () async {
+      final path = await writeGedcom('''
 0 HEAD
 0 @I1@ INDI
 1 NAME Carol /White/
 1 SOUR @S99@
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.sources, hasLength(1));
-        expect(result.sources.first.title, 'S99');
-      },
-    );
+      final result = await parser.parse(path);
+      expect(result.sources, hasLength(1));
+      expect(result.sources.first.title, 'S99');
+    });
 
     test('INDI record with no SOUR reference produces no sources', () async {
       final path = await writeGedcom('''
@@ -996,19 +932,17 @@ void main() {
       expect(result.sources.first.type, 'GEDCOM Record');
     });
 
-    test(
-      'result.sources list is empty when GEDCOM has no SOUR records',
-      () async {
-        final path = await writeGedcom('''
+    test('result.sources list is empty when GEDCOM has no SOUR records',
+        () async {
+      final path = await writeGedcom('''
 0 HEAD
 0 @I1@ INDI
 1 NAME Frank /Hill/
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.sources, isEmpty);
-      },
-    );
+      final result = await parser.parse(path);
+      expect(result.sources, isEmpty);
+    });
   });
 
   // ── GEDCOMParser.parse — additional life event tags ────────────────────────
@@ -1144,13 +1078,8 @@ void main() {
         ),
       ];
       final path = '${tempDir.path}/out_emig.ged';
-      await parser.export(
-        persons,
-        [],
-        path,
-        includeLivingData: true,
-        lifeEvents: lifeEvents,
-      );
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
       final content = await File(path).readAsString();
       expect(content, contains('1 EMIG'));
       expect(content, contains('2 PLAC Hamburg, Germany'));
@@ -1170,13 +1099,8 @@ void main() {
         ),
       ];
       final path = '${tempDir.path}/out_grad.ged';
-      await parser.export(
-        persons,
-        [],
-        path,
-        includeLivingData: true,
-        lifeEvents: lifeEvents,
-      );
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
       final content = await File(path).readAsString();
       expect(content, contains('1 GRAD'));
       expect(content, contains('2 PLAC Oxford, England'));
@@ -1196,13 +1120,8 @@ void main() {
         ),
       ];
       final path = '${tempDir.path}/roundtrip_emig.ged';
-      await parser.export(
-        persons,
-        [],
-        path,
-        includeLivingData: true,
-        lifeEvents: lifeEvents,
-      );
+      await parser.export(persons, [], path,
+          includeLivingData: true, lifeEvents: lifeEvents);
       final result = await parser.parse(path);
       expect(result.lifeEvents, hasLength(1));
       expect(result.lifeEvents.first.title, 'Emigration');
@@ -1210,11 +1129,10 @@ void main() {
     });
   });
 
-  group(
-    'GEDCOMParser — WikiTree, Find A Grave, and FamilySearch external IDs',
-    () {
-      test('_WIKITREEID tag parses to wikitreeId', () async {
-        final path = await writeGedcom('''
+  group('GEDCOMParser — WikiTree, Find A Grave, and FamilySearch external IDs',
+      () {
+    test('_WIKITREEID tag parses to wikitreeId', () async {
+      final path = await writeGedcom('''
 0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -1223,13 +1141,13 @@ void main() {
 1 _WIKITREEID Churchill-4
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.persons, hasLength(1));
-        expect(result.persons.first.wikitreeId, 'Churchill-4');
-      });
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.wikitreeId, 'Churchill-4');
+    });
 
-      test('_WT_USER tag also parses to wikitreeId', () async {
-        final path = await writeGedcom('''
+    test('_WT_USER tag also parses to wikitreeId', () async {
+      final path = await writeGedcom('''
 0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -1238,12 +1156,12 @@ void main() {
 1 _WT_USER Lovelace-1
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.persons.first.wikitreeId, 'Lovelace-1');
-      });
+      final result = await parser.parse(path);
+      expect(result.persons.first.wikitreeId, 'Lovelace-1');
+    });
 
-      test('_FINDAGRAVEID tag parses to findAGraveId', () async {
-        final path = await writeGedcom('''
+    test('_FINDAGRAVEID tag parses to findAGraveId', () async {
+      final path = await writeGedcom('''
 0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -1252,13 +1170,13 @@ void main() {
 1 _FINDAGRAVEID 1836
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.persons, hasLength(1));
-        expect(result.persons.first.findAGraveId, '1836');
-      });
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.findAGraveId, '1836');
+    });
 
-      test('_FAMILYSEARCHID tag parses to familySearchId', () async {
-        final path = await writeGedcom('''
+    test('_FAMILYSEARCHID tag parses to familySearchId', () async {
+      final path = await writeGedcom('''
 0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -1267,98 +1185,91 @@ void main() {
 1 _FAMILYSEARCHID KW7S-BBQ
 0 TRLR
 ''');
-        final result = await parser.parse(path);
-        expect(result.persons, hasLength(1));
-        expect(result.persons.first.familySearchId, 'KW7S-BBQ');
-      });
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.familySearchId, 'KW7S-BBQ');
+    });
 
-      test('export writes _WIKITREEID for person with wikitreeId', () async {
-        final persons = [
-          Person(
-            id: 'P1',
-            name: 'Winston Churchill',
-            deathDate: DateTime(1965),
-            wikitreeId: 'Churchill-4',
-          ),
-        ];
-        final path = '${tempDir.path}/wikitree_export.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 _WIKITREEID Churchill-4'));
-      });
+    test('export writes _WIKITREEID for person with wikitreeId', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Winston Churchill',
+          deathDate: DateTime(1965),
+          wikitreeId: 'Churchill-4',
+        ),
+      ];
+      final path = '${tempDir.path}/wikitree_export.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _WIKITREEID Churchill-4'));
+    });
 
-      test(
-        'export writes _FINDAGRAVEID for person with findAGraveId',
+    test('export writes _FINDAGRAVEID for person with findAGraveId', () async {
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Jane Smith',
+          deathDate: DateTime(1901),
+          findAGraveId: '1836',
+        ),
+      ];
+      final path = '${tempDir.path}/findagrave_export.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _FINDAGRAVEID 1836'));
+    });
+
+    test('export writes _FAMILYSEARCHID for person with familySearchId',
         () async {
-          final persons = [
-            Person(
-              id: 'P1',
-              name: 'Jane Smith',
-              deathDate: DateTime(1901),
-              findAGraveId: '1836',
-            ),
-          ];
-          final path = '${tempDir.path}/findagrave_export.ged';
-          await parser.export(persons, [], path, includeLivingData: true);
-          final content = await File(path).readAsString();
-          expect(content, contains('1 _FINDAGRAVEID 1836'));
-        },
-      );
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Jane Smith',
+          deathDate: DateTime(1901),
+          familySearchId: 'KW7S-BBQ',
+        ),
+      ];
+      final path = '${tempDir.path}/familysearch_export.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _FAMILYSEARCHID KW7S-BBQ'));
+    });
 
-      test(
-        'export writes _FAMILYSEARCHID for person with familySearchId',
-        () async {
-          final persons = [
-            Person(
-              id: 'P1',
-              name: 'Jane Smith',
-              deathDate: DateTime(1901),
-              familySearchId: 'KW7S-BBQ',
-            ),
-          ];
-          final path = '${tempDir.path}/familysearch_export.ged';
-          await parser.export(persons, [], path, includeLivingData: true);
-          final content = await File(path).readAsString();
-          expect(content, contains('1 _FAMILYSEARCHID KW7S-BBQ'));
-        },
-      );
-
-      test(
+    test(
         'export/import roundtrip preserves wikitreeId, findAGraveId, and familySearchId',
         () async {
-          final persons = [
-            Person(
-              id: 'P1',
-              name: 'Marie Curie',
-              deathDate: DateTime(1934, 7, 4),
-              wikitreeId: 'Curie-7',
-              findAGraveId: '5555',
-              familySearchId: 'LZ2F-123',
-            ),
-          ];
-          final path = '${tempDir.path}/roundtrip_ids.ged';
-          await parser.export(persons, [], path, includeLivingData: true);
-          final result = await parser.parse(path);
-          expect(result.persons, hasLength(1));
-          expect(result.persons.first.wikitreeId, 'Curie-7');
-          expect(result.persons.first.findAGraveId, '5555');
-          expect(result.persons.first.familySearchId, 'LZ2F-123');
-        },
-      );
+      final persons = [
+        Person(
+          id: 'P1',
+          name: 'Marie Curie',
+          deathDate: DateTime(1934, 7, 4),
+          wikitreeId: 'Curie-7',
+          findAGraveId: '5555',
+          familySearchId: 'LZ2F-123',
+        ),
+      ];
+      final path = '${tempDir.path}/roundtrip_ids.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final result = await parser.parse(path);
+      expect(result.persons, hasLength(1));
+      expect(result.persons.first.wikitreeId, 'Curie-7');
+      expect(result.persons.first.findAGraveId, '5555');
+      expect(result.persons.first.familySearchId, 'LZ2F-123');
+    });
 
-      test('person without wikitreeId does not emit _WIKITREEID tag', () async {
-        final persons = [
-          Person(id: 'P1', name: 'No ID', deathDate: DateTime(1900)),
-        ];
-        final path = '${tempDir.path}/no_ids.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, isNot(contains('_WIKITREEID')));
-        expect(content, isNot(contains('_FINDAGRAVEID')));
-        expect(content, isNot(contains('_FAMILYSEARCHID')));
-      });
-    },
-  );
+    test('person without wikitreeId does not emit _WIKITREEID tag', () async {
+      final persons = [
+        Person(id: 'P1', name: 'No ID', deathDate: DateTime(1900)),
+      ];
+      final path = '${tempDir.path}/no_ids.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, isNot(contains('_WIKITREEID')));
+      expect(content, isNot(contains('_FINDAGRAVEID')));
+      expect(content, isNot(contains('_FAMILYSEARCHID')));
+    });
+  });
 
   group('GEDCOMParser.parse — NATI, EDUC, _MARN, _ALIAS, NOTE tags', () {
     test('parses NATI (nationality) tag', () async {
@@ -1435,67 +1346,56 @@ void main() {
     });
   });
 
-  group(
-    'GEDCOMParser.export — nationality, education, aliases, maiden name, notes',
-    () {
-      test('exports nationality (NATI)', () async {
-        final persons = [
-          Person(id: 'P1', name: 'Alice', nationality: 'French'),
-        ];
-        final path = '${tempDir.path}/out_nati.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 NATI French'));
-      });
+  group('GEDCOMParser.export — nationality, education, aliases, maiden name, notes', () {
+    test('exports nationality (NATI)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', nationality: 'French')];
+      final path = '${tempDir.path}/out_nati.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 NATI French'));
+    });
 
-      test('exports education (EDUC)', () async {
-        final persons = [Person(id: 'P1', name: 'Alice', education: 'MIT')];
-        final path = '${tempDir.path}/out_educ.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 EDUC MIT'));
-      });
+    test('exports education (EDUC)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', education: 'MIT')];
+      final path = '${tempDir.path}/out_educ.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 EDUC MIT'));
+    });
 
-      test('exports alias (_ALIAS)', () async {
-        final persons = [
-          Person(id: 'P1', name: 'Alice', aliases: ['Ali', 'Al']),
-        ];
-        final path = '${tempDir.path}/out_alias.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 _ALIAS Ali'));
-        expect(content, contains('1 _ALIAS Al'));
-      });
+    test('exports alias (_ALIAS)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', aliases: ['Ali', 'Al'])];
+      final path = '${tempDir.path}/out_alias.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _ALIAS Ali'));
+      expect(content, contains('1 _ALIAS Al'));
+    });
 
-      test('exports maiden name (_MARN)', () async {
-        final persons = [
-          Person(id: 'P1', name: 'Alice Smith', maidenName: 'Jones'),
-        ];
-        final path = '${tempDir.path}/out_marn.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 _MARN Jones'));
-      });
+    test('exports maiden name (_MARN)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice Smith', maidenName: 'Jones')];
+      final path = '${tempDir.path}/out_marn.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 _MARN Jones'));
+    });
 
-      test('exports notes (NOTE)', () async {
-        final persons = [
-          Person(id: 'P1', name: 'Alice', notes: 'Emigrated in 1900.'),
-        ];
-        final path = '${tempDir.path}/out_notes.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 NOTE Emigrated in 1900.'));
-      });
+    test('exports notes (NOTE)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', notes: 'Emigrated in 1900.')];
+      final path = '${tempDir.path}/out_notes.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 NOTE Emigrated in 1900.'));
+    });
 
-      test('exports religion (RELI)', () async {
-        final persons = [Person(id: 'P1', name: 'Alice', religion: 'Catholic')];
-        final path = '${tempDir.path}/out_reli.ged';
-        await parser.export(persons, [], path, includeLivingData: true);
-        final content = await File(path).readAsString();
-        expect(content, contains('1 RELI Catholic'));
-      });
-    },
-  );
+    test('exports religion (RELI)', () async {
+      final persons = [Person(id: 'P1', name: 'Alice', religion: 'Catholic')];
+      final path = '${tempDir.path}/out_reli.ged';
+      await parser.export(persons, [], path, includeLivingData: true);
+      final content = await File(path).readAsString();
+      expect(content, contains('1 RELI Catholic'));
+    });
+  });
 
   group('GEDCOMParser.parse — source page citation', () {
     test('parses source page citation reference', () async {
@@ -1521,8 +1421,7 @@ void main() {
     test('C0 control characters are stripped from person name', () async {
       // Embed a null byte and a BEL character inside the name.
       final path = await writeGedcom(
-        '0 HEAD\n0 @I1@ INDI\n1 NAME Al\x00ice\x07 Smith\n0 TRLR\n',
-      );
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Al\x00ice\x07 Smith\n0 TRLR\n');
       final result = await parser.parse(path);
       expect(result.persons, hasLength(1));
       // After sanitization the control characters must not be present.
@@ -1533,16 +1432,14 @@ void main() {
 
     test('DEL character (U+007F) is stripped from person name', () async {
       final path = await writeGedcom(
-        '0 HEAD\n0 @I1@ INDI\n1 NAME Test\x7FName\n0 TRLR\n',
-      );
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Test\x7FName\n0 TRLR\n');
       final result = await parser.parse(path);
       expect(result.persons.first.name, isNot(contains('\x7F')));
     });
 
     test('C1 controls are stripped from birth place', () async {
       final path = await writeGedcom(
-        '0 HEAD\n0 @I1@ INDI\n1 NAME Alice\n1 BIRT\n2 PLAC Lon\x80don\n0 TRLR\n',
-      );
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Alice\n1 BIRT\n2 PLAC Lon\x80don\n0 TRLR\n');
       final result = await parser.parse(path);
       expect(result.persons.first.birthPlace, isNot(contains('\x80')));
       expect(result.persons.first.birthPlace, 'London');
@@ -1550,8 +1447,7 @@ void main() {
 
     test('control characters are stripped from notes', () async {
       final path = await writeGedcom(
-        '0 HEAD\n0 @I1@ INDI\n1 NAME Bob\n1 NOTE Some\x01 notes\n0 TRLR\n',
-      );
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Bob\n1 NOTE Some\x01 notes\n0 TRLR\n');
       final result = await parser.parse(path);
       expect(result.persons.first.notes, isNot(contains('\x01')));
       expect(result.persons.first.notes, contains('Some'));
@@ -1560,8 +1456,7 @@ void main() {
     test('overly long name is truncated to maxShortField', () async {
       final longName = 'A' * 1000;
       final path = await writeGedcom(
-        '0 HEAD\n0 @I1@ INDI\n1 NAME $longName\n0 TRLR\n',
-      );
+          '0 HEAD\n0 @I1@ INDI\n1 NAME $longName\n0 TRLR\n');
       final result = await parser.parse(path);
       expect(
         result.persons.first.name.length,
@@ -1571,8 +1466,7 @@ void main() {
 
     test('control characters are stripped from life event title', () async {
       final path = await writeGedcom(
-        '0 HEAD\n0 @I1@ INDI\n1 NAME Alice\n1 EVEN\n2 TYPE Award\x01 Ceremony\n0 TRLR\n',
-      );
+          '0 HEAD\n0 @I1@ INDI\n1 NAME Alice\n1 EVEN\n2 TYPE Award\x01 Ceremony\n0 TRLR\n');
       final result = await parser.parse(path);
       expect(result.lifeEvents.first.title, isNot(contains('\x01')));
     });

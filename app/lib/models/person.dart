@@ -103,19 +103,11 @@ class Person {
   /// e.g. memorial URL `https://www.findagrave.com/memorial/1836/…` → `"1836"`.
   String? findAGraveId;
 
-  /// FamilySearch person ID (for example `KW7S-BBQ`).
+  /// FamilySearch person ID, e.g. `"KW7S-BBQ"`.
   String? familySearchId;
 
   static const List<String> allBloodTypes = [
-    'A+',
-    'A-',
-    'B+',
-    'B-',
-    'O+',
-    'O-',
-    'AB+',
-    'AB-',
-    'Unknown',
+    'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown',
   ];
 
   static const List<String> allParentRelTypes = [
@@ -167,13 +159,13 @@ class Person {
     this.wikitreeId,
     this.findAGraveId,
     this.familySearchId,
-  }) : parentIds = parentIds ?? [],
-       childIds = childIds ?? [],
-       parentRelTypes = parentRelTypes ?? {},
-       photoPaths = photoPaths ?? [],
-       sourceIds = sourceIds ?? [],
-       preferredSourceIds = preferredSourceIds ?? {},
-       aliases = aliases ?? [];
+  })  : parentIds = parentIds ?? [],
+        childIds = childIds ?? [],
+        parentRelTypes = parentRelTypes ?? {},
+        photoPaths = photoPaths ?? [],
+        sourceIds = sourceIds ?? [],
+        preferredSourceIds = preferredSourceIds ?? {},
+        aliases = aliases ?? [];
 
   /// Returns the relationship type for [parentId], defaulting to `biological`.
   String parentRelType(String parentId) =>
@@ -276,27 +268,23 @@ class Person {
           : null,
       deathPlace: map['deathPlace'] as String?,
       gender: map['gender'] as String?,
-      parentIds:
-          (map['parentIds'] as String?)
+      parentIds: (map['parentIds'] as String?)
               ?.split(',')
               .where((s) => s.isNotEmpty)
               .toList() ??
           [],
-      childIds:
-          (map['childIds'] as String?)
+      childIds: (map['childIds'] as String?)
               ?.split(',')
               .where((s) => s.isNotEmpty)
               .toList() ??
           [],
       parentRelTypes: relTypes,
-      photoPaths:
-          (map['photoPaths'] as String?)
+      photoPaths: (map['photoPaths'] as String?)
               ?.split(';')
               .where((s) => s.isNotEmpty)
               .toList() ??
           [],
-      sourceIds:
-          (map['sourceIds'] as String?)
+      sourceIds: (map['sourceIds'] as String?)
               ?.split(',')
               .where((s) => s.isNotEmpty)
               .toList() ??
@@ -326,8 +314,7 @@ class Person {
       height: map['height'] as String?,
       religion: map['religion'] as String?,
       education: map['education'] as String?,
-      aliases:
-          (map['aliases'] as String?)
+      aliases: (map['aliases'] as String?)
               ?.split(';')
               .where((s) => s.isNotEmpty)
               .toList() ??
