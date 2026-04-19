@@ -4,6 +4,8 @@ This backend handles only:
 
 - Vetviona paid-license account registration with **email verification**
 - paid-license verification for **apple** (`ios`), **android** (`android`), and **desktop** (`windows`/`macos`/`linux`)
+- reusable, **verifiable re-entry license codes** for reinstall/another copy flows
+- a hard cap of **15 computers/devices per license type** (configurable)
 - **License gifting / transfer** — transfer a license to another account
 - account license sync (entitlements + verified devices)
 - password changes
@@ -29,6 +31,8 @@ Optional env vars:
 | `SMTP_PASS` | *(unset)* | SMTP password |
 | `SMTP_SECURE` | `false` | Set `true` for TLS on port 465 |
 | `EMAIL_FROM` | `Vetviona <noreply@vetviona.local>` | From address |
+| `MAX_DEVICES_PER_LICENSE` | `15` | Max verified devices/computers per license type |
+| `LICENSE_KEY_SECRET` | *(auto-generated and persisted in DB)* | HMAC secret used to generate verifiable re-entry license codes |
 
 **Dev mode (no SMTP):** verification codes and gift claim tokens are printed to the console **and** returned in API responses as `_devToken`.  Install nodemailer (`npm install nodemailer`) and set `SMTP_HOST` for real emails.
 
@@ -94,6 +98,10 @@ curl -X POST http://127.0.0.1:8080/v1/account/change-password \
 
 `appType` must be `"apple"`, `"android"`, or `"desktop"`.
 
+Authenticate with either:
+- `email` + `password`, or
+- `email` + `licenseCode` (re-entry code from a prior successful verification/sync).
+
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/license/verify \
   -H 'Content-Type: application/json' \
@@ -106,6 +114,26 @@ curl -X POST http://127.0.0.1:8080/v1/license/verify \
     "appVersion":"1.0.0"
   }'
 ```
+
+Or by reusable re-entry code:
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/license/verify \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email":"owner@example.com",
+    "licenseCode":"DES-ABCD-EF12-3456-7890-ABCD-EF12",
+    "appType":"desktop",
+    "os":"linux",
+    "deviceId":"example-device-2",
+    "appVersion":"1.0.0"
+  }'
+```
+
+Successful verification responses include:
+- `reentryLicenseCodes` (per active license type; reusable/verifiable)
+- `deviceLimitPerLicense` (default `15`)
+- `devicesUsedForLicense` (count used for the verified `appType`)
 
 ### Create vouchers (admin — "buy for others")
 

@@ -62,6 +62,10 @@ const DESKTOP_OSES = new Set(['windows', 'macos', 'linux']);
 const LICENSE_TYPES = new Set(['apple', 'android', 'desktop']);
 const TOKEN_EXPIRY_HOURS = 48;
 const GIFT_EXPIRY_HOURS = 72;
+const MAX_DEVICES_PER_LICENSE = Math.min(
+  Math.max(Number(process.env.MAX_DEVICES_PER_LICENSE) || 15, 1),
+  10_000,
+);
 
 // ADMIN_SECRET protects the voucher-creation endpoint.
 // In dev mode (no ADMIN_SECRET set) the server prints a one-time secret at
@@ -72,22 +76,74 @@ const _devAdminSecret = crypto.randomBytes(8).toString('hex');
 function nowIso() { return new Date().toISOString(); }
 function addHours(hours) { return new Date(Date.now() + hours * 3_600_000).toISOString(); }
 function generateToken() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+function normalizeLicenseCode(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function timingSafeEqualStrings(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function getLicenseSigningSecret(db) {
+  if (process.env.LICENSE_KEY_SECRET) return String(process.env.LICENSE_KEY_SECRET);
+  if (db.meta && typeof db.meta.licenseKeySecret === 'string' && db.meta.licenseKeySecret.length >= 32) {
+    return db.meta.licenseKeySecret;
+  }
+  return '';
+}
+
+function ensureLicenseSigningSecret(db) {
+  if (process.env.LICENSE_KEY_SECRET) return false;
+  db.meta = db.meta || {};
+  if (typeof db.meta.licenseKeySecret === 'string' && db.meta.licenseKeySecret.length >= 32) {
+    return false;
+  }
+  db.meta.licenseKeySecret = crypto.randomBytes(32).toString('hex');
+  return true;
+}
+
+function computeReentryLicenseCode(db, account, licenseType) {
+  const secret = getLicenseSigningSecret(db);
+  if (!secret) return null;
+  const digest = crypto
+    .createHmac('sha256', secret)
+    .update(`${account.id}:${account.email}:${licenseType}`)
+    .digest('hex')
+    .toUpperCase()
+    .slice(0, 24);
+  const grouped = digest.match(/.{1,4}/g).join('-');
+  return `${licenseType.slice(0, 3).toUpperCase()}-${grouped}`;
+}
+
+function isValidReentryLicenseCode(db, account, licenseType, providedCode) {
+  const expected = computeReentryLicenseCode(db, account, licenseType);
+  if (!expected) return false;
+  const normalizedExpected = normalizeLicenseCode(expected);
+  const normalizedProvided = normalizeLicenseCode(providedCode);
+  return timingSafeEqualStrings(normalizedExpected, normalizedProvided);
+}
 
 // ── Database ─────────────────────────────────────────────────────────────────
 function readDb() {
   if (!fs.existsSync(DB_PATH)) {
-    return { accounts: [], pendingGifts: [] };
+    return { accounts: [], pendingGifts: [], meta: {} };
   }
   try {
     const raw = fs.readFileSync(DB_PATH, 'utf8');
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.accounts)) {
-      return { accounts: [], pendingGifts: [] };
+      return { accounts: [], pendingGifts: [], meta: {} };
     }
     if (!Array.isArray(parsed.pendingGifts)) parsed.pendingGifts = [];
+    if (!parsed.meta || typeof parsed.meta !== 'object') parsed.meta = {};
     return parsed;
   } catch {
-    return { accounts: [], pendingGifts: [] };
+    return { accounts: [], pendingGifts: [], meta: {} };
   }
 }
 
@@ -192,6 +248,11 @@ function getLicenseDetail(account, type) {
 function publicAccount(account, db) {
   const giftedOut = getGiftedOut(account);
   const licenses = account.licenses || {};
+  const entitlements = {
+    apple: licenses.apple === true && !giftedOut.apple,
+    android: licenses.android === true && !giftedOut.android,
+    desktop: licenses.desktop === true && !giftedOut.desktop,
+  };
 
   const outgoingGifts = db
     ? (db.pendingGifts || [])
@@ -209,15 +270,16 @@ function publicAccount(account, db) {
     id: account.id,
     email: account.email,
     emailVerified: account.emailVerified === true,
-    entitlements: {
-      apple: licenses.apple === true && !giftedOut.apple,
-      android: licenses.android === true && !giftedOut.android,
-      desktop: licenses.desktop === true && !giftedOut.desktop,
-    },
+    entitlements,
     licensesDetail: {
       apple: getLicenseDetail(account, 'apple'),
       android: getLicenseDetail(account, 'android'),
       desktop: getLicenseDetail(account, 'desktop'),
+    },
+    reentryLicenseCodes: {
+      apple: entitlements.apple ? computeReentryLicenseCode(db, account, 'apple') : null,
+      android: entitlements.android ? computeReentryLicenseCode(db, account, 'android') : null,
+      desktop: entitlements.desktop ? computeReentryLicenseCode(db, account, 'desktop') : null,
     },
     outgoingGifts,
     devices: account.devices.map((d) => ({
@@ -413,18 +475,22 @@ function handleChangePassword(db, payload, res) {
 }
 
 function handleVerify(db, payload, res) {
-  const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
-  if (error) {
-    return sendJson(res, 401, { ok: false, message: error });
-  }
-
+  const email = sanitizeEmail(payload.email);
+  const password = String(payload.password || '');
+  const licenseCode = String(payload.licenseCode || '');
   const appType = String(payload.appType || '').toLowerCase();
   const os = String(payload.os || '').toLowerCase();
   const deviceId = String(payload.deviceId || '').trim();
   const appVersion = String(payload.appVersion || '');
 
+  if (!email) {
+    return sendJson(res, 400, { ok: false, message: 'Email is required.' });
+  }
   if (!LICENSE_TYPES.has(appType)) {
     return sendJson(res, 400, { ok: false, message: 'appType must be "apple", "android", or "desktop".' });
+  }
+  if (!password && !licenseCode) {
+    return sendJson(res, 400, { ok: false, message: 'Provide password or licenseCode.' });
   }
   if (deviceId.length < 4 || deviceId.length > 128) {
     return sendJson(res, 400, { ok: false, message: 'deviceId must be 4-128 characters.' });
@@ -443,6 +509,19 @@ function handleVerify(db, payload, res) {
     });
   }
 
+  let account;
+  if (password) {
+    const auth = requireAccountAndPassword(db, email, password);
+    if (auth.error) return sendJson(res, 401, { ok: false, message: auth.error });
+    account = auth.account;
+  } else {
+    account = db.accounts.find((a) => a.email === email);
+    if (!account) return sendJson(res, 401, { ok: false, message: 'Account not found.' });
+    if (!isValidReentryLicenseCode(db, account, appType, licenseCode)) {
+      return sendJson(res, 401, { ok: false, message: 'Invalid license code.' });
+    }
+  }
+
   const giftedOut = getGiftedOut(account);
   let entitled = false;
   if (appType === 'apple') entitled = account.licenses.apple === true && !giftedOut.apple;
@@ -458,6 +537,16 @@ function handleVerify(db, payload, res) {
 
   const now = nowIso();
   const existing = account.devices.find((d) => d.id === deviceId);
+  const currentTypeCount = account.devices.filter((d) => d.appType === appType).length;
+  const alreadyVerifiedForType = existing && existing.appType === appType;
+  if (!alreadyVerifiedForType && currentTypeCount >= MAX_DEVICES_PER_LICENSE) {
+    return sendJson(res, 403, {
+      ok: false,
+      message: `This ${appType} license has reached the limit of ${MAX_DEVICES_PER_LICENSE} computers/devices.`,
+      deviceLimitPerLicense: MAX_DEVICES_PER_LICENSE,
+      devicesUsedForLicense: currentTypeCount,
+    });
+  }
   if (existing) {
     existing.appType = appType;
     existing.os = os;
@@ -477,12 +566,16 @@ function handleVerify(db, payload, res) {
   writeDb(db);
 
   const pub = publicAccount(account, db);
+  const devicesUsedForLicense = account.devices.filter((d) => d.appType === appType).length;
   return sendJson(res, 200, {
     ok: true,
     message: 'License verified.',
     entitlements: pub.entitlements,
     emailVerified: pub.emailVerified,
     licensesDetail: pub.licensesDetail,
+    reentryLicenseCodes: pub.reentryLicenseCodes,
+    deviceLimitPerLicense: MAX_DEVICES_PER_LICENSE,
+    devicesUsedForLicense,
     devices: pub.devices,
   });
 }
@@ -507,6 +600,7 @@ function handleSync(db, payload, res) {
     ok: true,
     account: publicAccount(account, db),
     incomingGifts,
+    deviceLimitPerLicense: MAX_DEVICES_PER_LICENSE,
   });
 }
 
@@ -769,7 +863,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   const db = readDb();
-  if (cleanupExpired(db)) writeDb(db);
+  const dbChanged = cleanupExpired(db) || ensureLicenseSigningSecret(db);
+  if (dbChanged) writeDb(db);
 
   const routes = {
     '/v1/account/register': handleRegister,
@@ -807,4 +902,3 @@ server.listen(PORT, () => {
     console.log('[DEV] Set ADMIN_SECRET env var to use a permanent admin secret.\n');
   }
 });
-
