@@ -1,0 +1,25 @@
+{
+  "name": "vetviona-license-backend",
+  "version": "1.0.0",
+  "description": "Vetviona paid-license backend — account registration, email verification, and license verification.",
+  "private": true,
+  "main": "license_server.js",
+  "scripts": {
+    "start": "node license_server.js",
+    "check": "node --check license_server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "optionalDependencies": {
+    "nodemailer": "^6.9.0",
+    "@aws-sdk/client-s3": "^3.600.0"
+  },
+  "keywords": [
+    "vetviona",
+    "license",
+    "koshkikode"
+  ],
+  "author": "KoshkiKode",
+  "license": "UNLICENSED"
+}

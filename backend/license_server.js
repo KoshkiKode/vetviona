@@ -1000,7 +1000,13 @@ server.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Vetviona license backend running on http://127.0.0.1:${PORT}`);
   // eslint-disable-next-line no-console
-  console.log(`License database: ${DB_PATH}`);
+  if (S3_BUCKET) {
+    // eslint-disable-next-line no-console
+    console.log(`License database: s3://${S3_BUCKET}/${S3_KEY} (${AWS_REGION}) encryption=${S3_KMS_KEY_ID ? 'SSE-KMS' : 'SSE-S3/AES256'}`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`License database: ${DB_PATH} (local file — set AWS_S3_BUCKET for production)`);
+  }
   // eslint-disable-next-line no-console
   console.log(
     EMAIL_DEV_MODE
@@ -1012,5 +1018,9 @@ server.listen(PORT, () => {
     console.log(`\n[DEV] Admin secret (voucher creation): ${_devAdminSecret}`);
     // eslint-disable-next-line no-console
     console.log('[DEV] Set ADMIN_SECRET env var to use a permanent admin secret.\n');
+  }
+  if (S3_BUCKET && !process.env.LICENSE_KEY_SECRET) {
+    // eslint-disable-next-line no-console
+    console.warn('\n[WARN] LICENSE_KEY_SECRET is not set. Re-entry license codes will change on restart when using S3 storage. Set LICENSE_KEY_SECRET to a stable ≥ 32-char secret.\n');
   }
 });
