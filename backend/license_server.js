@@ -8,6 +8,15 @@ const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT || 8080);
 const DB_PATH = process.env.LICENSE_DB_PATH || path.join(__dirname, 'license-db.json');
+
+// ── AWS S3 Database Backend ───────────────────────────────────────────────────
+// When AWS_S3_BUCKET is set the license database is stored in S3 instead of
+// a local file.  The S3 object is always encrypted at rest (SSE-KMS when
+// AWS_KMS_KEY_ID is set; otherwise SSE-S3/AES256).
+const S3_BUCKET = process.env.AWS_S3_BUCKET || '';
+const S3_KEY    = process.env.AWS_S3_KEY    || 'vetviona/license-db.json';
+const S3_KMS_KEY_ID = process.env.AWS_KMS_KEY_ID || '';
+const AWS_REGION    = process.env.AWS_REGION    || 'us-east-1';
 const PBKDF2_ITERATIONS = 120000;
 const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = 'sha256';
@@ -155,11 +164,51 @@ function isValidReentryLicenseCode(db, account, licenseType, providedCode) {
   return timingSafeEqualStrings(normalizedExpected, normalizedProvided);
 }
 
-// ── Database ─────────────────────────────────────────────────────────────────
-function readDb() {
-  if (!fs.existsSync(DB_PATH)) {
-    return { accounts: [], pendingGifts: [], meta: {} };
+// ── S3 Client ─────────────────────────────────────────────────────────────────
+let _s3 = null;
+function getS3() {
+  if (!S3_BUCKET) return null;
+  if (_s3) return _s3;
+  try {
+    // @aws-sdk/client-s3 is an optional peer dep; install with:
+    //   npm install @aws-sdk/client-s3
+    // Credentials are resolved automatically from:
+    //   1. Env vars: AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN)
+    //   2. ~/.aws/credentials / config file
+    //   3. EC2/ECS/Lambda instance IAM role (recommended in production)
+    const { S3Client } = require('@aws-sdk/client-s3');
+    _s3 = new S3Client({ region: AWS_REGION });
+    return _s3;
+  } catch (e) {
+    console.warn(`[s3] @aws-sdk/client-s3 unavailable: ${e.message}`);
+    console.warn('[s3] Run: npm install @aws-sdk/client-s3');
+    return null;
   }
+}
+
+// ── Database ─────────────────────────────────────────────────────────────────
+async function readDb() {
+  const s3 = getS3();
+  if (s3) {
+    try {
+      const { GetObjectCommand } = require('@aws-sdk/client-s3');
+      const response = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: S3_KEY }));
+      const chunks = [];
+      for await (const chunk of response.Body) chunks.push(chunk);
+      const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      if (!parsed || !Array.isArray(parsed.accounts)) {
+        return { accounts: [], pendingGifts: [], meta: {} };
+      }
+      if (!Array.isArray(parsed.pendingGifts)) parsed.pendingGifts = [];
+      if (!parsed.meta || typeof parsed.meta !== 'object') parsed.meta = {};
+      return parsed;
+    } catch (err) {
+      if (err.name === 'NoSuchKey') return { accounts: [], pendingGifts: [], meta: {} };
+      throw err;
+    }
+  }
+  // ── Local file fallback (dev mode) ──────────────────────────────────────────
+  if (!fs.existsSync(DB_PATH)) return { accounts: [], pendingGifts: [], meta: {} };
   try {
     const raw = fs.readFileSync(DB_PATH, 'utf8');
     const parsed = JSON.parse(raw);
@@ -174,11 +223,28 @@ function readDb() {
   }
 }
 
-function writeDb(db) {
+async function writeDb(db) {
+  const s3 = getS3();
+  const encoded = JSON.stringify(db, null, 2);
+  if (s3) {
+    const { PutObjectCommand } = require('@aws-sdk/client-s3');
+    const params = {
+      Bucket: S3_BUCKET,
+      Key: S3_KEY,
+      Body: encoded,
+      ContentType: 'application/json',
+      // Always encrypt at rest — SSE-KMS when a key ID is provided, else SSE-S3 (AES-256)
+      ServerSideEncryption: S3_KMS_KEY_ID ? 'aws:kms' : 'AES256',
+    };
+    if (S3_KMS_KEY_ID) params.SSEKMSKeyId = S3_KMS_KEY_ID;
+    await s3.send(new PutObjectCommand(params));
+    return;
+  }
+  // ── Local file fallback (dev mode) ──────────────────────────────────────────
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const fd = fs.openSync(DB_PATH, 'w', 0o600);
   try {
-    fs.writeFileSync(fd, JSON.stringify(db, null, 2), 'utf8');
+    fs.writeFileSync(fd, encoded, 'utf8');
   } finally {
     fs.closeSync(fd);
   }
@@ -377,7 +443,7 @@ function applyPendingGifts(db, account) {
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
-function handleRegister(db, payload, res) {
+async function handleRegister(db, payload, res) {
   const email = sanitizeEmail(payload.email);
   const password = String(payload.password || '');
   const apple = payload.appleLicense === true;
@@ -423,7 +489,7 @@ function handleRegister(db, payload, res) {
   db.accounts.push(account);
   // Auto-apply any pending gifts that were sent to this email before registration.
   applyPendingGifts(db, account);
-  writeDb(db);
+  await writeDb(db);
 
   sendEmail(
     email,
@@ -436,7 +502,7 @@ function handleRegister(db, payload, res) {
   return sendJson(res, 201, response);
 }
 
-function handleVerifyEmail(db, payload, res) {
+async function handleVerifyEmail(db, payload, res) {
   const email = sanitizeEmail(payload.email);
   const token = String(payload.token || '').trim().toUpperCase();
 
@@ -464,12 +530,12 @@ function handleVerifyEmail(db, payload, res) {
   account.emailVerificationToken = null;
   account.emailVerificationExpiry = null;
   account.updatedAt = nowIso();
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, { ok: true, message: 'Email verified successfully.' });
 }
 
-function handleResendVerification(db, payload, res) {
+async function handleResendVerification(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -481,7 +547,7 @@ function handleResendVerification(db, payload, res) {
   account.emailVerificationToken = token;
   account.emailVerificationExpiry = addHours(TOKEN_EXPIRY_HOURS);
   account.updatedAt = nowIso();
-  writeDb(db);
+  await writeDb(db);
 
   sendEmail(
     account.email,
@@ -494,7 +560,7 @@ function handleResendVerification(db, payload, res) {
   return sendJson(res, 200, response);
 }
 
-function handleChangePassword(db, payload, res) {
+async function handleChangePassword(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.currentPassword);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -515,12 +581,12 @@ function handleChangePassword(db, payload, res) {
   account.passwordSalt = crypto.randomBytes(16).toString('hex');
   account.passwordHash = hashPassword(newPassword, account.passwordSalt);
   account.updatedAt = nowIso();
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, { ok: true, message: 'Password changed successfully.' });
 }
 
-function handleVerify(db, payload, res) {
+async function handleVerify(db, payload, res) {
   const email = sanitizeEmail(payload.email);
   const password = String(payload.password || '');
   const licenseCode = String(payload.licenseCode || '');
@@ -609,7 +675,7 @@ function handleVerify(db, payload, res) {
     });
   }
   account.updatedAt = now;
-  writeDb(db);
+  await writeDb(db);
 
   const pub = publicAccount(account, db);
   const devicesUsedForLicense = account.devices.filter((d) => d.appType === appType).length;
@@ -650,7 +716,7 @@ function handleSync(db, payload, res) {
   });
 }
 
-function handleGiftInitiate(db, payload, res) {
+async function handleGiftInitiate(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -708,7 +774,7 @@ function handleGiftInitiate(db, payload, res) {
   account.giftedOut[licenseType] = gift.id;
   account.updatedAt = nowIso();
   db.pendingGifts.push(gift);
-  writeDb(db);
+  await writeDb(db);
 
   sendEmail(
     toEmail,
@@ -725,7 +791,7 @@ function handleGiftInitiate(db, payload, res) {
   return sendJson(res, 200, response);
 }
 
-function handleGiftClaim(db, payload, res) {
+async function handleGiftClaim(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -753,7 +819,7 @@ function handleGiftClaim(db, payload, res) {
   }
   if (new Date(gift.expiresAt) < new Date()) {
     db.pendingGifts = db.pendingGifts.filter((g) => g.id !== gift.id);
-    writeDb(db);
+    await writeDb(db);
     return sendJson(res, 410, { ok: false, message: 'This gift has expired.' });
   }
 
@@ -773,7 +839,7 @@ function handleGiftClaim(db, payload, res) {
   account.licenses[licenseType] = true;
   account.updatedAt = nowIso();
   db.pendingGifts = db.pendingGifts.filter((g) => g.id !== gift.id);
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, {
     ok: true,
@@ -782,7 +848,7 @@ function handleGiftClaim(db, payload, res) {
   });
 }
 
-function handleGiftCancel(db, payload, res) {
+async function handleGiftCancel(db, payload, res) {
   const { account, error } = requireAccountAndPassword(db, payload.email, payload.password);
   if (error) return sendJson(res, 401, { ok: false, message: error });
 
@@ -814,7 +880,7 @@ function handleGiftCancel(db, payload, res) {
   account.giftedOut[gift.licenseType] = null;
   account.updatedAt = nowIso();
   db.pendingGifts = db.pendingGifts.filter((g) => g.id !== gift.id);
-  writeDb(db);
+  await writeDb(db);
 
   return sendJson(res, 200, {
     ok: true,
@@ -832,7 +898,7 @@ function handleGiftCancel(db, payload, res) {
 //
 // Protect this endpoint by setting the ADMIN_SECRET env var.  In dev mode
 // (no env var) a one-time secret is logged at startup.
-function handleVoucherCreate(db, payload, res) {
+async function handleVoucherCreate(db, payload, res) {
   const configuredSecret = process.env.ADMIN_SECRET || _devAdminSecret;
   if (!payload.adminSecret || payload.adminSecret !== configuredSecret) {
     return sendJson(res, 403, { ok: false, message: 'Invalid admin secret.' });
@@ -867,7 +933,7 @@ function handleVoucherCreate(db, payload, res) {
     db.pendingGifts.push(voucher);
     vouchers.push({ id: voucher.id, token, licenseType, expiresAt: expiry });
   }
-  writeDb(db);
+  await writeDb(db);
 
   if (fromEmail) {
     sendEmail(
@@ -908,9 +974,9 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 400, { ok: false, message: err.message || 'Bad request.' });
   }
 
-  const db = readDb();
+  const db = await readDb();
   const dbChanged = cleanupExpired(db) || ensureLicenseSigningSecret(db);
-  if (dbChanged) writeDb(db);
+  if (dbChanged) await writeDb(db);
 
   const routes = {
     '/v1/account/register': handleRegister,
@@ -926,7 +992,7 @@ const server = http.createServer(async (req, res) => {
   };
 
   const handler = routes[url.pathname];
-  if (handler) return handler(db, payload, res);
+  if (handler) return await handler(db, payload, res);
   return sendJson(res, 404, { ok: false, message: 'Not found.' });
 });
 
