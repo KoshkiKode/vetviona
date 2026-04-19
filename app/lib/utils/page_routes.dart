@@ -21,18 +21,22 @@ Route<T> fadeSlideRoute<T>({required WidgetBuilder builder}) {
   }
   return PageRouteBuilder<T>(
     pageBuilder: (context, animation, secondaryAnimation) => builder(context),
-    transitionDuration: const Duration(milliseconds: 280),
-    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionDuration: const Duration(milliseconds: 320),
+    reverseTransitionDuration: const Duration(milliseconds: 260),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final fadeCurve =
-          CurvedAnimation(parent: animation, curve: Curves.easeOut);
-      final slideCurve =
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final fadeCurve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      final slideCurve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
       return FadeTransition(
         opacity: fadeCurve,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.05),
+            begin: const Offset(0, 0.03),
             end: Offset.zero,
           ).animate(slideCurve),
           child: child,
@@ -48,11 +52,15 @@ Route<T> fadeSlideRoute<T>({required WidgetBuilder builder}) {
 Route<T> fadeRoute<T>({required WidgetBuilder builder}) {
   return PageRouteBuilder<T>(
     pageBuilder: (context, animation, secondaryAnimation) => builder(context),
-    transitionDuration: const Duration(milliseconds: 350),
-    reverseTransitionDuration: const Duration(milliseconds: 250),
+    transitionDuration: const Duration(milliseconds: 320),
+    reverseTransitionDuration: const Duration(milliseconds: 260),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       return FadeTransition(
-        opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+        opacity: CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
         child: child,
       );
     },

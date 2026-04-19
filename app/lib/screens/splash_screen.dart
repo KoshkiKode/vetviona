@@ -26,13 +26,14 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _fadeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 950),
     )..forward();
 
-    _logoFade = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeIn);
-    _logoScale = Tween<double>(begin: 0.75, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutBack),
-    );
+    _logoFade = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
+    _logoScale = Tween<double>(
+      begin: 0.9,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -81,7 +82,9 @@ class _SplashScreenState extends State<SplashScreen>
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.1),
+                color: colorScheme.primary.withValues(
+                  alpha: isDark ? 0.18 : 0.1,
+                ),
               ),
             ),
           ),
@@ -94,7 +97,9 @@ class _SplashScreenState extends State<SplashScreen>
               height: 220,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colorScheme.tertiary.withValues(alpha: isDark ? 0.15 : 0.08),
+                color: colorScheme.tertiary.withValues(
+                  alpha: isDark ? 0.15 : 0.08,
+                ),
               ),
             ),
           ),
@@ -116,8 +121,7 @@ class _SplashScreenState extends State<SplashScreen>
                           ClipRRect(
                             borderRadius: BorderRadius.circular(28),
                             child: BackdropFilter(
-                              filter:
-                                  ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                               child: Container(
                                 width: 100,
                                 height: 100,
@@ -126,20 +130,24 @@ class _SplashScreenState extends State<SplashScreen>
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      colorScheme.primary.withValues(alpha: 0.75),
+                                      colorScheme.primary.withValues(
+                                        alpha: 0.75,
+                                      ),
                                       colorScheme.primary,
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(28),
                                   border: Border.all(
-                                    color: colorScheme.onPrimary
-                                        .withValues(alpha: 0.25),
+                                    color: colorScheme.onPrimary.withValues(
+                                      alpha: 0.25,
+                                    ),
                                     width: 1.5,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: colorScheme.primary
-                                          .withValues(alpha: 0.35),
+                                      color: colorScheme.primary.withValues(
+                                        alpha: 0.35,
+                                      ),
                                       blurRadius: 24,
                                       offset: const Offset(0, 8),
                                     ),
@@ -160,9 +168,7 @@ class _SplashScreenState extends State<SplashScreen>
                           const SizedBox(height: 24),
                           Text(
                             BuildMetadata.appName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
+                            style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: colorScheme.onSurface,
@@ -172,12 +178,8 @@ class _SplashScreenState extends State<SplashScreen>
                           const SizedBox(height: 6),
                           Text(
                             'Your family story',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -199,22 +201,46 @@ class _SplashScreenState extends State<SplashScreen>
                             backgroundColor:
                                 colorScheme.surfaceContainerHighest,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                                colorScheme.primary),
+                              colorScheme.primary,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: Text(
-                            provider.loadingMessage,
-                            key: ValueKey(provider.loadingMessage),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
+                        SizedBox(
+                          height: 36,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 320),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position:
+                                      Tween<Offset>(
+                                        begin: const Offset(0, 0.12),
+                                        end: Offset.zero,
+                                      ).animate(
+                                        CurvedAnimation(
+                                          parent: animation,
+                                          curve: Curves.easeOutCubic,
+                                        ),
+                                      ),
+                                  child: child,
                                 ),
-                            textAlign: TextAlign.center,
+                              );
+                            },
+                            child: Text(
+                              provider.loadingMessage,
+                              key: ValueKey(provider.loadingMessage),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       ],
@@ -226,14 +252,12 @@ class _SplashScreenState extends State<SplashScreen>
                     opacity: _logoFade,
                     child: Text(
                       BuildMetadata.companyName,
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelSmall
-                          ?.copyWith(
-                            color: colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.5),
-                            letterSpacing: 1.5,
-                          ),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),

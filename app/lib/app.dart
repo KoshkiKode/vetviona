@@ -211,8 +211,7 @@ class _StartupRouterState extends State<_StartupRouter> {
     // through it.
     final purchaseService = context.read<PurchaseService>();
     final licenseService = context.read<LicenseBackendService>();
-    if (!purchaseService.isPurchased &&
-        !licenseService.isCurrentTierVerified) {
+    if (!purchaseService.isPurchased && !licenseService.isCurrentTierVerified) {
       return const LicenseVerificationScreen(key: ValueKey('license-verify'));
     }
     return const HomeScreen(key: ValueKey('home'));
@@ -234,7 +233,20 @@ class _StartupRouterState extends State<_StartupRouter> {
         licenseService.isInitialized;
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 550),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.985, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            ),
+            child: child,
+          ),
+        );
+      },
       child: ready
           ? _destination()
           : const SplashScreen(key: ValueKey('splash')),
