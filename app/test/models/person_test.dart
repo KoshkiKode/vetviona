@@ -103,25 +103,22 @@ void main() {
         expect(restored.treeId, original.treeId);
       });
 
-      test(
-        'empty lists serialise to empty strings and deserialise correctly',
-        () {
-          final p = Person(id: 'x', name: 'X');
-          final map = p.toMap();
-          expect(map['parentIds'], '');
-          expect(map['childIds'], '');
-          expect(map['photoPaths'], '');
-          expect(map['sourceIds'], '');
-          expect(map['parentRelTypes'], '');
+      test('empty lists serialise to empty strings and deserialise correctly', () {
+        final p = Person(id: 'x', name: 'X');
+        final map = p.toMap();
+        expect(map['parentIds'], '');
+        expect(map['childIds'], '');
+        expect(map['photoPaths'], '');
+        expect(map['sourceIds'], '');
+        expect(map['parentRelTypes'], '');
 
-          final restored = Person.fromMap(map);
-          expect(restored.parentIds, isEmpty);
-          expect(restored.childIds, isEmpty);
-          expect(restored.photoPaths, isEmpty);
-          expect(restored.sourceIds, isEmpty);
-          expect(restored.parentRelTypes, isEmpty);
-        },
-      );
+        final restored = Person.fromMap(map);
+        expect(restored.parentIds, isEmpty);
+        expect(restored.childIds, isEmpty);
+        expect(restored.photoPaths, isEmpty);
+        expect(restored.sourceIds, isEmpty);
+        expect(restored.parentRelTypes, isEmpty);
+      });
 
       test('fromMap with null list fields returns empty lists', () {
         final map = <String, dynamic>{'id': 'x', 'name': 'Test'};
@@ -260,17 +257,7 @@ void main() {
       test('contains all expected ABO/Rh types', () {
         expect(
           Person.allBloodTypes,
-          containsAll([
-            'A+',
-            'A-',
-            'B+',
-            'B-',
-            'O+',
-            'O-',
-            'AB+',
-            'AB-',
-            'Unknown',
-          ]),
+          containsAll(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown']),
         );
       });
 
@@ -321,11 +308,7 @@ void main() {
       });
 
       test('fromMap with null isPrivate defaults to false', () {
-        final map = <String, dynamic>{
-          'id': 'x',
-          'name': 'T',
-          'isPrivate': null,
-        };
+        final map = <String, dynamic>{'id': 'x', 'name': 'T', 'isPrivate': null};
         expect(Person.fromMap(map).isPrivate, false);
       });
 
@@ -352,22 +335,24 @@ void main() {
       });
 
       test('aliases serialise with semicolon separator', () {
-        final p = Person(id: 'x', name: 'Alice', aliases: ['Ally', 'Ali']);
+        final p = Person(
+          id: 'x',
+          name: 'Alice',
+          aliases: ['Ally', 'Ali'],
+        );
         final map = p.toMap();
         expect(map['aliases'], 'Ally;Ali');
         final r = Person.fromMap(map);
         expect(r.aliases, ['Ally', 'Ali']);
       });
 
-      test(
-        'empty aliases serialises to empty string and deserialises correctly',
-        () {
-          final p = Person(id: 'x', name: 'X');
-          final map = p.toMap();
-          expect(map['aliases'], '');
-          expect(Person.fromMap(map).aliases, isEmpty);
-        },
-      );
+      test('empty aliases serialises to empty string and deserialises correctly',
+          () {
+        final p = Person(id: 'x', name: 'X');
+        final map = p.toMap();
+        expect(map['aliases'], '');
+        expect(Person.fromMap(map).aliases, isEmpty);
+      });
 
       test('fromMap with null aliases returns empty list', () {
         final map = <String, dynamic>{'id': 'x', 'name': 'T'};
