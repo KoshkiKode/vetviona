@@ -28,16 +28,18 @@ Partnership _couple(String id, String p1, String p2) =>
 void main() {
   // ── Empty input ─────────────────────────────────────────────────────────────
   group('TreeLayout — empty input', () {
-    test('compute() on empty persons list produces no nodes, edges, or rows',
-        () {
-      final layout = TreeLayout([], []);
-      layout.compute();
+    test(
+      'compute() on empty persons list produces no nodes, edges, or rows',
+      () {
+        final layout = TreeLayout([], []);
+        layout.compute();
 
-      expect(layout.nodes, isEmpty);
-      expect(layout.edges, isEmpty);
-      expect(layout.generationRows, isEmpty);
-      expect(layout.canvasSize, Size.zero);
-    });
+        expect(layout.nodes, isEmpty);
+        expect(layout.edges, isEmpty);
+        expect(layout.generationRows, isEmpty);
+        expect(layout.canvasSize, Size.zero);
+      },
+    );
   });
 
   // ── Single person ────────────────────────────────────────────────────────────
@@ -82,13 +84,10 @@ void main() {
     late TreeLayout layout;
 
     setUp(() {
-      layout = TreeLayout(
-        [
-          _person('P', childIds: ['C']),
-          _person('C', parentIds: ['P']),
-        ],
-        [],
-      );
+      layout = TreeLayout([
+        _person('P', childIds: ['C']),
+        _person('C', parentIds: ['P']),
+      ], []);
       layout.compute();
     });
 
@@ -104,8 +103,7 @@ void main() {
     });
 
     test('one parent-child edge exists', () {
-      final parentEdges =
-          layout.edges.where((e) => !e.isCouple).toList();
+      final parentEdges = layout.edges.where((e) => !e.isCouple).toList();
       expect(parentEdges.length, 1);
       expect(parentEdges.first.from, 'P');
       expect(parentEdges.first.to, 'C');
@@ -125,14 +123,11 @@ void main() {
     late TreeLayout layout;
 
     setUp(() {
-      layout = TreeLayout(
-        [
-          _person('GP', childIds: ['P']),
-          _person('P', parentIds: ['GP'], childIds: ['C']),
-          _person('C', parentIds: ['P']),
-        ],
-        [],
-      );
+      layout = TreeLayout([
+        _person('GP', childIds: ['P']),
+        _person('P', parentIds: ['GP'], childIds: ['C']),
+        _person('C', parentIds: ['P']),
+      ], []);
       layout.compute();
     });
 
@@ -168,8 +163,7 @@ void main() {
 
     test('creates two person nodes and one couple-knot node', () {
       expect(layout.nodes.length, 3);
-      final knots =
-          layout.nodes.values.where((n) => n.isCoupleKnot).toList();
+      final knots = layout.nodes.values.where((n) => n.isCoupleKnot).toList();
       expect(knots.length, 1);
       expect(knots.first.id, 'knot_p1');
     });
@@ -180,8 +174,7 @@ void main() {
     });
 
     test('two couple edges (A→knot and B→knot)', () {
-      final coupleEdges =
-          layout.edges.where((e) => e.isCouple).toList();
+      final coupleEdges = layout.edges.where((e) => e.isCouple).toList();
       expect(coupleEdges.length, 2);
       expect(coupleEdges.map((e) => e.from).toSet(), {'A', 'B'});
       expect(coupleEdges.map((e) => e.to).toSet(), {'knot_p1'});
@@ -239,8 +232,9 @@ void main() {
     });
 
     test('only one parent-child edge for Kid', () {
-      final childEdges =
-          layout.edges.where((e) => !e.isCouple && e.to == 'Kid').toList();
+      final childEdges = layout.edges
+          .where((e) => !e.isCouple && e.to == 'Kid')
+          .toList();
       expect(childEdges.length, 1);
     });
   });
@@ -264,8 +258,7 @@ void main() {
     });
 
     test('exactly 3 parent-child edges, all from the knot', () {
-      final childEdges =
-          layout.edges.where((e) => !e.isCouple).toList();
+      final childEdges = layout.edges.where((e) => !e.isCouple).toList();
       expect(childEdges.length, 3);
       for (final e in childEdges) {
         expect(e.from, 'knot_p1');
@@ -303,10 +296,7 @@ void main() {
     late TreeLayout layout;
 
     setUp(() {
-      layout = TreeLayout(
-        [_person('A'), _person('B')],
-        [],
-      );
+      layout = TreeLayout([_person('A'), _person('B')], []);
       layout.compute();
     });
 
@@ -325,19 +315,17 @@ void main() {
   // ── Normalisation ────────────────────────────────────────────────────────────
   group('TreeLayout — normalisation', () {
     test('leftmost node x is >= 0 after compute()', () {
-      final layout = TreeLayout(
-        [
-          _person('P', childIds: ['C1', 'C2', 'C3']),
-          _person('C1', parentIds: ['P']),
-          _person('C2', parentIds: ['P']),
-          _person('C3', parentIds: ['P']),
-        ],
-        [],
-      );
+      final layout = TreeLayout([
+        _person('P', childIds: ['C1', 'C2', 'C3']),
+        _person('C1', parentIds: ['P']),
+        _person('C2', parentIds: ['P']),
+        _person('C3', parentIds: ['P']),
+      ], []);
       layout.compute();
 
-      final minX = layout.nodes.values.map((n) => n.x).reduce(
-          (a, b) => a < b ? a : b);
+      final minX = layout.nodes.values
+          .map((n) => n.x)
+          .reduce((a, b) => a < b ? a : b);
       expect(minX, greaterThanOrEqualTo(0));
     });
   });
@@ -345,34 +333,26 @@ void main() {
   // ── Canvas size ──────────────────────────────────────────────────────────────
   group('TreeLayout — canvas size', () {
     test('canvas width covers all nodes', () {
-      final layout = TreeLayout(
-        [
-          _person('A'), _person('B'), _person('C'),
-        ],
-        [],
-      );
+      final layout = TreeLayout([_person('A'), _person('B'), _person('C')], []);
       layout.compute();
 
-      final maxNodeRight =
-          layout.nodes.values.map((n) => n.x + kTreeNodeW).reduce(
-              (a, b) => a > b ? a : b);
+      final maxNodeRight = layout.nodes.values
+          .map((n) => n.x + kTreeNodeW)
+          .reduce((a, b) => a > b ? a : b);
       expect(layout.canvasSize.width, greaterThanOrEqualTo(maxNodeRight));
     });
 
     test('canvas height covers all nodes', () {
-      final layout = TreeLayout(
-        [
-          _person('GP', childIds: ['P']),
-          _person('P', parentIds: ['GP'], childIds: ['C']),
-          _person('C', parentIds: ['P']),
-        ],
-        [],
-      );
+      final layout = TreeLayout([
+        _person('GP', childIds: ['P']),
+        _person('P', parentIds: ['GP'], childIds: ['C']),
+        _person('C', parentIds: ['P']),
+      ], []);
       layout.compute();
 
-      final maxNodeBottom =
-          layout.nodes.values.map((n) => n.y + kTreeNodeH).reduce(
-              (a, b) => a > b ? a : b);
+      final maxNodeBottom = layout.nodes.values
+          .map((n) => n.y + kTreeNodeH)
+          .reduce((a, b) => a > b ? a : b);
       expect(layout.canvasSize.height, greaterThanOrEqualTo(maxNodeBottom));
     });
   });
@@ -380,14 +360,11 @@ void main() {
   // ── Generation rows ──────────────────────────────────────────────────────────
   group('TreeLayout — generation rows', () {
     test('row y values match expected formula', () {
-      final layout = TreeLayout(
-        [
-          _person('GP', childIds: ['P']),
-          _person('P', parentIds: ['GP'], childIds: ['C']),
-          _person('C', parentIds: ['P']),
-        ],
-        [],
-      );
+      final layout = TreeLayout([
+        _person('GP', childIds: ['P']),
+        _person('P', parentIds: ['GP'], childIds: ['C']),
+        _person('C', parentIds: ['P']),
+      ], []);
       layout.compute();
 
       for (final row in layout.generationRows) {
@@ -397,14 +374,11 @@ void main() {
     });
 
     test('rows are sorted in ascending generation order', () {
-      final layout = TreeLayout(
-        [
-          _person('GP', childIds: ['P']),
-          _person('P', parentIds: ['GP'], childIds: ['C']),
-          _person('C', parentIds: ['P']),
-        ],
-        [],
-      );
+      final layout = TreeLayout([
+        _person('GP', childIds: ['P']),
+        _person('P', parentIds: ['GP'], childIds: ['C']),
+        _person('C', parentIds: ['P']),
+      ], []);
       layout.compute();
 
       final gens = layout.generationRows.map((r) => r.generation).toList();
@@ -419,14 +393,11 @@ void main() {
     test('single parent with two children is horizontally centred', () {
       // Layout: P is the parent of C1 and C2.
       // After refinement P should sit above the midpoint of C1 and C2.
-      final layout = TreeLayout(
-        [
-          _person('P', childIds: ['C1', 'C2']),
-          _person('C1', parentIds: ['P']),
-          _person('C2', parentIds: ['P']),
-        ],
-        [],
-      );
+      final layout = TreeLayout([
+        _person('P', childIds: ['C1', 'C2']),
+        _person('C1', parentIds: ['P']),
+        _person('C2', parentIds: ['P']),
+      ], []);
       layout.compute();
 
       final pCx = layout.nodes['P']!.x + kTreeNodeW / 2;
@@ -441,15 +412,12 @@ void main() {
   group('TreeLayout — child with two separate parents (no partnership)', () {
     test('child is assigned the higher generation of the two parents + 1', () {
       // GP → P1 → Child, and P2 → Child (P2 is also in gen 1)
-      final layout = TreeLayout(
-        [
-          _person('GP', childIds: ['P1']),
-          _person('P1', parentIds: ['GP'], childIds: ['Child']),
-          _person('P2', childIds: ['Child']),
-          _person('Child', parentIds: ['P1', 'P2']),
-        ],
-        [],
-      );
+      final layout = TreeLayout([
+        _person('GP', childIds: ['P1']),
+        _person('P1', parentIds: ['GP'], childIds: ['Child']),
+        _person('P2', childIds: ['Child']),
+        _person('Child', parentIds: ['P1', 'P2']),
+      ], []);
       layout.compute();
 
       expect(layout.nodes['GP']!.generation, 0);
@@ -457,6 +425,32 @@ void main() {
       // P2 has no parents in the tree → gen 0 initially; child should be
       // max(gen(P1), gen(P2)) + 1 = max(1, 0) + 1 = 2.
       expect(layout.nodes['Child']!.generation, 2);
+    });
+  });
+
+  group('TreeLayout — deterministic ordering', () {
+    test('same graph yields identical positions regardless of input order', () {
+      final persons = [
+        _person('Dad', childIds: ['Kid1', 'Kid2']),
+        _person('Mum', childIds: ['Kid1', 'Kid2']),
+        _person('Kid1', parentIds: ['Dad', 'Mum']),
+        _person('Kid2', parentIds: ['Dad', 'Mum']),
+      ];
+      final partnerships = [_couple('p1', 'Mum', 'Dad')];
+
+      final layoutA = TreeLayout(persons, partnerships)..compute();
+      final layoutB = TreeLayout(
+        persons.reversed.toList(),
+        partnerships.reversed.toList(),
+      )..compute();
+
+      expect(layoutA.nodes.keys.toSet(), layoutB.nodes.keys.toSet());
+      for (final id in layoutA.nodes.keys) {
+        expect(layoutB.nodes.containsKey(id), isTrue);
+        expect(layoutA.nodes[id]!.generation, layoutB.nodes[id]!.generation);
+        expect(layoutA.nodes[id]!.x, closeTo(layoutB.nodes[id]!.x, 0.001));
+        expect(layoutA.nodes[id]!.y, closeTo(layoutB.nodes[id]!.y, 0.001));
+      }
     });
   });
 }

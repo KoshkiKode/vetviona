@@ -317,6 +317,12 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
   }
 
+  String? _stableDefaultPersonId(List<Person> persons) {
+    if (persons.isEmpty) return null;
+    final sorted = [...persons]..sort((a, b) => a.id.compareTo(b.id));
+    return sorted.first.id;
+  }
+
   @override
   void didUpdateWidget(covariant TreeDiagramScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -338,8 +344,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       final persons = provider.persons;
       final partnerships = provider.partnerships;
       final effectiveHomeId =
-          provider.homePersonId ??
-          (persons.isNotEmpty ? persons.first.id : null);
+          provider.homePersonId ?? _stableDefaultPersonId(persons);
       if (effectiveHomeId == null) return;
       setState(() {
         _showingAll = false;
@@ -363,8 +368,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     super.didChangeDependencies();
     final provider = context.read<TreeProvider>();
     final effectiveHomeId =
-        provider.homePersonId ??
-        (provider.persons.isNotEmpty ? provider.persons.first.id : null);
+        provider.homePersonId ?? _stableDefaultPersonId(provider.persons);
 
     if (_engine == null) {
       // First init.
@@ -408,7 +412,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   void _resetToHome(List<Person> persons, List<Partnership> partnerships) {
     final effectiveHomeId =
         context.read<TreeProvider>().homePersonId ??
-        (persons.isNotEmpty ? persons.first.id : null);
+        _stableDefaultPersonId(persons);
     if (effectiveHomeId == null) return;
     setState(() {
       _showingAll = false;
@@ -486,7 +490,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   void _zoom(double factor) {
     final s = _txCtrl.value.getMaxScaleOnAxis();
     final ns = (s * factor).clamp(_kMinScale, _kMaxScale);
-    _txCtrl.value = _txCtrl.value.clone()..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
+    _txCtrl.value = _txCtrl.value.clone()
+      ..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
   }
 
   void _resetView() => _txCtrl.value = Matrix4.identity();
@@ -996,9 +1001,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
     // Ensure engine is initialised (guard against rare edge cases).
     if (_engine == null || !_engine!.hasVisible) {
-      final homeId =
-          provider.homePersonId ??
-          (persons.isNotEmpty ? persons.first.id : null);
+      final homeId = provider.homePersonId ?? _stableDefaultPersonId(persons);
       if (homeId != null) {
         _engine = TreeVisibilityEngine(
           persons: persons,
@@ -1037,12 +1040,11 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     // back to the selected person, then the first visible person.
     final focalId =
         (provider.homePersonId != null &&
-                visibleIds.contains(provider.homePersonId))
-            ? provider.homePersonId
-            : (_selectedPersonId != null &&
-                    visibleIds.contains(_selectedPersonId))
-                ? _selectedPersonId
-                : (visiblePersons.isNotEmpty ? visiblePersons.first.id : null);
+            visibleIds.contains(provider.homePersonId))
+        ? provider.homePersonId
+        : (_selectedPersonId != null && visibleIds.contains(_selectedPersonId))
+        ? _selectedPersonId
+        : _stableDefaultPersonId(visiblePersons);
 
     // Only recompute the layout when the inputs actually changed.  This avoids
     // running the expensive BFS + 8-pass refinement on every SyncService ping
@@ -1085,7 +1087,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         : (provider.homePersonId != null &&
               personMap.containsKey(provider.homePersonId))
         ? provider.homePersonId
-        : (visiblePersons.isNotEmpty ? visiblePersons.first.id : null);
+        : _stableDefaultPersonId(visiblePersons);
 
     return Scaffold(
       appBar: AppBar(
@@ -1219,8 +1221,12 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                           painter: _EdgePainter(
                             nodes: layout.nodes,
                             edges: layout.edges,
-                            edgeColor: colorScheme.outline.withValues(alpha: 0.5),
-                            coupleColor: colorScheme.tertiary.withValues(alpha: 0.7),
+                            edgeColor: colorScheme.outline.withValues(
+                              alpha: 0.5,
+                            ),
+                            coupleColor: colorScheme.tertiary.withValues(
+                              alpha: 0.7,
+                            ),
                             edgeStyle: _preset.edgeStyle,
                             nodeWidth: _preset.nodeWidth,
                             nodeHeight: _preset.nodeHeight,
@@ -1380,7 +1386,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: colorScheme.inverseSurface.withValues(alpha: 0.85),
+                            color: colorScheme.inverseSurface.withValues(
+                              alpha: 0.85,
+                            ),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -1545,7 +1553,9 @@ class _EmptyAddNode extends StatelessWidget {
                   'Tier $tier',
                   style: TextStyle(
                     fontSize: 8,
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.85),
+                    color: colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.85,
+                    ),
                   ),
                 ),
             ],
@@ -1716,7 +1726,9 @@ class _PersonNodeWidget extends StatelessWidget {
                         person.birthPlace!,
                         style: TextStyle(
                           fontSize: 9,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.8,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1776,7 +1788,9 @@ class _PersonNodeWidget extends StatelessWidget {
               : colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isHighlighted ? Colors.amber : accentColor.withValues(alpha: 0.7),
+            color: isHighlighted
+                ? Colors.amber
+                : accentColor.withValues(alpha: 0.7),
             width: isHighlighted || isSelected ? 2.0 : 1.0,
           ),
         ),
@@ -1931,7 +1945,10 @@ class _ExpandDot extends StatelessWidget {
         color: colorScheme.primary,
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(color: colorScheme.primary.withValues(alpha: 0.4), blurRadius: 4),
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.4),
+            blurRadius: 4,
+          ),
         ],
       ),
       child: Icon(icon, size: 12, color: colorScheme.onPrimary),

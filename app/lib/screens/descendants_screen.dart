@@ -77,14 +77,23 @@ class _DescLayout {
 
   void compute() {
     if (persons.isEmpty) return;
-    final personMap = {for (final p in persons) p.id: p};
+    final sortedPersons = [...persons]..sort((a, b) => a.id.compareTo(b.id));
+    final sortedPartnerships = [...partnerships]
+      ..sort((a, b) {
+        final idCmp = a.id.compareTo(b.id);
+        if (idCmp != 0) return idCmp;
+        final p1Cmp = a.person1Id.compareTo(b.person1Id);
+        if (p1Cmp != 0) return p1Cmp;
+        return a.person2Id.compareTo(b.person2Id);
+      });
+    final personMap = {for (final p in sortedPersons) p.id: p};
 
     // ── Assign generation depths via BFS through the descendant set ──────────
     final generation = <String, int>{};
     final queue = Queue<String>();
 
     // Seed: descendants whose parents are NOT in the visible set are gen-0.
-    for (final p in persons) {
+    for (final p in sortedPersons) {
       if (!descendantIds.contains(p.id)) continue;
       if (!p.parentIds.any((pid) => descendantIds.contains(pid))) {
         generation[p.id] = 0;
@@ -108,7 +117,7 @@ class _DescLayout {
     // Partners-in-law share the same generation as the descendant they partner.
     // Guard with containsKey to avoid overwriting an already-assigned generation
     // for persons who appear in multiple partnerships.
-    for (final part in partnerships) {
+    for (final part in sortedPartnerships) {
       if (descendantIds.contains(part.person1Id) &&
           !descendantIds.contains(part.person2Id) &&
           !generation.containsKey(part.person2Id)) {
@@ -122,13 +131,13 @@ class _DescLayout {
     }
 
     // ── Build person nodes ───────────────────────────────────────────────────
-    for (final p in persons) {
+    for (final p in sortedPersons) {
       nodes[p.id] = _NodeInfo(id: p.id, generation: generation[p.id] ?? 0);
     }
 
     // ── Build couple-knot nodes and couple edges ─────────────────────────────
     final knotMap = <String, String>{}; // partnershipId → knotId
-    for (final part in partnerships) {
+    for (final part in sortedPartnerships) {
       if (!personMap.containsKey(part.person1Id) ||
           !personMap.containsKey(part.person2Id)) {
         continue;
@@ -151,13 +160,13 @@ class _DescLayout {
     }
 
     // ── Build parent-child edges (routed through knots when possible) ────────
-    for (final p in persons) {
+    for (final p in sortedPersons) {
       if (!descendantIds.contains(p.id)) continue;
       for (final childId in p.childIds) {
         if (!personMap.containsKey(childId)) continue;
         final childPerson = personMap[childId]!;
         Partnership? matchingPart;
-        for (final part in partnerships) {
+        for (final part in sortedPartnerships) {
           if ((part.person1Id == p.id || part.person2Id == p.id) &&
               childPerson.parentIds.contains(part.person1Id) &&
               childPerson.parentIds.contains(part.person2Id)) {
@@ -184,8 +193,9 @@ class _DescLayout {
       byGen.putIfAbsent(n.generation, () => []).add(n.id);
     }
 
-    for (final entry in byGen.entries) {
-      final nodeIds = entry.value;
+    final sortedGenKeys = byGen.keys.toList()..sort();
+    for (final gen in sortedGenKeys) {
+      final nodeIds = byGen[gen]!;
 
       // Build an ordered list: person nodes first, then insert each couple-knot
       // between its two partners so they appear side-by-side.
@@ -222,7 +232,7 @@ class _DescLayout {
       for (int i = 0; i < ordered.length; i++) {
         final node = nodes[ordered[i]]!;
         node.x = i * step;
-        node.y = entry.key * (cardH + rowGap);
+        node.y = gen * (cardH + rowGap);
       }
     }
 
@@ -468,10 +478,16 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
       ..scaleByDouble(scale, scale, scale, 1.0);
   }
 
+  Person _stableDefaultPerson(List<Person> people) {
+    final sorted = [...people]..sort((a, b) => a.id.compareTo(b.id));
+    return sorted.first;
+  }
+
   void _changeScale(double factor) {
     final s = _transformCtrl.value.getMaxScaleOnAxis();
     final ns = (s * factor).clamp(0.1, 5.0);
-    _transformCtrl.value = _transformCtrl.value.clone()..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
+    _transformCtrl.value = _transformCtrl.value.clone()
+      ..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
   }
 
   void _resetView() {
@@ -520,11 +536,13 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
       );
     }
 
-    _rootPerson ??= widget.initialPerson ?? persons.first;
+    _rootPerson ??= widget.initialPerson ?? _stableDefaultPerson(persons);
     final pm = {for (final p in persons) p.id: p};
 
     // Ensure root still exists after tree changes.
-    if (!pm.containsKey(_rootPerson!.id)) _rootPerson = persons.first;
+    if (!pm.containsKey(_rootPerson!.id)) {
+      _rootPerson = _stableDefaultPerson(persons);
+    }
 
     final descIds = _collectDescendants(
       _rootPerson!,
@@ -635,8 +653,12 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
                           painter: _DescEdgePainter(
                             nodes: layout.nodes,
                             edges: layout.edges,
-                            edgeColor: colorScheme.outline.withValues(alpha: 0.5),
-                            coupleColor: colorScheme.tertiary.withValues(alpha: 0.7),
+                            edgeColor: colorScheme.outline.withValues(
+                              alpha: 0.5,
+                            ),
+                            coupleColor: colorScheme.tertiary.withValues(
+                              alpha: 0.7,
+                            ),
                             edgeStyle: effectiveEdgeStyle,
                             cardW: effectiveCardW,
                             cardH: effectiveCardH,
@@ -939,7 +961,9 @@ class _DescCard extends StatelessWidget {
                         person.birthPlace!,
                         style: TextStyle(
                           fontSize: 9,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.8,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

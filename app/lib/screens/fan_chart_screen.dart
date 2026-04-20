@@ -75,6 +75,11 @@ class _FanChartScreenState extends State<FanChartScreen> {
       ..scaleByDouble(scale, scale, scale, 1.0);
   }
 
+  Person _stableDefaultPerson(List<Person> people) {
+    final sorted = [...people]..sort((a, b) => a.id.compareTo(b.id));
+    return sorted.first;
+  }
+
   // ── Ancestor map build ──────────────────────────────────────────────────────
 
   /// Returns a map of `(generation, slotIndex) → Person?`.
@@ -119,7 +124,8 @@ class _FanChartScreenState extends State<FanChartScreen> {
         Navigator.push(
           context,
           fadeSlideRoute(
-              builder: (_) => PersonDetailScreen(person: hit!.person!)),
+            builder: (_) => PersonDetailScreen(person: hit!.person!),
+          ),
         );
       }
       return;
@@ -128,19 +134,20 @@ class _FanChartScreenState extends State<FanChartScreen> {
     // Check each arc segment.
     if (homeDist > _kCenterRadius && homeDist <= _kMaxOuterRadius) {
       // Determine the angle (-π … 0 for the upper semicircle).
-      final angle = math.atan2(
-        local.dy - _kCenter.dy,
-        local.dx - _kCenter.dx,
-      );
+      final angle = math.atan2(local.dy - _kCenter.dy, local.dx - _kCenter.dx);
       // Only respond in the upper semicircle (negative y relative to centre).
       if (angle >= -math.pi && angle <= 0) {
-        final ringWidth =
-            (_kMaxOuterRadius - _kCenterRadius) / _maxGenerations;
-        final gen =
-            ((homeDist - _kCenterRadius) / ringWidth).ceil().clamp(1, _maxGenerations);
+        final ringWidth = (_kMaxOuterRadius - _kCenterRadius) / _maxGenerations;
+        final gen = ((homeDist - _kCenterRadius) / ringWidth).ceil().clamp(
+          1,
+          _maxGenerations,
+        );
         final count = 1 << gen; // 2^gen
         // slot 0 = left (-π side), slot count-1 = right (0 side)
-        final slot = ((angle + math.pi) / (math.pi / count)).floor().clamp(0, count - 1);
+        final slot = ((angle + math.pi) / (math.pi / count)).floor().clamp(
+          0,
+          count - 1,
+        );
         final hit = _hitSegments
             .where((s) => s.gen == gen && s.slot == slot)
             .firstOrNull;
@@ -148,7 +155,8 @@ class _FanChartScreenState extends State<FanChartScreen> {
           Navigator.push(
             context,
             fadeSlideRoute(
-                builder: (_) => PersonDetailScreen(person: hit!.person!)),
+              builder: (_) => PersonDetailScreen(person: hit!.person!),
+            ),
           );
         }
       }
@@ -171,8 +179,9 @@ class _FanChartScreenState extends State<FanChartScreen> {
     }
 
     final pm = {for (final p in persons) p.id: p};
-    final homeId = _rootPersonId ?? provider.homePersonId ?? persons.first.id;
-    final root = pm[homeId] ?? persons.first;
+    final fallback = _stableDefaultPerson(persons);
+    final homeId = _rootPersonId ?? provider.homePersonId ?? fallback.id;
+    final root = pm[homeId] ?? fallback;
 
     final ancestorMap = _buildAncestorMap(root, pm, _maxGenerations);
 
@@ -204,13 +213,9 @@ class _FanChartScreenState extends State<FanChartScreen> {
           PopupMenuButton<String>(
             tooltip: 'Change root person',
             icon: const Icon(Icons.person_outline),
-            onSelected: (id) =>
-                setState(() => _rootPersonId = id),
+            onSelected: (id) => setState(() => _rootPersonId = id),
             itemBuilder: (_) => persons
-                .map((p) => PopupMenuItem(
-                      value: p.id,
-                      child: Text(p.name),
-                    ))
+                .map((p) => PopupMenuItem(value: p.id, child: Text(p.name)))
                 .toList(),
           ),
         ],
@@ -267,7 +272,8 @@ class _FanChartScreenState extends State<FanChartScreen> {
   void _zoom(double factor) {
     final s = _txCtrl.value.getMaxScaleOnAxis();
     final ns = (s * factor).clamp(0.1, 5.0);
-    _txCtrl.value = _txCtrl.value.clone()..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
+    _txCtrl.value = _txCtrl.value.clone()
+      ..scaleByDouble(ns / s, ns / s, ns / s, 1.0);
   }
 }
 
@@ -324,8 +330,16 @@ class _FanPainter extends CustomPainter {
 
         // Draw name label if the arc is wide enough.
         if (person != null && ringWidth > 30) {
-          _drawLabel(canvas, person, innerR, outerR, startAngle, sweepAngle,
-              gen, ringWidth);
+          _drawLabel(
+            canvas,
+            person,
+            innerR,
+            outerR,
+            startAngle,
+            sweepAngle,
+            gen,
+            ringWidth,
+          );
         }
       }
     }
@@ -337,12 +351,13 @@ class _FanPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawCircle(_kCenter, _kCenterRadius, homePaint);
     canvas.drawCircle(
-        _kCenter,
-        _kCenterRadius,
-        Paint()
-          ..color = colorScheme.primaryContainer
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5);
+      _kCenter,
+      _kCenterRadius,
+      Paint()
+        ..color = colorScheme.primaryContainer
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
 
     if (home != null) {
       final tp = TextPainter(
@@ -359,10 +374,7 @@ class _FanPainter extends CustomPainter {
         textAlign: TextAlign.center,
       );
       tp.layout(maxWidth: _kCenterRadius * 1.7);
-      tp.paint(
-          canvas,
-          _kCenter.translate(
-              -tp.width / 2, -tp.height / 2));
+      tp.paint(canvas, _kCenter.translate(-tp.width / 2, -tp.height / 2));
     }
 
     // ── Outer border arc ──────────────────────────────────────────────────────
@@ -371,7 +383,9 @@ class _FanPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     final outerRect = Rect.fromCircle(
-        center: _kCenter, radius: _kMaxOuterRadius);
+      center: _kCenter,
+      radius: _kMaxOuterRadius,
+    );
     canvas.drawArc(outerRect, math.pi, -math.pi, false, borderPaint);
     // Straight base line
     canvas.drawLine(
@@ -393,10 +407,10 @@ class _FanPainter extends CustomPainter {
     final fillColor = person == null
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
         : person.gender?.toLowerCase() == 'male'
-            ? colorScheme.primary.withValues(alpha: 0.18 + gen * 0.04)
-            : person.gender?.toLowerCase() == 'female'
-                ? colorScheme.error.withValues(alpha: 0.18 + gen * 0.04)
-                : colorScheme.secondary.withValues(alpha: 0.18 + gen * 0.04);
+        ? colorScheme.primary.withValues(alpha: 0.18 + gen * 0.04)
+        : person.gender?.toLowerCase() == 'female'
+        ? colorScheme.error.withValues(alpha: 0.18 + gen * 0.04)
+        : colorScheme.secondary.withValues(alpha: 0.18 + gen * 0.04);
 
     final fillPaint = Paint()
       ..color = fillColor
@@ -412,7 +426,11 @@ class _FanPainter extends CustomPainter {
   }
 
   Path _arcSegmentPath(
-      double innerR, double outerR, double startAngle, double sweepAngle) {
+    double innerR,
+    double outerR,
+    double startAngle,
+    double sweepAngle,
+  ) {
     final innerRect = Rect.fromCircle(center: _kCenter, radius: innerR);
     final outerRect = Rect.fromCircle(center: _kCenter, radius: outerR);
     final path = Path();
