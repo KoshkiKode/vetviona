@@ -75,7 +75,7 @@ class _FakeInAppPurchasePlatform extends InAppPurchasePlatform {
   Future<String> countryCode() async => 'US';
 }
 
-ProductDetails _productDetails() => ProductDetails(
+ProductDetails _mockProductDetails() => ProductDetails(
   id: kMobilePaidProductId,
   title: 'Vetviona Mobile Paid',
   description: 'Unlocks paid features',
@@ -85,7 +85,7 @@ ProductDetails _productDetails() => ProductDetails(
   currencySymbol: '\$',
 );
 
-PurchaseDetails _purchaseDetails({
+PurchaseDetails _mockPurchaseDetails({
   required PurchaseStatus status,
   String productId = kMobilePaidProductId,
   bool pendingCompletePurchase = false,
@@ -257,7 +257,7 @@ void main() {
 
     test('loadProduct stores product details on successful response', () async {
       fakePlatform.queryResponse = ProductDetailsResponse(
-        productDetails: [_productDetails()],
+        productDetails: [_mockProductDetails()],
         notFoundIDs: const [],
       );
 
@@ -286,7 +286,7 @@ void main() {
 
     test('buyMobilePaid loads product and calls buyNonConsumable', () async {
       fakePlatform.queryResponse = ProductDetailsResponse(
-        productDetails: [_productDetails()],
+        productDetails: [_mockProductDetails()],
         notFoundIDs: const [],
       );
 
@@ -303,10 +303,10 @@ void main() {
     });
 
     test(
-      'buyMobilePaid reports store unavailable when product exists',
+      'buyMobilePaid reports store unavailable when store becomes unavailable',
       () async {
         fakePlatform.queryResponse = ProductDetailsResponse(
-          productDetails: [_productDetails()],
+          productDetails: [_mockProductDetails()],
           notFoundIDs: const [],
         );
         await svc.loadProduct();
@@ -333,7 +333,7 @@ void main() {
       () async {
         await svc.init();
 
-        final purchase = _purchaseDetails(
+        final purchase = _mockPurchaseDetails(
           status: PurchaseStatus.purchased,
           pendingCompletePurchase: true,
         );
@@ -354,7 +354,7 @@ void main() {
       () async {
         await svc.init();
 
-        final purchase = _purchaseDetails(
+        final purchase = _mockPurchaseDetails(
           status: PurchaseStatus.error,
           errorMessage: 'Card declined',
         );
