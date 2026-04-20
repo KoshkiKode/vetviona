@@ -4,6 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vetviona_app/utils/page_routes.dart';
 
 void main() {
+  setUp(() {
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   group('fadeSlideRoute', () {
     test('uses CupertinoPageRoute on iOS', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -11,7 +19,14 @@ void main() {
       final route = fadeSlideRoute<void>(builder: (_) => const SizedBox());
 
       expect(route, isA<CupertinoPageRoute<void>>());
-      debugDefaultTargetPlatformOverride = null;
+    });
+
+    test('uses CupertinoPageRoute on macOS', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+      final route = fadeSlideRoute<void>(builder: (_) => const SizedBox());
+
+      expect(route, isA<CupertinoPageRoute<void>>());
     });
 
     testWidgets('uses PageRouteBuilder with fade+slide transition on Android', (
@@ -23,10 +38,10 @@ void main() {
       expect(route, isA<PageRouteBuilder<void>>());
 
       final pageRoute = route as PageRouteBuilder<void>;
-      expect(pageRoute.transitionDuration, const Duration(milliseconds: 280));
+      expect(pageRoute.transitionDuration, const Duration(milliseconds: 320));
       expect(
         pageRoute.reverseTransitionDuration,
-        const Duration(milliseconds: 200),
+        const Duration(milliseconds: 260),
       );
 
       await tester.pumpWidget(
@@ -49,10 +64,12 @@ void main() {
       expect(fade.child, isA<SlideTransition>());
       final slide = fade.child as SlideTransition;
       expect(slide.position.value, Offset.zero);
-      debugDefaultTargetPlatformOverride = null;
+      expect(pageRoute.opaque, isTrue);
     });
 
-    testWidgets('pageBuilder builds the provided widget on Android', (tester) async {
+    testWidgets('pageBuilder builds the provided widget on Android', (
+      tester,
+    ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
       final route = fadeSlideRoute<void>(builder: (_) => const Text('hello'));
@@ -71,7 +88,6 @@ void main() {
         const AlwaysStoppedAnimation<double>(0),
       );
       expect(widget, isA<Text>());
-      debugDefaultTargetPlatformOverride = null;
     });
   });
 
@@ -82,7 +98,6 @@ void main() {
       final route = fadeRoute<void>(builder: (_) => const SizedBox());
 
       expect(route, isA<PageRouteBuilder<void>>());
-      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('uses pure fade transition with expected timings', (
@@ -91,10 +106,10 @@ void main() {
       final route = fadeRoute<void>(builder: (_) => const SizedBox());
       final pageRoute = route as PageRouteBuilder<void>;
 
-      expect(pageRoute.transitionDuration, const Duration(milliseconds: 350));
+      expect(pageRoute.transitionDuration, const Duration(milliseconds: 320));
       expect(
         pageRoute.reverseTransitionDuration,
-        const Duration(milliseconds: 250),
+        const Duration(milliseconds: 260),
       );
 
       await tester.pumpWidget(
