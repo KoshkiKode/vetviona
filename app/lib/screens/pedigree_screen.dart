@@ -44,6 +44,11 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
     _maxGenerations = widget.initialMaxGenerations ?? presetDefault.clamp(2, 6);
   }
 
+  Person _stableDefaultPerson(List<Person> people) {
+    final sorted = [...people]..sort((a, b) => a.id.compareTo(b.id));
+    return sorted.first;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -53,10 +58,10 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
       final persons = provider.persons;
       if (persons.isNotEmpty) {
         final homeId = provider.homePersonId;
+        final fallback = _stableDefaultPerson(persons);
         _focusedPerson = homeId != null
-            ? persons.firstWhere((p) => p.id == homeId,
-                orElse: () => persons.first)
-            : persons.first;
+            ? persons.firstWhere((p) => p.id == homeId, orElse: () => fallback)
+            : fallback;
         _searchCtrl.text = _focusedPerson!.name;
       }
     }
@@ -81,12 +86,13 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
     }
 
     // Initialise focused person if still null after didChangeDependencies.
-    _focusedPerson ??= persons.first;
+    _focusedPerson ??= _stableDefaultPerson(persons);
 
     final personMap = {for (final p in persons) p.id: p};
 
     // Alphabetically sorted list for the dropdown.
-    final sortedPersons = [...persons]..sort((a, b) => a.name.compareTo(b.name));
+    final sortedPersons = [...persons]
+      ..sort((a, b) => a.name.compareTo(b.name));
 
     // Build generation lists — generation[0] = [focusedPerson], generation[1] = parents, etc.
     final generations = <List<Person?>>[];
@@ -123,10 +129,7 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
             onSelected: (v) => setState(() => _maxGenerations = v),
             itemBuilder: (_) => [
               for (int g = 2; g <= 6; g++)
-                PopupMenuItem(
-                  value: g,
-                  child: Text('$g generations'),
-                ),
+                PopupMenuItem(value: g, child: Text('$g generations')),
             ],
           ),
         ],
@@ -146,15 +149,18 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
                 label: const Text('Focus person'),
                 initialSelection: _focusedPerson?.id,
                 dropdownMenuEntries: sortedPersons
-                    .map((p) => DropdownMenuEntry<String>(
-                          value: p.id,
-                          label: p.name,
-                        ))
+                    .map(
+                      (p) =>
+                          DropdownMenuEntry<String>(value: p.id, label: p.name),
+                    )
                     .toList(),
                 onSelected: (id) {
                   if (id == null) return;
-                  final person = persons.firstWhere((p) => p.id == id,
-                      orElse: () => persons.first);
+                  final fallback = _stableDefaultPerson(persons);
+                  final person = persons.firstWhere(
+                    (p) => p.id == id,
+                    orElse: () => fallback,
+                  );
                   setState(() => _focusedPerson = person);
                 },
               ),
@@ -239,20 +245,26 @@ class _PedigreeBox extends StatelessWidget {
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5), width: 1),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: 1,
+          ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_outline,
-                size: 28, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
+            Icon(
+              Icons.person_outline,
+              size: 28,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
             const SizedBox(height: 4),
             Text(
               'Unknown',
               style: TextStyle(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  fontSize: 11),
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                fontSize: 11,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -262,15 +274,13 @@ class _PedigreeBox extends StatelessWidget {
 
     final textColor =
         ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-            ? colorScheme.onPrimary
-            : colorScheme.onSurface;
+        ? colorScheme.onPrimary
+        : colorScheme.onSurface;
 
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        fadeSlideRoute(
-          builder: (_) => PersonDetailScreen(person: person),
-        ),
+        fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person)),
       ),
       onLongPress: onReCenter,
       child: Container(

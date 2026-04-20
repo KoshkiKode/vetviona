@@ -114,8 +114,12 @@ class TreeLayout {
   /// from which the family grows outward.
   final String? focalPersonId;
 
-  TreeLayout(this.persons, this.partnerships,
-      [this.config = const TreeLayoutConfig(), this.focalPersonId]);
+  TreeLayout(
+    this.persons,
+    this.partnerships, [
+    this.config = const TreeLayoutConfig(),
+    this.focalPersonId,
+  ]);
 
   final Map<String, TreeNodeInfo> nodes = {};
   final List<TreeEdgeInfo> edges = [];
@@ -124,14 +128,25 @@ class TreeLayout {
 
   void compute() {
     if (persons.isEmpty) return;
-    final personMap = {for (final p in persons) p.id: p};
+    final sortedPersons = [...persons]..sort((a, b) => a.id.compareTo(b.id));
+    final sortedPartnerships = [...partnerships]
+      ..sort((a, b) {
+        final idCmp = a.id.compareTo(b.id);
+        if (idCmp != 0) return idCmp;
+        final p1Cmp = a.person1Id.compareTo(b.person1Id);
+        if (p1Cmp != 0) return p1Cmp;
+        return a.person2Id.compareTo(b.person2Id);
+      });
+    final personMap = {for (final p in sortedPersons) p.id: p};
     final generation = <String, int>{};
 
     // ── BFS from roots to assign generation depths ───────────────────────────
-    final roots = persons
-        .where((p) =>
-            p.parentIds.isEmpty ||
-            !p.parentIds.any((id) => personMap.containsKey(id)))
+    final roots = sortedPersons
+        .where(
+          (p) =>
+              p.parentIds.isEmpty ||
+              !p.parentIds.any((id) => personMap.containsKey(id)),
+        )
         .toList();
     final queue = <String>[];
     for (final r in roots) {
@@ -139,7 +154,7 @@ class TreeLayout {
       queue.add(r.id);
     }
     // Any disconnected person not reachable from a root starts at gen 0.
-    for (final p in persons) {
+    for (final p in sortedPersons) {
       if (!generation.containsKey(p.id)) {
         generation[p.id] = 0;
         queue.add(p.id);
@@ -161,15 +176,17 @@ class TreeLayout {
     }
 
     // ── Build person nodes ───────────────────────────────────────────────────
-    for (final p in persons) {
+    for (final p in sortedPersons) {
       nodes[p.id] = TreeNodeInfo(id: p.id, generation: generation[p.id] ?? 0);
     }
 
     // ── Build couple-knot nodes and couple edges ─────────────────────────────
     final knotMap = <String, String>{}; // partnershipId → knotId
-    for (final p in partnerships) {
+    for (final p in sortedPartnerships) {
       if (!personMap.containsKey(p.person1Id) ||
-          !personMap.containsKey(p.person2Id)) { continue; }
+          !personMap.containsKey(p.person2Id)) {
+        continue;
+      }
       final knotId = 'knot_${p.id}';
       final knotGen = math.min(
         generation[p.person1Id] ?? 0,
@@ -188,12 +205,12 @@ class TreeLayout {
     }
 
     // ── Build parent-child edges (routed through knots when possible) ────────
-    for (final p in persons) {
+    for (final p in sortedPersons) {
       for (final childId in p.childIds) {
         if (!personMap.containsKey(childId)) continue;
         final childPerson = personMap[childId]!;
         Partnership? matchingPart;
-        for (final part in partnerships) {
+        for (final part in sortedPartnerships) {
           if ((part.person1Id == p.id || part.person2Id == p.id) &&
               childPerson.parentIds.contains(part.person1Id) &&
               childPerson.parentIds.contains(part.person2Id)) {
@@ -220,9 +237,9 @@ class TreeLayout {
       byGen.putIfAbsent(n.generation, () => []).add(n.id);
     }
 
-    for (final entry in byGen.entries) {
-      final gen = entry.key;
-      final nodeIds = entry.value;
+    final sortedGenKeys = byGen.keys.toList()..sort();
+    for (final gen in sortedGenKeys) {
+      final nodeIds = byGen[gen]!;
       // Sort so that person nodes come first, knot nodes last (they get
       // inserted between their partners in the next step).
       nodeIds.sort((a, b) {
@@ -286,10 +303,10 @@ class TreeLayout {
     // content bounding box.  This makes the tree grow outward from the home
     // person rather than being left-aligned.
     if (focalPersonId != null && nodes.containsKey(focalPersonId)) {
-      final currentMinX =
-          nodes.values.map((n) => n.x).reduce(math.min);
-      final currentMaxRight =
-          nodes.values.map((n) => n.x + config.nodeWidth).reduce(math.max);
+      final currentMinX = nodes.values.map((n) => n.x).reduce(math.min);
+      final currentMaxRight = nodes.values
+          .map((n) => n.x + config.nodeWidth)
+          .reduce(math.max);
       final totalSpan = currentMaxRight - currentMinX;
       final desiredFocalCenterX = currentMinX + totalSpan / 2.0;
       final actualFocalCenterX =
@@ -321,8 +338,9 @@ class TreeLayout {
     generationRows.clear();
     final genNums = byGen.keys.toList()..sort();
     for (final g in genNums) {
-      generationRows
-          .add(TreeGenRow(g, g * (config.nodeHeight + config.rowGap)));
+      generationRows.add(
+        TreeGenRow(g, g * (config.nodeHeight + config.rowGap)),
+      );
     }
   }
 
@@ -351,7 +369,8 @@ class TreeLayout {
               .where((k) => nodes.containsKey(k))
               .toList();
           if (kids.isEmpty) continue;
-          final childCx = kids
+          final childCx =
+              kids
                   .map((k) => nodes[k]!.x + config.nodeWidth / 2)
                   .reduce((a, b) => a + b) /
               kids.length;
@@ -359,9 +378,7 @@ class TreeLayout {
         }
 
         // Pass B: push apart overlapping nodes in this row.
-        final rowNodes = (byGen[gen] ?? [])
-            .map((id) => nodes[id]!)
-            .toList()
+        final rowNodes = (byGen[gen] ?? []).map((id) => nodes[id]!).toList()
           ..sort((a, b) => a.x.compareTo(b.x));
         for (int i = 1; i < rowNodes.length; i++) {
           final minX = rowNodes[i - 1].x + step;
@@ -420,8 +437,7 @@ class TreeLayout {
 
       // Sort person nodes by mean parent cx; knots are re-inserted after.
       // Pre-compute each node's sort key so the comparator is O(1) per call.
-      final personIds =
-          rowIds.where((id) => !nodes[id]!.isCoupleKnot).toList();
+      final personIds = rowIds.where((id) => !nodes[id]!.isCoupleKnot).toList();
       final sortKey = <String, double>{};
       for (final id in personIds) {
         final pars = parentsOf[id];
@@ -439,8 +455,7 @@ class TreeLayout {
 
       // Re-insert knots between their partners (mirrors the logic in compute).
       final ordered = List<String>.from(personIds);
-      for (final knotId
-          in rowIds.where((id) => nodes[id]!.isCoupleKnot)) {
+      for (final knotId in rowIds.where((id) => nodes[id]!.isCoupleKnot)) {
         final node = nodes[knotId]!;
         final p1 = node.knotPartner1!;
         final p2 = node.knotPartner2!;
