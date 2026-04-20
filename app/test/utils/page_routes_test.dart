@@ -65,6 +65,7 @@ void main() {
       final slide = fade.child as SlideTransition;
       expect(slide.position.value, Offset.zero);
       expect(pageRoute.opaque, isTrue);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('pageBuilder builds the provided widget on Android', (
@@ -88,6 +89,7 @@ void main() {
         const AlwaysStoppedAnimation<double>(0),
       );
       expect(widget, isA<Text>());
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 

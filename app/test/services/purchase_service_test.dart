@@ -1,10 +1,12 @@
 // Tests for PurchaseService that exercise state and ChangeNotifier behaviour
 // without requiring the InAppPurchase platform channel.
 
+// ignore_for_file: depend_on_referenced_packages
+
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -115,14 +117,23 @@ void main() {
 
   late InAppPurchasePlatform originalPlatform;
   late _FakeInAppPurchasePlatform fakePlatform;
+  bool hadOriginalPlatform = false;
 
   setUpAll(() {
-    InAppPurchase.instance;
-    originalPlatform = InAppPurchasePlatform.instance;
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    try {
+      originalPlatform = InAppPurchasePlatform.instance;
+      hadOriginalPlatform = true;
+    } catch (_) {
+      hadOriginalPlatform = false;
+    }
   });
 
   tearDownAll(() {
-    InAppPurchasePlatform.instance = originalPlatform;
+    if (hadOriginalPlatform) {
+      InAppPurchasePlatform.instance = originalPlatform;
+    }
+    debugDefaultTargetPlatformOverride = null;
   });
 
   setUp(() {
