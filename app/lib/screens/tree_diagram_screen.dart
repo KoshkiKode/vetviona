@@ -276,9 +276,9 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   TreePreset get _preset => widget.preset ?? TreePreset.classic;
 
   int get _effectiveAncestorGens =>
-      math.min(widget.ancestorGens ?? _preset.defaultAncestorGens, 1);
+      widget.ancestorGens ?? _preset.defaultAncestorGens;
   int get _effectiveDescendantGens =>
-      math.min(widget.descendantGens ?? _preset.defaultDescendantGens, 1);
+      widget.descendantGens ?? _preset.defaultDescendantGens;
 
   // Local toggles that start from the widget params (or defaults) and can be
   // changed in the standalone AppBar.  When hosted in FamilyTreeScreen these

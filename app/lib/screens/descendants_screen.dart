@@ -407,6 +407,8 @@ class _DescEdgePainter extends CustomPainter {
       old.edges.length != edges.length ||
       old.edgeColor != edgeColor ||
       old.coupleColor != coupleColor ||
+      old.cardW != cardW ||
+      old.cardH != cardH ||
       old.edgeStyle != edgeStyle;
 }
 

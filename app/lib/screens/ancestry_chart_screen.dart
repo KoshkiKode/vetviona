@@ -462,6 +462,9 @@ class _AncEdgePainter extends CustomPainter {
       old.nodes.length != nodes.length ||
       old.edges.length != edges.length ||
       old.edgeColor != edgeColor ||
+      old.coupleColor != coupleColor ||
+      old.nodeW != nodeW ||
+      old.nodeH != nodeH ||
       old.edgeStyle != edgeStyle;
 }
 
