@@ -175,7 +175,7 @@ For paid-tier verification, point the app at your backend:
 --dart-define=LICENSE_BACKEND_URL=http://127.0.0.1:8080
 ```
 
-Backend setup: [`backend/README.md`](backend/README.md)
+Backend setup: [`backend/README.md`](backend/README.md) · AWS deploy guide: [`backend/DEPLOY-AWS.md`](backend/DEPLOY-AWS.md)
 
 ### Package — Windows MSI (WiX)
 
