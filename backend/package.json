@@ -6,7 +6,8 @@
   "main": "license_server.js",
   "scripts": {
     "start": "node license_server.js",
-    "check": "node --check license_server.js"
+    "check": "node --check license_server.js",
+    "test": "node test/server_test.js"
   },
   "engines": {
     "node": ">=18.0.0"
