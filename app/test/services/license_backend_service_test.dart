@@ -868,7 +868,7 @@ void main() {
 
   // ── changePassword ────────────────────────────────────────────────────────
   group('LicenseBackendService.changePassword', () {
-    test('updates cachedPassword on success', () async {
+    test('returns true and clears local session on success', () async {
       final service = LicenseBackendService(
         client: MockClient((req) async {
           if (req.url.path == '/v1/license/verify') {
