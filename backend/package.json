@@ -13,7 +13,7 @@
   },
   "optionalDependencies": {
     "nodemailer": "^8.0.5",
-    "@aws-sdk/client-s3": "^3.600.0"
+    "@aws-sdk/client-s3": "^3.1036.0"
   },
   "keywords": [
     "vetviona",
