@@ -14,6 +14,7 @@
         "encrypt",
         "file_picker",
         "flutter",
+        "flutter_ble_peripheral",
         "flutter_blue_plus",
         "flutter_colorpicker",
         "flutter_localizations",
@@ -25,6 +26,7 @@
         "intl",
         "latlong2",
         "mobile_scanner",
+        "nfc_manager",
         "package_info_plus",
         "path",
         "path_provider",
@@ -99,6 +101,23 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "flutter_ble_peripheral",
+      "version": "2.1.0",
+      "dependencies": [
+        "flutter",
+        "json_annotation"
+      ]
+    },
+    {
+      "name": "nfc_manager",
+      "version": "4.2.1",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "ndef_record"
       ]
     },
     {
@@ -645,6 +664,13 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "ndef_record",
+      "version": "1.4.2",
+      "dependencies": [
+        "collection"
       ]
     },
     {

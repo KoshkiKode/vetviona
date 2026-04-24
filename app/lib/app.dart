@@ -16,6 +16,7 @@ import 'config/app_config.dart';
 import 'config/build_metadata.dart';
 import 'services/bluetooth_sync_service.dart';
 import 'services/license_backend_service.dart';
+import 'services/nfc_sync_service.dart';
 import 'services/purchase_service.dart';
 import 'services/sync_service.dart';
 import 'utils/platform_utils.dart';
@@ -68,6 +69,16 @@ class VetvionaApp extends StatelessWidget {
           update: (_, syncService, bleService) {
             bleService!.syncService = syncService;
             return bleService;
+          },
+        ),
+        // NfcSyncService enables NFC tap-to-pair on supported devices.
+        // checkAvailability() is called eagerly so the UI knows immediately
+        // whether to show the NFC card.
+        ChangeNotifierProvider(
+          create: (_) {
+            final svc = NfcSyncService.instance;
+            svc.checkAvailability();
+            return svc;
           },
         ),
         // PurchaseService manages one-time IAP for Mobile Paid upgrade.
