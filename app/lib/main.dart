@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'app.dart';
 import 'config/app_config.dart';
@@ -109,10 +110,14 @@ class _DesktopLockScreen extends StatelessWidget {
                 FilledButton.icon(
                   icon: const Icon(Icons.open_in_browser, size: 18),
                   label: const Text('Get Desktop Pro'),
-                  onPressed: () {
-                    // Opening the URL requires url_launcher which is a
-                    // dependency only available once the app is set up —
-                    // on the lock screen we show a selectable link instead.
+                  onPressed: () async {
+                    final uri = Uri.parse(BuildMetadata.paidAppUrl);
+                    if (!await launchUrl(uri,
+                        mode: LaunchMode.externalApplication)) {
+                      // If the launcher fails there is no BuildContext here,
+                      // so silently ignore — the selectable URL above still
+                      // lets the user copy and open it manually.
+                    }
                   },
                 ),
               ],
