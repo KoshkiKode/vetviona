@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_ble_peripheral/flutter_ble_peripheral.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'sync_service.dart';
@@ -74,8 +75,9 @@ class BleSyncPeer {
 ///
 /// **Platform notes**
 /// - BLE scanning works on Android and iOS.
-/// - BLE advertising (peripheral mode) works on Android (Android 5+).
-///   On iOS it is attempted but Apple restricts background advertising.
+/// - BLE advertising (peripheral mode) uses [flutter_ble_peripheral] which
+///   works on Android 5+ and iOS (foreground only due to Apple restrictions).
+///   On desktop it is skipped gracefully.
 /// - The class degrades gracefully: if advertising fails, discovery still
 ///   works so the user can initiate sync manually after finding a peer.
 ///
@@ -107,24 +109,35 @@ class BluetoothSyncService extends ChangeNotifier {
 
   // ── Advertising ─────────────────────────────────────────────────────────────
 
+  /// Single, lazily-created [FlutterBlePeripheral] instance reused across calls.
+  final _peripheral = FlutterBlePeripheral();
+
   /// Starts BLE advertising so nearby clients can discover this device.
   ///
   /// [serverPort] is the port of the local HTTP sync server.
   /// [deviceId] is this device's UUID (only the first 8 bytes are broadcast).
   ///
-  /// Advertising is silently skipped on platforms that do not support it
-  /// (iOS restrictions, desktop).
-  ///
-  /// **Note:** `FlutterBluePlus.startAdvertising()` is an Android-only
-  /// experimental feature in flutter_blue_plus 2.x.  The call is wrapped in
-  /// a broad try/catch so any API incompatibility degrades gracefully — the
-  /// scan-based discovery path is always available as a fallback.
+  /// Uses [flutter_ble_peripheral] for stable peripheral mode on Android 5+
+  /// and iOS (with Apple's foreground restrictions).  Falls back gracefully
+  /// on platforms that report advertising as unsupported.
   Future<void> startAdvertising({
     required int serverPort,
     required String deviceId,
   }) async {
     if (!_isMobile) {
       _setStatus('BLE advertising is only supported on mobile devices.');
+      return;
+    }
+
+    try {
+      final isSupported = await _peripheral.isSupported;
+      if (!isSupported) {
+        _setStatus('BLE peripheral mode not supported on this device.');
+        return;
+      }
+    } catch (e) {
+      debugPrint('[BluetoothSyncService] isSupported check failed: $e');
+      _setStatus('BLE advertising unavailable on this device.');
       return;
     }
 
@@ -141,31 +154,35 @@ class BluetoothSyncService extends ChangeNotifier {
     );
 
     try {
-      // flutter_blue_plus 2.x advertising is Android-only.  The exact API
-      // varies across minor versions; we call it reflectively via dynamic to
-      // avoid compile-time binding to a class that may not exist on some
-      // versions.  Any exception (PlatformException, NoSuchMethodError, etc.)
-      // is caught below and the service falls back gracefully.
-      await (FlutterBluePlus as dynamic).startAdvertising(
-        localName: 'Vetviona',
-        advertiseData: {
-          'manufacturerData': {_kCompanyId: payload},
-        },
+      await _peripheral.start(
+        advertiseData: AdvertiseData(
+          manufacturerId: _kCompanyId,
+          manufacturerData: payload,
+        ),
+        advertiseSettings: AdvertiseSettings(
+          advertiseMode: AdvertiseMode.advertiseModeLowLatency,
+          connectable: false,
+          timeout: 0, // advertise indefinitely until stopAdvertising()
+          txPowerLevel: AdvertiseTxPower.advertiseTxPowerMedium,
+        ),
       );
       _isAdvertising = true;
       _setStatus('Advertising on BLE (host $host:$serverPort)');
     } catch (e) {
-      // Advertising may not be available on this platform or OS version.
-      debugPrint('[BluetoothSyncService] BLE advertising unavailable: $e');
-      _setStatus('BLE advertising unavailable on this device.');
+      debugPrint('[BluetoothSyncService] BLE advertising failed: $e');
+      _setStatus('BLE advertising failed: $e');
     }
   }
 
   /// Stops BLE advertising.
   Future<void> stopAdvertising() async {
-    try {
-      await (FlutterBluePlus as dynamic).stopAdvertising();
-    } catch (_) {}
+    if (_isAdvertising) {
+      try {
+        await _peripheral.stop();
+      } catch (e) {
+        debugPrint('[BluetoothSyncService] stopAdvertising error: $e');
+      }
+    }
     _isAdvertising = false;
     notifyListeners();
   }

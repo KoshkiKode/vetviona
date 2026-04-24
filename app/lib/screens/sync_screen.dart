@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../config/build_metadata.dart';
 import '../models/device.dart';
 import '../providers/tree_provider.dart';
 import '../services/bluetooth_sync_service.dart';
+import '../services/nfc_sync_service.dart';
 import '../services/purchase_service.dart';
 import '../services/share_sync_service.dart';
 import '../services/sync_service.dart';
@@ -30,6 +32,13 @@ bool get _bluetoothSupported =>
 
 /// Whether camera-based QR scanning is supported on the current platform.
 bool get _qrScanSupported =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
+
+/// Whether NFC is potentially supported on the current platform.
+/// The final check uses [NfcSyncService.isAvailable] at runtime.
+bool get _nfcPlatformSupported =>
     !kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS);
@@ -246,6 +255,18 @@ class _SyncScreenState extends State<SyncScreen> {
               hostController: _hostController,
               portController: _portController,
               secretController: _secretController,
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // ── NFC tap-to-pair (mobile only, hardware availability checked) ──
+          if (_nfcPlatformSupported) ...[
+            _NfcTapCard(
+              hostController: _hostController,
+              portController: _portController,
+              secretController: _secretController,
+              syncService: sync,
+              tree: tree,
             ),
             const SizedBox(height: 12),
           ],
@@ -949,6 +970,254 @@ class _QrScannerCardState extends State<_QrScannerCard> {
             },
           ),
         ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NFC tap-to-pair card (mobile only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// NFC tap-to-pair card.
+///
+/// Lets the user either:
+/// - **Share**: Write their sync URL to a blank NFC tag (Android only; iOS
+///   Core NFC does not support writing external tags).
+/// - **Receive**: Read a Vetviona sync URL from an NFC tag or a peer Android
+///   device running in write mode. Works on both Android and iOS.
+///
+/// After a successful read the Manual Connect host/port/secret fields are
+/// pre-filled so the user just needs to tap "Sync Now".
+class _NfcTapCard extends StatelessWidget {
+  final TextEditingController hostController;
+  final TextEditingController portController;
+  final TextEditingController secretController;
+  final SyncService syncService;
+  final TreeProvider tree;
+
+  const _NfcTapCard({
+    required this.hostController,
+    required this.portController,
+    required this.secretController,
+    required this.syncService,
+    required this.tree,
+  });
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
+
+  Future<void> _share(BuildContext context) async {
+    final nfc = context.read<NfcSyncService>();
+
+    if (!syncService.isServerRunning) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Start the server first ("Go Online"), then share via NFC.'),
+        ),
+      );
+      return;
+    }
+
+    // Build the sync URL the same way the QR code does.
+    final device = Device.create(tier: tree.currentAppTierString);
+    await tree.addDevice(device);
+    final host = await _getLocalIp() ?? '0.0.0.0';
+    final port = syncService.serverPort;
+    final url = 'vetviona://$host:$port?secret=${device.sharedSecret}';
+
+    if (!context.mounted) return;
+    await nfc.startWriting(url);
+  }
+
+  Future<void> _receive(BuildContext context) async {
+    final nfc = context.read<NfcSyncService>();
+    await nfc.startReading(
+      onUrlRead: (url) {
+        final parsed = _parseVetvionaUrl(url);
+        if (parsed == null) return;
+        hostController.text = parsed['host']!;
+        portController.text = parsed['port']!;
+        secretController.text = parsed['secret']!;
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'NFC pairing info received! Tap Sync Now in Manual Connect.'),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _cancel(BuildContext context) async {
+    final nfc = context.read<NfcSyncService>();
+    await nfc.stopSession();
+  }
+
+  /// Parses a `vetviona://host:port?secret=xxx` URL.
+  static Map<String, String>? _parseVetvionaUrl(String raw) {
+    try {
+      final uri = Uri.parse(raw);
+      if (uri.scheme != 'vetviona') return null;
+      final secret = uri.queryParameters['secret'];
+      if (uri.host.isEmpty || secret == null || secret.isEmpty) return null;
+      if (uri.port <= 0 || uri.port > 65535) return null;
+      return {'host': uri.host, 'port': uri.port.toString(), 'secret': secret};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<String?> _getLocalIp() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+      for (final iface in interfaces) {
+        final name = iface.name.toLowerCase();
+        if (name.startsWith('lo') || name.startsWith('vmnet')) continue;
+        for (final addr in iface.addresses) {
+          if (!addr.isLoopback) return addr.address;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final nfc = context.watch<NfcSyncService>();
+    final cs = Theme.of(context).colorScheme;
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final active = nfc.status == NfcSyncStatus.readyToTap ||
+        nfc.status == NfcSyncStatus.processing;
+
+    if (nfc.status == NfcSyncStatus.unavailable) {
+      // NFC hardware not present or disabled — show a collapsed info tile.
+      return _SyncCard(
+        icon: Icons.nfc_outlined,
+        title: 'NFC Tap-to-Pair',
+        children: [
+          Text(
+            nfc.statusMessage ??
+                'NFC is not available on this device.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      );
+    }
+
+    return _SyncCard(
+      icon: Icons.nfc,
+      title: 'NFC Tap-to-Pair',
+      children: [
+        Text(
+          isAndroid
+              ? 'Tap your phone to a blank NFC tag to write pairing info '
+                  '(Share), or tap to another Vetviona device to receive.'
+              : 'Tap your iPhone near an NFC tag written by another '
+                  'Vetviona device to receive pairing info.',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        if (nfc.statusMessage != null && nfc.status != NfcSyncStatus.idle) ...[
+          const SizedBox(height: 8),
+          _NfcStatusRow(nfc: nfc),
+        ],
+        const SizedBox(height: 12),
+        if (active)
+          OutlinedButton.icon(
+            icon: const Icon(Icons.cancel_outlined),
+            label: const Text('Cancel'),
+            onPressed: () => _cancel(context),
+          )
+        else
+          Row(
+            children: [
+              if (isAndroid) ...[
+                Expanded(
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.nfc),
+                    label: const Text('Share via NFC'),
+                    onPressed: nfc.isAvailable
+                        ? () => _share(context)
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.download_outlined),
+                  label: const Text('Receive via NFC'),
+                  onPressed: nfc.isAvailable
+                      ? () => _receive(context)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+// ── NFC status row (icon + message) ──────────────────────────────────────────
+
+class _NfcStatusRow extends StatelessWidget {
+  final NfcSyncService nfc;
+  const _NfcStatusRow({required this.nfc});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isActive = nfc.status == NfcSyncStatus.readyToTap ||
+        nfc.status == NfcSyncStatus.processing;
+
+    final color = switch (nfc.status) {
+      NfcSyncStatus.success => cs.tertiary,
+      NfcSyncStatus.error || NfcSyncStatus.unavailable => cs.error,
+      _ => cs.primary,
+    };
+
+    return Row(
+      children: [
+        if (isActive)
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator.adaptive(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          )
+        else
+          Icon(
+            nfc.status == NfcSyncStatus.success
+                ? Icons.check_circle_outline
+                : nfc.status == NfcSyncStatus.error
+                    ? Icons.error_outline
+                    : Icons.nfc,
+            size: 16,
+            color: color,
+          ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            nfc.statusMessage ?? '',
+            style: TextStyle(color: color, fontSize: 12),
+          ),
+        ),
       ],
     );
   }
