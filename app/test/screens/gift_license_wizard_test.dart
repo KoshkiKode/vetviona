@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vetviona_app/screens/gift_license_wizard.dart';
@@ -27,6 +28,7 @@ Future<LicenseBackendService> _verifiedService({
   required FutureOr<http.Response> Function(http.Request) handler,
 }) async {
   SharedPreferences.setMockInitialValues({});
+  FlutterSecureStorage.setMockInitialValues({});
   final svc = LicenseBackendService(
     client: MockClient((req) async {
       if (req.url.path == '/v1/license/verify') {
@@ -70,7 +72,10 @@ Widget _buildApp(Widget child, LicenseBackendService svc) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+  });
 
   // ── Step 0: Pick License ──────────────────────────────────────────────────
 

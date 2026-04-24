@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vetviona_app/screens/account_management_screen.dart';
@@ -35,6 +36,7 @@ Future<LicenseBackendService> _signedInNoPasswordService() async {
     'license_backend_desktop_entitled': true,
     'license_backend_email_verified': true,
   });
+  FlutterSecureStorage.setMockInitialValues({});
   final svc = LicenseBackendService(
     client: MockClient((_) async => http.Response('{}', 200)),
     baseUrl: 'http://license.example',
@@ -63,6 +65,7 @@ Future<LicenseBackendService> _fullyAuthedService({
   http.Response Function(http.Request)? overrideHandler,
 }) async {
   SharedPreferences.setMockInitialValues({});
+  FlutterSecureStorage.setMockInitialValues({});
 
   http.Response syncResponse(http.Request _) {
     return http.Response(
@@ -119,7 +122,10 @@ Widget _buildApp(LicenseBackendService svc) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+  });
 
   // ── Signed-out view ───────────────────────────────────────────────────────
 
@@ -144,28 +150,34 @@ void main() {
   });
 
   // ── Re-auth view ──────────────────────────────────────────────────────────
+  //
+  // After Phase 2, canManageAccount == isSignedIn, so a service initialised from
+  // SharedPreferences alone (without a fresh verifyLicense call) goes straight to
+  // the full management view.  The tests below confirm that behaviour.
 
   group('AccountManagementScreen — re-auth (email stored, no password)', () {
-    testWidgets('shows re-enter password card', (tester) async {
+    testWidgets('shows full account view when email is stored', (tester) async {
       final svc = await _signedInNoPasswordService();
 
       await tester.pumpWidget(_buildApp(svc));
       await tester.pump();
 
-      expect(find.text('Re-enter your password'), findsOneWidget);
-      expect(find.text('alice@example.com'), findsOneWidget);
+      // Full management view is shown — NOT the sign-in prompt or re-auth card.
+      expect(find.text('alice@example.com'), findsAtLeastNWidgets(1));
+      expect(
+        find.text('Sign in to manage your Vetviona license account.'),
+        findsNothing,
+      );
     });
 
-    testWidgets('re-auth form validates empty password', (tester) async {
+    testWidgets('does not show verify-license prompt when email is stored',
+        (tester) async {
       final svc = await _signedInNoPasswordService();
 
       await tester.pumpWidget(_buildApp(svc));
       await tester.pump();
 
-      await tester.tap(find.text('Sign in'));
-      await tester.pump();
-
-      expect(find.text('Password is required.'), findsOneWidget);
+      expect(find.text('Verify License'), findsNothing);
     });
   });
 
