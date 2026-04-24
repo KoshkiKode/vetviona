@@ -210,6 +210,7 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
+          dart run flutter_launcher_icons -f icons_linux.yaml
 
       - name: Build Android (paid)
         if: ${{ matrix.id == 'android-paid' }}
@@ -383,8 +384,18 @@ jobs:
           sudo apt-get install -y dpkg-dev
           VERSION=$(grep '^version:' app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           PKGDIR="vetviona_${VERSION}_amd64"
-          mkdir -p "$PKGDIR/usr/bin" "$PKGDIR/usr/share/applications" "$PKGDIR/DEBIAN"
-          cp -r app/build/linux/x64/release/bundle/* "$PKGDIR/usr/bin/"
+          mkdir -p "$PKGDIR/usr/lib/vetviona" \
+                   "$PKGDIR/usr/bin" \
+                   "$PKGDIR/usr/share/applications" \
+                   "$PKGDIR/usr/share/icons/hicolor/256x256/apps" \
+                   "$PKGDIR/DEBIAN"
+          cp -r app/build/linux/x64/release/bundle/* "$PKGDIR/usr/lib/vetviona/"
+          cp app/assets/icon/app_icon.png "$PKGDIR/usr/share/icons/hicolor/256x256/apps/vetviona.png"
+          cat > "$PKGDIR/usr/bin/vetviona" <<'WRAPPER'
+          #!/bin/sh
+          cd /usr/lib/vetviona && exec ./vetviona_app "$@"
+          WRAPPER
+          chmod +x "$PKGDIR/usr/bin/vetviona"
           cat > "$PKGDIR/DEBIAN/control" <<EOF
           Package: vetviona
           Version: $VERSION
@@ -395,7 +406,7 @@ jobs:
           cat > "$PKGDIR/usr/share/applications/vetviona.desktop" <<EOF
           [Desktop Entry]
           Name=Vetviona
-          Exec=/usr/bin/vetviona_app
+          Exec=/usr/bin/vetviona
           Icon=vetviona
           Terminal=false
           Type=Application
