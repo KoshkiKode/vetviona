@@ -1223,6 +1223,8 @@ class TreeProvider extends ChangeNotifier {
     await importSourcesBatch(sourcesToImport);
 
     if (hitLimit) {
+      // persons.length is the up-to-date count because importPersonsBatch
+      // already called persons.addAll(personsToImport) before returning.
       throw StateError(
         'Import stopped: free tier limit of $freeMobilePersonLimit people '
         'reached after importing ${persons.length} people. '

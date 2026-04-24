@@ -349,7 +349,8 @@ jobs:
           cp app/assets/icon/app_icon.png "$PKGDIR/usr/share/icons/hicolor/256x256/apps/vetviona.png"
           cat > "$PKGDIR/usr/bin/vetviona" <<'WRAPPER'
           #!/bin/sh
-          cd /usr/lib/vetviona && exec ./vetviona_app "$@"
+          cd /usr/lib/vetviona || exit 1
+          exec ./vetviona_app "$@"
           WRAPPER
           chmod +x "$PKGDIR/usr/bin/vetviona"
           cat > "$PKGDIR/DEBIAN/control" <<EOF
