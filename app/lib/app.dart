@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,9 +9,11 @@ import 'providers/locale_provider.dart';
 import 'providers/tree_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/eula_screen.dart';
+import 'screens/gedcom_import_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/license_verification_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'config/app_config.dart';
 import 'config/build_metadata.dart';
@@ -19,7 +22,14 @@ import 'services/license_backend_service.dart';
 import 'services/nfc_sync_service.dart';
 import 'services/purchase_service.dart';
 import 'services/sync_service.dart';
+import 'utils/page_routes.dart';
 import 'utils/platform_utils.dart';
+
+/// Global navigator key used by the macOS native menu bar callbacks, which
+/// run outside the normal widget tree and therefore need an alternative way
+/// to push routes or show dialogs.
+final GlobalKey<NavigatorState> rootNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'rootNavigator');
 
 class VetvionaApp extends StatelessWidget {
   const VetvionaApp({super.key});
@@ -102,6 +112,7 @@ class VetvionaApp extends StatelessWidget {
         builder: (context, themeProvider, localeProvider, child) {
           final app = MaterialApp(
             title: BuildMetadata.appName,
+            navigatorKey: rootNavigatorKey,
             theme: themeProvider.theme,
             debugShowCheckedModeBanner: false,
             locale: localeProvider.locale,
@@ -121,7 +132,17 @@ class VetvionaApp extends StatelessWidget {
                 menus: [
                   PlatformMenuItem(
                     label: 'About ${BuildMetadata.appName}',
-                    onSelected: () {},
+                    onSelected: () {
+                      final nav = rootNavigatorKey.currentState;
+                      if (nav == null) return;
+                      showAboutDialog(
+                        context: nav.context,
+                        applicationName: BuildMetadata.appName,
+                        applicationVersion: BuildMetadata.appVersion,
+                        applicationLegalese:
+                            '© ${DateTime.now().year} ${BuildMetadata.companyName}',
+                      );
+                    },
                   ),
                   const PlatformMenuItemGroup(
                     members: [
@@ -147,14 +168,45 @@ class VetvionaApp extends StatelessWidget {
                       // navigator avoids tight coupling to HomeScreen state.
                     },
                   ),
-                  PlatformMenuItem(label: 'Import GEDCOM…', onSelected: () {}),
+                  PlatformMenuItem(
+                    label: 'Import GEDCOM…',
+                    onSelected: () async {
+                      FilePickerResult? result;
+                      try {
+                        result = await FilePicker.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['ged', 'gedcom'],
+                        );
+                      } catch (_) {
+                        // Permission denied or platform error — silently ignore.
+                        return;
+                      }
+                      final nav = rootNavigatorKey.currentState;
+                      if (result != null &&
+                          result.files.single.path != null &&
+                          nav != null) {
+                        nav.push(fadeSlideRoute(
+                          builder: (_) => GedcomImportScreen(
+                            filePath: result!.files.single.path!,
+                            mergeMode: false,
+                          ),
+                        ));
+                      }
+                    },
+                  ),
                   PlatformMenuItem(
                     label: 'Settings…',
                     shortcut: const SingleActivator(
                       LogicalKeyboardKey.comma,
                       meta: true,
                     ),
-                    onSelected: () {},
+                    onSelected: () {
+                      final nav = rootNavigatorKey.currentState;
+                      if (nav == null) return;
+                      nav.push(fadeSlideRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ));
+                    },
                   ),
                 ],
               ),
