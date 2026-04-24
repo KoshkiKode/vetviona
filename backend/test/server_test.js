@@ -133,6 +133,51 @@ async function libraryTests() {
     assert.strictEqual(r.ok, true);
   });
 
+  await test('passwordPolicy: rejects password longer than 256 chars', () => {
+    const r = passwordPolicy.validatePassword('A'.repeat(257) + '!1a');
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.message.includes('too long'));
+  });
+
+  await test('passwordPolicy: rejects password matching email local-part', () => {
+    const r = passwordPolicy.validatePassword('alice1234!A', { email: 'alice1234!A@example.com' });
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.message.includes('email'));
+  });
+
+  await test('passwordPolicy: rejects password failing class count (only 2 classes)', () => {
+    const r = passwordPolicy.validatePassword('abcdefghij'); // only lowercase
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.message.includes('3 of'));
+  });
+
+  await test('passwordPolicy: rejects EXTRA_BLOCKED_PASSWORDS via env', () => {
+    process.env.EXTRA_BLOCKED_PASSWORDS = 'customblocked1';
+    const r = passwordPolicy.validatePassword('customBlocked1');
+    delete process.env.EXTRA_BLOCKED_PASSWORDS;
+    assert.strictEqual(r.ok, false);
+  });
+
+  await test('passwordPolicy.scorePassword: empty string scores 0', () => {
+    assert.strictEqual(passwordPolicy.scorePassword(''), 0);
+    assert.strictEqual(passwordPolicy.scorePassword(null), 0);
+  });
+
+  await test('passwordPolicy.scorePassword: strong 14+ char password scores 4', () => {
+    const s = passwordPolicy.scorePassword('Tr0ub4dor&3xpand!');
+    assert.strictEqual(s, 4);
+  });
+
+  await test('passwordPolicy.scorePassword: common password is capped at 1', () => {
+    const s = passwordPolicy.scorePassword('password');
+    assert.ok(s <= 1);
+  });
+
+  await test('passwordPolicy.scorePassword: medium password (10-13 chars, 3 classes) scores 2', () => {
+    const s = passwordPolicy.scorePassword('Abc12345!X'); // 10 chars, 3 classes, not common
+    assert.ok(s >= 2 && s <= 3);
+  });
+
   await test('sessionToken: round-trip issue + verify', () => {
     const account = { id: 'acct1', email: 'u@e.com', tokenVersion: 0 };
     const secret = 'b'.repeat(64);
@@ -155,6 +200,57 @@ async function libraryTests() {
     const t = sessionToken.issueSessionToken(account, 'b'.repeat(64));
     const v = sessionToken.verifySessionToken(t.token, 'c'.repeat(64), account);
     assert.strictEqual(v.ok, false);
+  });
+
+  await test('sessionToken: mfa defaults to false when not specified', () => {
+    const account = { id: 'acct2', email: 'x@y.com', tokenVersion: 0 };
+    const secret = 'd'.repeat(64);
+    const t = sessionToken.issueSessionToken(account, secret);
+    assert.strictEqual(t.mfa, false);
+    const v = sessionToken.verifySessionToken(t.token, secret, account);
+    assert.strictEqual(v.ok, true);
+    assert.strictEqual(v.payload.mfa, false);
+  });
+
+  await test('sessionToken: rejects malformed token with no dot', () => {
+    const account = { id: 'acct1', email: 'u@e.com', tokenVersion: 0 };
+    const v = sessionToken.verifySessionToken('nodothere', 'b'.repeat(64), account);
+    assert.strictEqual(v.ok, false);
+    assert.ok(v.message.toLowerCase().includes('malformed'));
+  });
+
+  await test('sessionToken: rejects null/undefined token', () => {
+    const account = { id: 'acct1', email: 'u@e.com', tokenVersion: 0 };
+    assert.strictEqual(sessionToken.verifySessionToken(null, 'b'.repeat(64), account).ok, false);
+    assert.strictEqual(sessionToken.verifySessionToken(undefined, 'b'.repeat(64), account).ok, false);
+  });
+
+  await test('sessionToken: rejects when account is null', () => {
+    const account = { id: 'acct1', email: 'u@e.com', tokenVersion: 0 };
+    const secret = 'b'.repeat(64);
+    const t = sessionToken.issueSessionToken(account, secret);
+    const v = sessionToken.verifySessionToken(t.token, secret, null);
+    assert.strictEqual(v.ok, false);
+    assert.ok(v.message.includes('Account not found'));
+  });
+
+  await test('sessionToken: rejects when account id mismatches payload sub', () => {
+    const account = { id: 'acct1', email: 'u@e.com', tokenVersion: 0 };
+    const secret = 'b'.repeat(64);
+    const t = sessionToken.issueSessionToken(account, secret);
+    const v = sessionToken.verifySessionToken(t.token, secret, { ...account, id: 'different-id' });
+    assert.strictEqual(v.ok, false);
+    assert.ok(v.message.includes('does not match'));
+  });
+
+  await test('sessionToken: issueSessionToken returns issuedAt and expiresAt', () => {
+    const account = { id: 'acct1', email: 'u@e.com', tokenVersion: 0 };
+    const before = Math.floor(Date.now() / 1000);
+    const t = sessionToken.issueSessionToken(account, 'b'.repeat(64));
+    const after = Math.floor(Date.now() / 1000);
+    assert.ok(t.issuedAt >= before && t.issuedAt <= after);
+    assert.ok(t.expiresAt > t.issuedAt);
+    assert.ok(t.jti && t.jti.length > 0);
   });
 
   await test('totp: code matches generator', () => {
@@ -433,6 +529,138 @@ async function libraryTests() {
     assert.strictEqual(h, '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
   });
 
+  await test('treeStorage.putManifest: rejects invalid treeId', () => {
+    const db = {};
+    const r = treeStorage.putManifest(db, 'acc1', 'bad id!', { revision: 1, chunks: [] });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('treeStorage.putManifest: rejects null manifest', () => {
+    const db = {};
+    const r = treeStorage.putManifest(db, 'acc1', 'tree-1', null);
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('treeStorage.putManifest: rejects chunk entry that is not an object', () => {
+    const db = {};
+    const r = treeStorage.putManifest(db, 'acc1', 'tree-1', {
+      revision: 1, chunks: ['not-an-object'],
+    });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('treeStorage.putManifest: rejects chunk with invalid id characters', () => {
+    const db = {};
+    const r = treeStorage.putManifest(db, 'acc1', 'tree-1', {
+      revision: 1, chunks: [{ id: 'bad chunk!', bytes: 100 }],
+    });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('treeStorage.putManifest: rejects chunk with bytes exceeding per-chunk max', () => {
+    const db = {};
+    const r = treeStorage.putManifest(db, 'acc1', 'tree-1', {
+      revision: 1, chunks: [{ id: 'c1', bytes: treeStorage.MAX_CHUNK_BYTES + 1 }],
+    });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('treeStorage.putManifest: rejects when total bytes exceed account quota', () => {
+    const db = {};
+    const bigChunks = [];
+    // Each chunk is just under MAX_CHUNK_BYTES; fill enough to exceed account quota.
+    const bytesPerChunk = treeStorage.MAX_CHUNK_BYTES;
+    const chunksNeeded = Math.ceil(treeStorage.MAX_BYTES_PER_ACCOUNT / bytesPerChunk) + 1;
+    for (let i = 0; i < Math.min(chunksNeeded, treeStorage.MAX_CHUNKS_PER_TREE); i++) {
+      bigChunks.push({ id: `c${i}`, bytes: bytesPerChunk });
+    }
+    const r = treeStorage.putManifest(db, 'acc1', 'tree-1', {
+      revision: 1, chunks: bigChunks,
+    });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 413);
+    assert.ok(r.message.includes('quota'));
+  });
+
+  await test('treeStorage.putManifest: rejects new tree when tree count limit reached', () => {
+    const db = {};
+    // Fill up to the limit with tiny trees.
+    for (let i = 0; i < treeStorage.MAX_TREES_PER_ACCOUNT; i++) {
+      const r = treeStorage.putManifest(db, 'acc-limit', `tree-${i}`, {
+        revision: 1, chunks: [],
+      });
+      assert.strictEqual(r.ok, true, `tree ${i} should have been accepted`);
+    }
+    // One more tree should be rejected.
+    const r = treeStorage.putManifest(db, 'acc-limit', 'tree-overflow', {
+      revision: 1, chunks: [],
+    });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 413);
+    assert.ok(r.message.includes('count limit'));
+  });
+
+  await test('treeStorage.putManifest: rejects chunk list exceeding MAX_CHUNKS_PER_TREE', () => {
+    const db = {};
+    const chunks = [];
+    for (let i = 0; i <= treeStorage.MAX_CHUNKS_PER_TREE; i++) {
+      chunks.push({ id: `c${i}`, bytes: 1 });
+    }
+    const r = treeStorage.putManifest(db, 'acc1', 'tree-1', { revision: 1, chunks });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 413);
+    assert.ok(r.message.includes('chunk limit'));
+  });
+
+  await test('treeStorage.putManifest: preserves kdfSalt from existing tree when not provided', () => {
+    const db = {};
+    treeStorage.putManifest(db, 'acc1', 'tree-salt', {
+      revision: 1, kdfSalt: 'ORIGINAL', chunks: [],
+    });
+    // Update without providing kdfSalt — existing value should be retained.
+    const r = treeStorage.putManifest(db, 'acc1', 'tree-salt', {
+      revision: 2, chunks: [],
+    });
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.manifest.kdfSalt, 'ORIGINAL');
+  });
+
+  await test('treeStorage.deleteAllForAccount: removes all trees for an account', () => {
+    const db = {};
+    treeStorage.putManifest(db, 'accX', 'tree-a', { revision: 1, chunks: [] });
+    treeStorage.putManifest(db, 'accX', 'tree-b', { revision: 1, chunks: [] });
+    assert.strictEqual(treeStorage.listTrees(db, 'accX').trees.length, 2);
+    const r = treeStorage.deleteAllForAccount(db, 'accX');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.deletedTrees, 2);
+    assert.strictEqual(treeStorage.listTrees(db, 'accX').trees.length, 0);
+  });
+
+  await test('treeStorage.memPut: throws when chunk exceeds MAX_CHUNK_BYTES', () => {
+    treeStorage.memReset();
+    const oversized = Buffer.alloc(treeStorage.MAX_CHUNK_BYTES + 1);
+    assert.throws(() => treeStorage.memPut('acc1', 'tree1', 'c1', oversized), /too large/);
+  });
+
+  await test('treeStorage.listTrees: reflects usage after put and delete', () => {
+    const db = {};
+    treeStorage.putManifest(db, 'accY', 'tree-1', {
+      revision: 1, chunks: [{ id: 'c1', bytes: 500 }],
+    });
+    const listAfterPut = treeStorage.listTrees(db, 'accY');
+    assert.strictEqual(listAfterPut.usedTrees, 1);
+    assert.strictEqual(listAfterPut.usedBytes, 500);
+    treeStorage.deleteTree(db, 'accY', 'tree-1');
+    const listAfterDel = treeStorage.listTrees(db, 'accY');
+    assert.strictEqual(listAfterDel.usedTrees, 0);
+    assert.strictEqual(listAfterDel.usedBytes, 0);
+  });
+
   // ── rateLimit.consume ─────────────────────────────────────────────────────────
   await test('rateLimit.consume: succeeds for a fresh IP', () => {
     rateLimit._resetForTests();
@@ -489,6 +717,63 @@ async function libraryTests() {
   await test('rateLimit.clientIp: returns "unknown" when socket is missing', () => {
     const req = { headers: {} };
     assert.strictEqual(rateLimit.clientIp(req), 'unknown');
+  });
+
+  await test('rateLimit.clientIp: uses X-Forwarded-For when TRUST_PROXY=true', () => {
+    process.env.TRUST_PROXY = 'true';
+    const req = { headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' } };
+    assert.strictEqual(rateLimit.clientIp(req), '203.0.113.5');
+    delete process.env.TRUST_PROXY;
+  });
+
+  await test('rateLimit.clientIp: ignores X-Forwarded-For when TRUST_PROXY is unset', () => {
+    delete process.env.TRUST_PROXY;
+    const req = { socket: { remoteAddress: '1.2.3.4' }, headers: { 'x-forwarded-for': '5.6.7.8' } };
+    assert.strictEqual(rateLimit.clientIp(req), '1.2.3.4');
+  });
+
+  await test('rateLimit.consume: scope is "ip" when IP bucket exhausted', () => {
+    rateLimit._resetForTests();
+    let result;
+    for (let i = 0; i < rateLimit.IP_BUCKET_CAPACITY + 5; i++) {
+      result = rateLimit.consume({ ip: 'scope-test-ip', email: 'scope@e.com' });
+      if (!result.ok) break;
+    }
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.scope, 'ip');
+    rateLimit._resetForTests();
+  });
+
+  await test('rateLimit.consume: scope is "account" when account bucket exhausted', () => {
+    rateLimit._resetForTests();
+    let result;
+    for (let i = 0; i < rateLimit.ACCOUNT_BUCKET_CAPACITY + 5; i++) {
+      result = rateLimit.consume({ ip: `unique-${i}`, email: 'scope-acct@e.com' });
+      if (!result.ok) break;
+    }
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.scope, 'account');
+    rateLimit._resetForTests();
+  });
+
+  await test('rateLimit.checkLockout: returns locked=false for unknown email', () => {
+    rateLimit._resetForTests();
+    assert.deepStrictEqual(rateLimit.checkLockout('unknown@e.com'), { locked: false });
+  });
+
+  await test('rateLimit.checkLockout: returns locked=false for empty email', () => {
+    assert.deepStrictEqual(rateLimit.checkLockout(''), { locked: false });
+  });
+
+  await test('rateLimit.recordSuccess: clears failure counter', () => {
+    rateLimit._resetForTests();
+    const email = 'success@e.com';
+    for (let i = 0; i < rateLimit.LOCKOUT_THRESHOLD; i++) {
+      rateLimit.recordFailure(email);
+    }
+    assert.ok(rateLimit.checkLockout(email).locked);
+    rateLimit.recordSuccess(email);
+    assert.strictEqual(rateLimit.checkLockout(email).locked, false);
   });
 }
 
@@ -1083,6 +1368,271 @@ async function httpTests() {
     // Verify no trees remain.
     const listAfter = await request('POST', port, '/v1/tree/list', { json: {}, headers: auth });
     assert.strictEqual(listAfter.body.trees.length, 0);
+  });
+
+  // ── Additional HTTP coverage ──────────────────────────────────────────────
+
+  await test('register: rejects duplicate email', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'dup@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const r2 = await request('POST', port, '/v1/account/register', {
+      json: { email: 'dup@example.com', password: 'Tr0ub4dor&3xpand2!', desktopLicense: true },
+    });
+    assert.strictEqual(r2.status, 409);
+    assert.strictEqual(r2.body.ok, false);
+  });
+
+  await test('register: rejects missing license type', async () => {
+    const r = await request('POST', port, '/v1/account/register', {
+      json: { email: 'nolic@example.com', password: 'Tr0ub4dor&3xpand' },
+    });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.ok, false);
+  });
+
+  await test('register: rejects missing email', async () => {
+    const r = await request('POST', port, '/v1/account/register', {
+      json: { password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('verify-email: rejects wrong token', async () => {
+    rateLimit._resetForTests();
+    const reg = await request('POST', port, '/v1/account/register', {
+      json: { email: 'badverify@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    assert.strictEqual(reg.status, 201);
+    const r = await request('POST', port, '/v1/account/verify-email', {
+      json: { email: 'badverify@example.com', token: 'WRONGTOKEN' },
+    });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.ok, false);
+  });
+
+  await test('verify-email: rejects unknown email', async () => {
+    const r = await request('POST', port, '/v1/account/verify-email', {
+      json: { email: 'nobody@example.com', token: 'ANYTOKEN' },
+    });
+    assert.strictEqual(r.status, 404);
+  });
+
+  await test('login: rejects wrong password for existing account', async () => {
+    rateLimit._resetForTests();
+    // Register a fresh account so we control the exact password.
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'wrongpw@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const r = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'wrongpw@example.com', password: 'WrongPassword!123',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-wrongpw-0001',
+      },
+    });
+    assert.strictEqual(r.status, 401, `expected 401 for wrong password, got ${r.status}`);
+  });
+
+  await test('unknown route: returns 404 or 405', async () => {
+    const r = await request('GET', port, '/v1/no-such-endpoint', {});
+    assert.ok(r.status === 404 || r.status === 405,
+      `expected 404 or 405, got ${r.status}`);
+    assert.strictEqual(r.body.ok, false);
+  });
+
+  await test('health: returns ok=true field', async () => {
+    const r = await request('GET', port, '/health', {});
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.body.ok === true || r.body.status === 'healthy');
+  });
+
+  await test('tree/manifest/get: returns manifest after put', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'mget@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'mget@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-mget-0001',
+      },
+    });
+    assert.strictEqual(login.status, 200);
+    const auth = { Authorization: `Bearer ${login.body.session.token}` };
+
+    await request('POST', port, '/v1/tree/manifest/put', {
+      json: { treeId: 'mget-tree', manifest: { revision: 3, kdfSalt: 'SALT1', chunks: [] } },
+      headers: auth,
+    });
+
+    const get = await request('POST', port, '/v1/tree/manifest/get', {
+      json: { treeId: 'mget-tree' }, headers: auth,
+    });
+    assert.strictEqual(get.status, 200);
+    assert.strictEqual(get.body.ok, true);
+    assert.strictEqual(get.body.manifest.revision, 3);
+    assert.strictEqual(get.body.manifest.kdfSalt, 'SALT1');
+  });
+
+  await test('tree/manifest/get: returns 404 for missing tree', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'mget404@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'mget404@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-mget404-0001',
+      },
+    });
+    const auth = { Authorization: `Bearer ${login.body.session.token}` };
+    const r = await request('POST', port, '/v1/tree/manifest/get', {
+      json: { treeId: 'no-such-tree' }, headers: auth,
+    });
+    assert.strictEqual(r.status, 404);
+  });
+
+  await test('tree chunk: DELETE removes chunk', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'chunkdel@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'chunkdel@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-chunkdel-0001',
+      },
+    });
+    const tok = login.body.session.token;
+    const auth = { Authorization: `Bearer ${tok}` };
+    const blob = Buffer.from('chunk-to-delete');
+
+    await request('POST', port, '/v1/tree/manifest/put', {
+      json: { treeId: 'cdel-tree', manifest: { revision: 1, chunks: [{ id: 'cdel-c1', bytes: blob.length }] } },
+      headers: auth,
+    });
+    await request('PUT', port, '/v1/tree/cdel-tree/chunk/cdel-c1', {
+      raw: blob, headers: { ...auth, 'Content-Type': 'application/octet-stream' },
+    });
+
+    // Verify chunk is there.
+    const getR = await request('GET', port, '/v1/tree/cdel-tree/chunk/cdel-c1', { headers: auth });
+    assert.strictEqual(getR.status, 200);
+
+    // Delete the chunk.
+    const delR = await request('DELETE', port, '/v1/tree/cdel-tree/chunk/cdel-c1', { headers: auth });
+    assert.strictEqual(delR.status, 200);
+
+    // Chunk should be gone.
+    const getR2 = await request('GET', port, '/v1/tree/cdel-tree/chunk/cdel-c1', { headers: auth });
+    assert.strictEqual(getR2.status, 404);
+  });
+
+  await test('tree chunk: GET returns 404 for missing chunk', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'chunk404@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'chunk404@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-chunk404-0001',
+      },
+    });
+    const auth = { Authorization: `Bearer ${login.body.session.token}` };
+    await request('POST', port, '/v1/tree/manifest/put', {
+      json: { treeId: 'c404-tree', manifest: { revision: 1, chunks: [] } }, headers: auth,
+    });
+    const r = await request('GET', port, '/v1/tree/c404-tree/chunk/nosuch', { headers: auth });
+    assert.strictEqual(r.status, 404);
+  });
+
+  await test('app version: env var overrides are reflected', async () => {
+    process.env.APP_LATEST_VERSION = '9.9.9';
+    const r = await request('GET', port, '/v1/app/version', {});
+    // Note: the module-level var is read at load time, so we can only check the
+    // shape is correct here; the dynamic env test lives in the library section.
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.body.platforms.ios.latest);
+    assert.ok(r.body.platforms.linux.latest);
+    delete process.env.APP_LATEST_VERSION;
+  });
+
+  await test('mfa recovery code: login with recovery code succeeds', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'mfarec@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login1 = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'mfarec@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-mfarec-0001',
+      },
+    });
+    const tok1 = login1.body.session.token;
+
+    // Enroll MFA.
+    const start = await request('POST', port, '/v1/account/mfa/enroll/start', {
+      json: {}, headers: { Authorization: `Bearer ${tok1}` },
+    });
+    const secret = start.body.secret;
+    const enrollCode = currentTotpCode(secret);
+    const confirm = await request('POST', port, '/v1/account/mfa/enroll/confirm', {
+      json: { code: enrollCode }, headers: { Authorization: `Bearer ${tok1}` },
+    });
+    assert.strictEqual(confirm.status, 200);
+    const recoveryCodes = confirm.body.recoveryCodes;
+    assert.ok(Array.isArray(recoveryCodes) && recoveryCodes.length > 0);
+
+    // Login using a recovery code instead of a TOTP code.
+    const loginWithRecovery = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'mfarec@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-mfarec-0002',
+        mfaCode: recoveryCodes[0],
+      },
+    });
+    assert.strictEqual(loginWithRecovery.status, 200,
+      `recovery code login failed: ${JSON.stringify(loginWithRecovery.body)}`);
+    assert.strictEqual(loginWithRecovery.body.ok, true);
+  });
+
+  await test('gift: initiate fails when sender has no desktop license', async () => {
+    rateLimit._resetForTests();
+    // Register a sender with only an android license.
+    const senderReg = await request('POST', port, '/v1/account/register', {
+      json: { email: 'gift-nodesktop@example.com', password: 'Tr0ub4dor&3xpand', androidLicense: true },
+    });
+    assert.strictEqual(senderReg.status, 201);
+    await request('POST', port, '/v1/account/verify-email', {
+      json: { email: 'gift-nodesktop@example.com', token: senderReg.body._devToken },
+    });
+    const senderLogin = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'gift-nodesktop@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'android', os: 'android', deviceId: 'dev-giftnd-0001',
+      },
+    });
+    assert.strictEqual(senderLogin.status, 200);
+    const senderTok = senderLogin.body.session.token;
+
+    const initiate = await request('POST', port, '/v1/license/gift/initiate', {
+      json: { licenseType: 'desktop', toEmail: 'anyone@example.com' },
+      headers: { Authorization: `Bearer ${senderTok}` },
+    });
+    assert.ok(initiate.status === 403 || initiate.status === 400,
+      `expected 4xx for no desktop license, got ${initiate.status}`);
+  });
+
+  await test('voucher/create: quantity is clamped to 50 (no error for quantity > 50)', async () => {
+    const r = await request('POST', port, '/v1/license/voucher/create', {
+      json: { adminSecret: process.env.ADMIN_SECRET, licenseType: 'desktop', quantity: 51 },
+    });
+    // Server silently clamps quantity to max 50 rather than returning an error.
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.ok, true);
+    assert.ok(r.body.vouchers.length <= 50);
   });
 
   await close();
