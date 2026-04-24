@@ -363,7 +363,7 @@
     },
     {
       "name": "hooks",
-      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/hooks-1.0.2",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/hooks-1.0.3",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
@@ -716,6 +716,12 @@
       "languageVersion": "2.19"
     },
     {
+      "name": "record_use",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/record_use-0.6.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.10"
+    },
+    {
       "name": "rxdart",
       "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/rxdart-0.28.0",
       "packageUri": "lib/",
@@ -723,13 +729,13 @@
     },
     {
       "name": "share_plus",
-      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/share_plus-10.1.4",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/share_plus-12.0.2",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
       "name": "share_plus_platform_interface",
-      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/share_plus_platform_interface-5.0.2",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/share_plus_platform_interface-6.1.0",
       "packageUri": "lib/",
       "languageVersion": "2.18"
     },
@@ -807,9 +813,9 @@
     },
     {
       "name": "sqflite",
-      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/sqflite-2.4.2",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/sqflite-2.4.2+1",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "sqflite_android",
@@ -819,13 +825,13 @@
     },
     {
       "name": "sqflite_common",
-      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/sqflite_common-2.5.6",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/sqflite_common-2.5.6+1",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.10"
     },
     {
       "name": "sqflite_common_ffi",
-      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/sqflite_common_ffi-2.4.0+2",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/sqflite_common_ffi-2.4.0+3",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
@@ -867,9 +873,9 @@
     },
     {
       "name": "synchronized",
-      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/synchronized-3.4.0",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/synchronized-3.4.0+1",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.11"
     },
     {
       "name": "term_glyph",
