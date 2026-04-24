@@ -12,6 +12,7 @@ import 'screens/home_screen.dart';
 import 'screens/license_verification_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/splash_screen.dart';
+import 'config/app_config.dart';
 import 'config/build_metadata.dart';
 import 'services/bluetooth_sync_service.dart';
 import 'services/license_backend_service.dart';
@@ -208,11 +209,13 @@ class _StartupRouterState extends State<_StartupRouter> {
     }
     // Step 3: IAP purchasers are verified by their store receipt — skip the
     // backend license check.  Paid binary / desktop downloaders still go
-    // through it.
-    final purchaseService = context.read<PurchaseService>();
-    final licenseService = context.read<LicenseBackendService>();
-    if (!purchaseService.isPurchased && !licenseService.isCurrentTierVerified) {
-      return const LicenseVerificationScreen(key: ValueKey('license-verify'));
+    // through it.  In beta mode the check is skipped entirely.
+    if (!betaMode) {
+      final purchaseService = context.read<PurchaseService>();
+      final licenseService = context.read<LicenseBackendService>();
+      if (!purchaseService.isPurchased && !licenseService.isCurrentTierVerified) {
+        return const LicenseVerificationScreen(key: ValueKey('license-verify'));
+      }
     }
     return const HomeScreen(key: ValueKey('home'));
   }
