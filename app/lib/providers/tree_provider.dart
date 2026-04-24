@@ -193,7 +193,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -329,6 +329,25 @@ class TreeProvider extends ChangeNotifier {
           )
         ''');
         await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
+        // ── Indexes ──────────────────────────────────────────────────────────
+        await db.execute(
+            'CREATE INDEX idx_persons_treeId ON persons(treeId)');
+        await db.execute(
+            'CREATE INDEX idx_sources_personId ON sources(personId)');
+        await db.execute(
+            'CREATE INDEX idx_partnerships_treeId ON partnerships(treeId)');
+        await db.execute(
+            'CREATE INDEX idx_partnerships_p1 ON partnerships(person1Id)');
+        await db.execute(
+            'CREATE INDEX idx_partnerships_p2 ON partnerships(person2Id)');
+        await db.execute(
+            'CREATE INDEX idx_life_events_personId ON life_events(personId)');
+        await db.execute(
+            'CREATE INDEX idx_medical_personId ON medical_conditions(personId)');
+        await db.execute(
+            'CREATE INDEX idx_tasks_treeId ON research_tasks(treeId)');
+        await db.execute(
+            'CREATE INDEX idx_tasks_personId ON research_tasks(personId)');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -505,6 +524,27 @@ class TreeProvider extends ChangeNotifier {
           // Human-readable short ID, e.g. JD-007.
           await db.execute('ALTER TABLE persons ADD COLUMN shortId TEXT');
         }
+        if (oldVersion < 13) {
+          // Performance indexes on the columns used in every WHERE / JOIN.
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_persons_treeId ON persons(treeId)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_sources_personId ON sources(personId)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_partnerships_treeId ON partnerships(treeId)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_partnerships_p1 ON partnerships(person1Id)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_partnerships_p2 ON partnerships(person2Id)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_life_events_personId ON life_events(personId)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_medical_personId ON medical_conditions(personId)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_tasks_treeId ON research_tasks(treeId)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_tasks_personId ON research_tasks(personId)');
+        }
       },
     );
   }
@@ -663,15 +703,17 @@ class TreeProvider extends ChangeNotifier {
         where: 'personId = ?', whereArgs: [id]);
     researchTasks.removeWhere((t) => t.personId == id);
     // Remove this person's ID from other persons' parentIds / childIds
+    final crossRefBatch = db.batch();
     for (final p in persons) {
       final hadParent = p.parentIds.remove(id);
       final hadChild = p.childIds.remove(id);
       if (hadParent || hadChild) {
         p.parentRelTypes.remove(id);
-        await db.update('persons', p.toMap(),
+        crossRefBatch.update('persons', p.toMap(),
             where: 'id = ?', whereArgs: [p.id]);
       }
     }
+    await crossRefBatch.commit(noResult: true);
     persons.removeWhere((p) => p.id == id);
     notifyListeners();
   }
@@ -1123,43 +1165,69 @@ class TreeProvider extends ChangeNotifier {
   Future<void> importGEDCOM(String path) async {
     final parser = GEDCOMParser();
     final result = await parser.parse(path);
-    for (final person in result.persons) {
-      person.treeId = currentTreeId;
-      try {
-        await addPerson(person);
-      } on StateError {
-        // Free-tier person limit reached — stop importing and notify caller.
-        throw StateError(
-          'Import stopped: free tier limit of $freeMobilePersonLimit people '
-          'reached after importing ${persons.length} people. '
-          'Upgrade to add more.',
-        );
-      }
+
+    // ── Persons ──────────────────────────────────────────────────────────────
+    // Pre-check the free-tier person limit so we can use a single batch
+    // instead of per-record addPerson() calls (each of which calls
+    // notifyListeners and opens a DB transaction).
+    final limit = personLimit;
+    final availableSlots = limit == null ? null : limit - persons.length;
+    if (availableSlots != null && availableSlots <= 0) {
+      throw StateError(
+        'Import stopped: free tier limit of $freeMobilePersonLimit people '
+        'reached after importing ${persons.length} people. '
+        'Upgrade to add more.',
+      );
     }
-    for (final partnership in result.partnerships) {
-      partnership.treeId = currentTreeId;
-      await addPartnership(partnership);
+    List<Person> personsToImport = result.persons;
+    bool hitLimit = false;
+    if (availableSlots != null && result.persons.length > availableSlots) {
+      personsToImport = result.persons.sublist(0, availableSlots);
+      hitLimit = true;
     }
-    for (final event in result.lifeEvents) {
-      // Only add if the person was successfully imported.
-      if (persons.any((p) => p.id == event.personId)) {
-        final treeEvent = LifeEvent(
-          id: event.id,
-          personId: event.personId,
-          title: event.title,
-          date: event.date,
-          place: event.place,
-          notes: event.notes,
-          treeId: currentTreeId,
-        );
-        await addLifeEvent(treeEvent);
-      }
+    for (final p in personsToImport) {
+      p.treeId = currentTreeId;
     }
-    for (final source in result.sources) {
-      if (persons.any((p) => p.id == source.personId)) {
-        source.treeId = currentTreeId;
-        await addSource(source);
-      }
+    await importPersonsBatch(personsToImport);
+
+    // O(1) lookup of successfully imported person IDs.
+    final importedIds = <String>{for (final p in personsToImport) p.id};
+
+    // ── Partnerships ─────────────────────────────────────────────────────────
+    for (final pt in result.partnerships) {
+      pt.treeId = currentTreeId;
+    }
+    await importPartnershipsBatch(result.partnerships);
+
+    // ── Life Events ───────────────────────────────────────────────────────────
+    final eventsToImport = result.lifeEvents
+        .where((e) => importedIds.contains(e.personId))
+        .map((e) => LifeEvent(
+              id: e.id,
+              personId: e.personId,
+              title: e.title,
+              date: e.date,
+              place: e.place,
+              notes: e.notes,
+              treeId: currentTreeId,
+            ))
+        .toList();
+    await importLifeEventsBatch(eventsToImport);
+
+    // ── Sources ───────────────────────────────────────────────────────────────
+    final sourcesToImport =
+        result.sources.where((s) => importedIds.contains(s.personId)).toList();
+    for (final s in sourcesToImport) {
+      s.treeId = currentTreeId;
+    }
+    await importSourcesBatch(sourcesToImport);
+
+    if (hitLimit) {
+      throw StateError(
+        'Import stopped: free tier limit of $freeMobilePersonLimit people '
+        'reached after importing ${persons.length} people. '
+        'Upgrade to add more.',
+      );
     }
   }
 
@@ -1351,9 +1419,31 @@ class TreeProvider extends ChangeNotifier {
 
     int added = 0;
 
+    // Build O(1) lookup maps for existing records to avoid O(n) list scans
+    // inside the merge loops below.
+    final personById = <String, Person>{for (final p in persons) p.id: p};
+    final partnershipById = <String, Partnership>{
+      for (final pt in partnerships) pt.id: pt
+    };
+    final sourceById = <String, Source>{for (final s in sources) s.id: s};
+    final lifeEventById = <String, LifeEvent>{
+      for (final e in lifeEvents) e.id: e
+    };
+    final medCondById = <String, MedicalCondition>{
+      for (final mc in medicalConditions) mc.id: mc
+    };
+
+    // Collect accepted records for batch insertion at the end of each section.
+    final acceptedPersonMaps = <Map<String, dynamic>>[];
+    final acceptedPartnershipMaps = <Map<String, dynamic>>[];
+    final acceptedSourceMaps = <Map<String, dynamic>>[];
+    final acceptedLifeEventMaps = <Map<String, dynamic>>[];
+    final acceptedMedCondMaps = <Map<String, dynamic>>[];
+    final acceptedTaskMaps = <Map<String, dynamic>>[];
+
     // ── Persons ──────────────────────────────────────────────────────────────
     for (final person in inPersons) {
-      final existing = persons.where((p) => p.id == person.id).firstOrNull;
+      final existing = personById[person.id];
       final isNew = existing == null;
       if (isNew) {
         // Guard against exceeding the free-tier person cap.  We use
@@ -1400,15 +1490,21 @@ class TreeProvider extends ChangeNotifier {
             .map((a) => InputSanitizer.sanitizeRequired(a))
             .toList()
         ..treeId = currentTreeId;
-      await db.insert('persons', person.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      acceptedPersonMaps.add(person.toMap());
       if (isNew) added++;
+    }
+    if (acceptedPersonMaps.isNotEmpty) {
+      final batch = db.batch();
+      for (final m in acceptedPersonMaps) {
+        batch.insert('persons', m,
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
 
     // ── Partnerships ──────────────────────────────────────────────────────────
     for (final partnership in inPartnerships) {
-      final existing =
-          partnerships.where((p) => p.id == partnership.id).firstOrNull;
+      final existing = partnershipById[partnership.id];
       if (existing != null) {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = partnership.updatedAt ?? 0;
@@ -1417,13 +1513,20 @@ class TreeProvider extends ChangeNotifier {
       partnership
         ..notes = InputSanitizer.mediumField(partnership.notes)
         ..treeId = currentTreeId;
-      await db.insert('partnerships', partnership.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      acceptedPartnershipMaps.add(partnership.toMap());
+    }
+    if (acceptedPartnershipMaps.isNotEmpty) {
+      final batch = db.batch();
+      for (final m in acceptedPartnershipMaps) {
+        batch.insert('partnerships', m,
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
 
     // ── Sources ───────────────────────────────────────────────────────────────
     for (final source in inSources) {
-      final existing = sources.where((s) => s.id == source.id).firstOrNull;
+      final existing = sourceById[source.id];
       if (existing != null) {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = source.updatedAt ?? 0;
@@ -1438,14 +1541,20 @@ class TreeProvider extends ChangeNotifier {
         ..repository = InputSanitizer.shortField(source.repository)
         ..volumePage = InputSanitizer.shortField(source.volumePage)
         ..treeId ??= currentTreeId;
-      await db.insert('sources', source.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      acceptedSourceMaps.add(source.toMap());
+    }
+    if (acceptedSourceMaps.isNotEmpty) {
+      final batch = db.batch();
+      for (final m in acceptedSourceMaps) {
+        batch.insert('sources', m,
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
 
     // ── Life Events ───────────────────────────────────────────────────────────
     for (final event in inLifeEvents) {
-      final existing =
-          lifeEvents.where((e) => e.id == event.id).firstOrNull;
+      final existing = lifeEventById[event.id];
       if (existing != null) {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = event.updatedAt ?? 0;
@@ -1457,22 +1566,35 @@ class TreeProvider extends ChangeNotifier {
         ..place = InputSanitizer.shortField(event.place)
         ..notes = InputSanitizer.mediumField(event.notes)
         ..treeId = currentTreeId;
-      await db.insert('life_events', event.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      acceptedLifeEventMaps.add(event.toMap());
+    }
+    if (acceptedLifeEventMaps.isNotEmpty) {
+      final batch = db.batch();
+      for (final m in acceptedLifeEventMaps) {
+        batch.insert('life_events', m,
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
 
     // ── Medical Conditions ────────────────────────────────────────────────────
     for (final mc in inMedicalConditions) {
-      final existing =
-          medicalConditions.where((m) => m.id == mc.id).firstOrNull;
+      final existing = medCondById[mc.id];
       if (existing != null) {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = mc.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
       }
       mc.treeId ??= currentTreeId;
-      await db.insert('medical_conditions', mc.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      acceptedMedCondMaps.add(mc.toMap());
+    }
+    if (acceptedMedCondMaps.isNotEmpty) {
+      final batch = db.batch();
+      for (final m in acceptedMedCondMaps) {
+        batch.insert('medical_conditions', m,
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
 
     // ── Research Tasks ─────────────────────────────────────────────────────────
@@ -1480,8 +1602,15 @@ class TreeProvider extends ChangeNotifier {
       // Research tasks have no updatedAt timestamp, so incoming records always
       // replace local ones (unconditional last-write-wins at the payload level).
       task.treeId ??= currentTreeId;
-      await db.insert('research_tasks', task.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      acceptedTaskMaps.add(task.toMap());
+    }
+    if (acceptedTaskMaps.isNotEmpty) {
+      final batch = db.batch();
+      for (final m in acceptedTaskMaps) {
+        batch.insert('research_tasks', m,
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
 
     await loadPersons();
@@ -1585,35 +1714,59 @@ class TreeProvider extends ChangeNotifier {
             .map(ResearchTask.fromMap)
             .toList();
 
-    for (final person in inPersons) {
-      person.treeId = currentTreeId;
-      await db.insert('persons', person.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    if (inPersons.isNotEmpty) {
+      final batch = db.batch();
+      for (final person in inPersons) {
+        person.treeId = currentTreeId;
+        batch.insert('persons', person.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
-    for (final partnership in inPartnerships) {
-      partnership.treeId = currentTreeId;
-      await db.insert('partnerships', partnership.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    if (inPartnerships.isNotEmpty) {
+      final batch = db.batch();
+      for (final partnership in inPartnerships) {
+        partnership.treeId = currentTreeId;
+        batch.insert('partnerships', partnership.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
-    for (final source in inSources) {
-      source.treeId ??= currentTreeId;
-      await db.insert('sources', source.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    if (inSources.isNotEmpty) {
+      final batch = db.batch();
+      for (final source in inSources) {
+        source.treeId ??= currentTreeId;
+        batch.insert('sources', source.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
-    for (final event in inLifeEvents) {
-      event.treeId = currentTreeId;
-      await db.insert('life_events', event.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    if (inLifeEvents.isNotEmpty) {
+      final batch = db.batch();
+      for (final event in inLifeEvents) {
+        event.treeId = currentTreeId;
+        batch.insert('life_events', event.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
-    for (final mc in inMedicalConditions) {
-      mc.treeId ??= currentTreeId;
-      await db.insert('medical_conditions', mc.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    if (inMedicalConditions.isNotEmpty) {
+      final batch = db.batch();
+      for (final mc in inMedicalConditions) {
+        mc.treeId ??= currentTreeId;
+        batch.insert('medical_conditions', mc.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
-    for (final task in inResearchTasks) {
-      task.treeId ??= currentTreeId;
-      await db.insert('research_tasks', task.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    if (inResearchTasks.isNotEmpty) {
+      final batch = db.batch();
+      for (final task in inResearchTasks) {
+        task.treeId ??= currentTreeId;
+        batch.insert('research_tasks', task.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
     }
 
     await loadPersons();
@@ -1757,9 +1910,15 @@ class TreeProvider extends ChangeNotifier {
     String normalize(String name) =>
         name.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9 ]'), '');
 
+    // Cache normalized names so each person's name is normalized exactly once
+    // instead of O(n) times inside the inner loop.
+    final normalizedNames = <String, String>{
+      for (final p in persons) p.id: normalize(p.name),
+    };
+
     bool likelyDuplicate(Person a, Person b) {
       // Full normalized name must match exactly.
-      if (normalize(a.name) != normalize(b.name)) return false;
+      if (normalizedNames[a.id] != normalizedNames[b.id]) return false;
 
       final birthYearA = a.birthDate?.year;
       final birthYearB = b.birthDate?.year;
@@ -1817,6 +1976,7 @@ class TreeProvider extends ChangeNotifier {
     final db = await _database;
 
     // Update all other persons that reference mergeId in parentIds / childIds.
+    final crossRefBatch = db.batch();
     for (final p in persons) {
       if (p.id == keepId || p.id == mergeId) continue;
       bool changed = false;
@@ -1837,38 +1997,47 @@ class TreeProvider extends ChangeNotifier {
         changed = true;
       }
       if (changed) {
-        await db.update('persons', p.toMap(),
+        crossRefBatch.update('persons', p.toMap(),
             where: 'id = ?', whereArgs: [p.id]);
       }
     }
+    await crossRefBatch.commit(noResult: true);
 
     // Re-point sources from mergeId → keepId so they are preserved.
+    final sourceBatch = db.batch();
     for (final source in sources.where((s) => s.personId == mergeId).toList()) {
       source.personId = keepId;
-      await db.update('sources', source.toMap(),
+      sourceBatch.update('sources', source.toMap(),
           where: 'id = ?', whereArgs: [source.id]);
     }
+    await sourceBatch.commit(noResult: true);
 
     // Re-point life events from mergeId → keepId.
+    final eventBatch = db.batch();
     for (final event in lifeEvents.where((e) => e.personId == mergeId).toList()) {
       event.personId = keepId;
-      await db.update('life_events', event.toMap(),
+      eventBatch.update('life_events', event.toMap(),
           where: 'id = ?', whereArgs: [event.id]);
     }
+    await eventBatch.commit(noResult: true);
 
     // Re-point medical conditions from mergeId → keepId.
+    final medBatch = db.batch();
     for (final mc in medicalConditions.where((m) => m.personId == mergeId).toList()) {
       mc.personId = keepId;
-      await db.update('medical_conditions', mc.toMap(),
+      medBatch.update('medical_conditions', mc.toMap(),
           where: 'id = ?', whereArgs: [mc.id]);
     }
+    await medBatch.commit(noResult: true);
 
     // Re-point research tasks linked to mergeId → keepId.
+    final taskBatch = db.batch();
     for (final task in researchTasks.where((t) => t.personId == mergeId).toList()) {
       task.personId = keepId;
-      await db.update('research_tasks', task.toMap(),
+      taskBatch.update('research_tasks', task.toMap(),
           where: 'id = ?', whereArgs: [task.id]);
     }
+    await taskBatch.commit(noResult: true);
 
     // Re-point partnerships: replace mergeId with keepId, but only when keep
     // is not already a partner in the same relationship (avoid duplicates).
@@ -1877,6 +2046,7 @@ class TreeProvider extends ChangeNotifier {
         .where((p) => p.person1Id == keepId || p.person2Id == keepId)
         .map((p) => p.person1Id == keepId ? p.person2Id : p.person1Id)
         .toSet();
+    final ptBatch = db.batch();
     for (final pt in partnerships
         .where((p) => p.person1Id == mergeId || p.person2Id == mergeId)
         .toList()) {
@@ -1889,9 +2059,10 @@ class TreeProvider extends ChangeNotifier {
       } else {
         pt.person2Id = keepId;
       }
-      await db.update('partnerships', pt.toMap(),
+      ptBatch.update('partnerships', pt.toMap(),
           where: 'id = ?', whereArgs: [pt.id]);
     }
+    await ptBatch.commit(noResult: true);
 
     // Merge photo paths (dedup).
     for (final path in merge.photoPaths) {
