@@ -26,7 +26,7 @@ process.env.ADMIN_SECRET = 'test-admin-secret-veryverylong-999';
 // Make absolutely sure the http server inside license_server.js does not
 // actually bind a port — main entrypoint is gated on require.main === module.
 const mod = require('../license_server');
-const { rateLimit, sessionToken, totp, passwordPolicy, treeStorage, appVersion } =
+const { rateLimit, sessionToken, totp, passwordPolicy, treeStorage, auditLog, appVersion } =
   mod._internal;
 
 const http = require('http');
@@ -217,6 +217,278 @@ async function libraryTests() {
     assert.strictEqual(v.ok, true);
     assert.ok(v.platforms.android.latest);
     assert.ok(v.platforms.windows.downloadUrl);
+  });
+
+  // ── auditLog ─────────────────────────────────────────────────────────────────
+  await test('auditLog: append adds entry with required fields', () => {
+    const db = {};
+    auditLog.append(db, { email: 'u@e.com', event: 'login', ok: true });
+    assert.ok(Array.isArray(db.auditLog));
+    assert.strictEqual(db.auditLog.length, 1);
+    const entry = db.auditLog[0];
+    assert.ok(entry.ts);
+    assert.strictEqual(entry.email, 'u@e.com');
+    assert.strictEqual(entry.event, 'login');
+    assert.strictEqual(entry.ok, true);
+    assert.strictEqual(entry.ip, null);
+    assert.strictEqual(entry.detail, null);
+  });
+
+  await test('auditLog: append records ip and detail when provided', () => {
+    const db = {};
+    auditLog.append(db, { ip: '1.2.3.4', email: 'u@e.com', event: 'mfa.verify', ok: false, detail: { reason: 'bad_code' } });
+    const e = db.auditLog[0];
+    assert.strictEqual(e.ip, '1.2.3.4');
+    assert.deepStrictEqual(e.detail, { reason: 'bad_code' });
+    assert.strictEqual(e.ok, false);
+  });
+
+  await test('auditLog: caps list at MAX_ENTRIES', () => {
+    const db = {};
+    const limit = auditLog.MAX_ENTRIES;
+    for (let i = 0; i <= limit + 5; i++) {
+      auditLog.append(db, { email: 'cap@e.com', event: 'test', ok: true });
+    }
+    assert.strictEqual(db.auditLog.length, limit);
+  });
+
+  await test('auditLog: initialises auditLog array when absent', () => {
+    const db = { auditLog: null };
+    auditLog.append(db, { email: 'a@b.com', event: 'register', ok: true });
+    assert.ok(Array.isArray(db.auditLog));
+    assert.strictEqual(db.auditLog.length, 1);
+  });
+
+  // ── sessionToken.extractBearer ────────────────────────────────────────────────
+  await test('sessionToken.extractBearer: returns token from valid header', () => {
+    const req = { headers: { authorization: 'Bearer abc123' } };
+    assert.strictEqual(sessionToken.extractBearer(req), 'abc123');
+  });
+
+  await test('sessionToken.extractBearer: returns null when header absent', () => {
+    const req = { headers: {} };
+    assert.strictEqual(sessionToken.extractBearer(req), null);
+  });
+
+  await test('sessionToken.extractBearer: returns null for malformed header', () => {
+    assert.strictEqual(sessionToken.extractBearer({ headers: { authorization: 'Token abc' } }), null);
+    assert.strictEqual(sessionToken.extractBearer({ headers: { authorization: 'Bearer' } }), null);
+    assert.strictEqual(sessionToken.extractBearer({ headers: { authorization: '' } }), null);
+  });
+
+  await test('sessionToken.extractBearer: handles capitalised Authorization header', () => {
+    const req = { headers: { Authorization: 'Bearer mytoken' } };
+    assert.strictEqual(sessionToken.extractBearer(req), 'mytoken');
+  });
+
+  // ── totp helpers ─────────────────────────────────────────────────────────────
+  await test('totp.generateSecret: returns non-empty base32 string', () => {
+    const s = totp.generateSecret();
+    assert.ok(typeof s === 'string' && s.length > 0);
+    // Base32: only uppercase letters and digits 2-7
+    assert.ok(/^[A-Z2-7]+$/.test(s));
+  });
+
+  await test('totp.generateSecret: each call produces a different secret', () => {
+    const s1 = totp.generateSecret();
+    const s2 = totp.generateSecret();
+    assert.notStrictEqual(s1, s2);
+  });
+
+  await test('totp.verifyCode: returns false for non-6-digit input', () => {
+    const secret = totp.generateSecret();
+    assert.strictEqual(totp.verifyCode(secret, '12345'), false);    // 5 digits
+    assert.strictEqual(totp.verifyCode(secret, '1234567'), false);  // 7 digits
+    assert.strictEqual(totp.verifyCode(secret, 'abcdef'), false);   // non-numeric
+  });
+
+  await test('totp.verifyCode: returns false for missing/null inputs', () => {
+    assert.strictEqual(totp.verifyCode(null, '123456'), false);
+    assert.strictEqual(totp.verifyCode('SECRET', null), false);
+    assert.strictEqual(totp.verifyCode('', ''), false);
+  });
+
+  await test('totp.generateRecoveryCodes: returns n uppercase hex strings', () => {
+    const codes = totp.generateRecoveryCodes(6);
+    assert.strictEqual(codes.length, 6);
+    for (const c of codes) {
+      assert.ok(/^[0-9A-F]+$/.test(c), `Expected hex: ${c}`);
+    }
+  });
+
+  await test('totp.generateRecoveryCodes: codes are distinct', () => {
+    const codes = totp.generateRecoveryCodes(10);
+    const unique = new Set(codes);
+    assert.strictEqual(unique.size, 10);
+  });
+
+  await test('totp.hashRecoveryCode: same input produces same hash', () => {
+    const h1 = totp.hashRecoveryCode('ABC123');
+    const h2 = totp.hashRecoveryCode('ABC123');
+    assert.strictEqual(h1, h2);
+    assert.ok(/^[0-9a-f]{64}$/.test(h1)); // SHA-256 hex
+  });
+
+  await test('totp.hashRecoveryCode: normalises to uppercase before hashing', () => {
+    assert.strictEqual(totp.hashRecoveryCode('abc123'), totp.hashRecoveryCode('ABC123'));
+    assert.strictEqual(totp.hashRecoveryCode('  abc123  '), totp.hashRecoveryCode('ABC123'));
+  });
+
+  await test('totp.hashRecoveryCode: different inputs produce different hashes', () => {
+    assert.notStrictEqual(totp.hashRecoveryCode('AAA'), totp.hashRecoveryCode('BBB'));
+  });
+
+  await test('totp.otpauthUri: includes secret, label, and issuer', () => {
+    const uri = totp.otpauthUri({ secret: 'MYSECRET', label: 'user@example.com' });
+    assert.ok(uri.startsWith('otpauth://totp/'));
+    assert.ok(uri.includes('MYSECRET'));
+    assert.ok(uri.includes('Vetviona'));
+    assert.ok(uri.includes('SHA1'));
+    assert.ok(uri.includes(`digits=${totp.DIGITS}`));
+    assert.ok(uri.includes(`period=${totp.STEP_SECONDS}`));
+  });
+
+  // ── treeStorage unit tests ────────────────────────────────────────────────────
+  await test('treeStorage.listTrees: returns empty list for new account', () => {
+    const db = {};
+    const r = treeStorage.listTrees(db, 'acc1');
+    assert.strictEqual(r.trees.length, 0);
+    assert.strictEqual(r.usedBytes, 0);
+    assert.strictEqual(r.usedTrees, 0);
+  });
+
+  await test('treeStorage.getManifest: returns 404 for missing tree', () => {
+    const db = {};
+    const r = treeStorage.getManifest(db, 'acc1', 'no-such-tree');
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 404);
+  });
+
+  await test('treeStorage.getManifest: rejects invalid treeId characters', () => {
+    const db = {};
+    const r = treeStorage.getManifest(db, 'acc1', 'bad id!');
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('treeStorage: put + get manifest roundtrip', () => {
+    const db = {};
+    const manifest = { revision: 1, kdfSalt: 'AABB', chunks: [] };
+    const put = treeStorage.putManifest(db, 'acc2', 'tree-x', manifest);
+    assert.strictEqual(put.ok, true);
+    const get = treeStorage.getManifest(db, 'acc2', 'tree-x');
+    assert.strictEqual(get.ok, true);
+    assert.strictEqual(get.manifest.revision, 1);
+  });
+
+  await test('treeStorage.deleteTree: returns deleted=true for existing tree', () => {
+    const db = {};
+    treeStorage.putManifest(db, 'acc3', 'del-tree', { revision: 1, chunks: [] });
+    const r = treeStorage.deleteTree(db, 'acc3', 'del-tree');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.deleted, true);
+  });
+
+  await test('treeStorage.deleteTree: returns deleted=false for non-existent tree', () => {
+    const db = {};
+    const r = treeStorage.deleteTree(db, 'acc4', 'no-tree');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.deleted, false);
+  });
+
+  await test('treeStorage.chunkS3Key: produces expected key format', () => {
+    const key = treeStorage.chunkS3Key('accA', 'treeB', 'chunkC');
+    assert.ok(key.includes('accA'));
+    assert.ok(key.includes('treeB'));
+    assert.ok(key.includes('chunkC'));
+    assert.ok(key.endsWith('.bin'));
+  });
+
+  await test('treeStorage.memPut + memGet: stores and retrieves chunk', () => {
+    treeStorage.memReset();
+    const data = Buffer.from('hello-chunk');
+    treeStorage.memPut('acc5', 'tree5', 'c5', data);
+    const got = treeStorage.memGet('acc5', 'tree5', 'c5');
+    assert.ok(got !== null);
+    assert.strictEqual(got.toString(), 'hello-chunk');
+  });
+
+  await test('treeStorage.memGet: returns null for missing chunk', () => {
+    treeStorage.memReset();
+    assert.strictEqual(treeStorage.memGet('acc6', 'tree6', 'missing'), null);
+  });
+
+  await test('treeStorage.memDelete: removes chunk from store', () => {
+    treeStorage.memReset();
+    treeStorage.memPut('acc7', 'tree7', 'c7', Buffer.from('x'));
+    treeStorage.memDelete('acc7', 'tree7', 'c7');
+    assert.strictEqual(treeStorage.memGet('acc7', 'tree7', 'c7'), null);
+  });
+
+  await test('treeStorage.sha256Hex: returns correct 64-char hex digest', () => {
+    const h = treeStorage.sha256Hex(Buffer.from('hello'));
+    assert.strictEqual(h.length, 64);
+    assert.ok(/^[0-9a-f]{64}$/.test(h));
+    // SHA-256 of "hello" is well-known
+    assert.strictEqual(h, '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
+  });
+
+  // ── rateLimit.consume ─────────────────────────────────────────────────────────
+  await test('rateLimit.consume: succeeds for a fresh IP', () => {
+    rateLimit._resetForTests();
+    const r = rateLimit.consume({ ip: '10.0.0.1', email: 'fresh@e.com' });
+    assert.strictEqual(r.ok, true);
+  });
+
+  await test('rateLimit.consume: depletes IP bucket and returns 429', () => {
+    rateLimit._resetForTests();
+    let limited = false;
+    for (let i = 0; i < rateLimit.IP_BUCKET_CAPACITY + 5; i++) {
+      const r = rateLimit.consume({ ip: 'depletion-ip', email: 'dep@e.com' });
+      if (!r.ok) { limited = true; break; }
+    }
+    assert.ok(limited, 'Should be rate-limited after exhausting IP bucket');
+  });
+
+  await test('rateLimit.consume: depletes account bucket and returns 429', () => {
+    rateLimit._resetForTests();
+    let limited = false;
+    for (let i = 0; i < rateLimit.ACCOUNT_BUCKET_CAPACITY + 5; i++) {
+      const r = rateLimit.consume({ ip: `unique-ip-${i}`, email: 'acct-dep@e.com' });
+      if (!r.ok) { limited = true; break; }
+    }
+    assert.ok(limited, 'Should be rate-limited after exhausting account bucket');
+  });
+
+  await test('rateLimit.consume: ok when email is absent', () => {
+    rateLimit._resetForTests();
+    const r = rateLimit.consume({ ip: '10.0.0.2' });
+    assert.strictEqual(r.ok, true);
+  });
+
+  await test('rateLimit.recordFailure: exponential backoff doubles lockout duration', () => {
+    rateLimit._resetForTests();
+    const email = 'backoff@e.com';
+    // Trigger threshold to start lockout.
+    for (let i = 0; i < rateLimit.LOCKOUT_THRESHOLD; i++) {
+      rateLimit.recordFailure(email);
+    }
+    const first = rateLimit.checkLockout(email);
+    assert.ok(first.locked, 'Should be locked after threshold failures');
+    // One more failure past threshold should increase lockout duration.
+    rateLimit.recordFailure(email);
+    const second = rateLimit.checkLockout(email);
+    assert.ok(second.retryAfterSeconds >= first.retryAfterSeconds);
+  });
+
+  await test('rateLimit.clientIp: returns socket remoteAddress by default', () => {
+    const req = { socket: { remoteAddress: '9.9.9.9' }, headers: {} };
+    assert.strictEqual(rateLimit.clientIp(req), '9.9.9.9');
+  });
+
+  await test('rateLimit.clientIp: returns "unknown" when socket is missing', () => {
+    const req = { headers: {} };
+    assert.strictEqual(rateLimit.clientIp(req), 'unknown');
   });
 }
 
