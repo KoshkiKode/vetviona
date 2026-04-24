@@ -182,6 +182,50 @@ void main() {
         final restored = MedicalCondition.fromMap(mc.toMap());
         expect(restored.attachmentPaths, paths);
       });
+
+      test('updatedAt defaults to null', () {
+        final mc = MedicalCondition(
+          id: 'mc-8',
+          personId: 'p-1',
+          condition: 'Asthma',
+          category: 'Respiratory',
+        );
+        expect(mc.updatedAt, isNull);
+      });
+
+      test('updatedAt survives roundtrip', () {
+        final mc = MedicalCondition(
+          id: 'mc-9',
+          personId: 'p-1',
+          condition: 'Epilepsy',
+          category: 'Neurological',
+          updatedAt: 1700000000000,
+        );
+        final r = MedicalCondition.fromMap(mc.toMap());
+        expect(r.updatedAt, 1700000000000);
+      });
+
+      test('null updatedAt survives roundtrip', () {
+        final mc = MedicalCondition(
+          id: 'mc-10',
+          personId: 'p-1',
+          condition: 'Glaucoma',
+          category: 'Sensory (Vision / Hearing)',
+        );
+        final r = MedicalCondition.fromMap(mc.toMap());
+        expect(r.updatedAt, isNull);
+      });
+
+      test('fromMap with null updatedAt returns null', () {
+        final map = <String, dynamic>{
+          'id': 'mc-11',
+          'personId': 'p-1',
+          'condition': 'Gout',
+          'category': 'Musculoskeletal',
+          'updatedAt': null,
+        };
+        expect(MedicalCondition.fromMap(map).updatedAt, isNull);
+      });
     });
   });
 }

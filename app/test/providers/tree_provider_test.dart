@@ -1155,6 +1155,121 @@ void main() {
       expect(data['lifeEvents'], isA<List>());
       expect((data['lifeEvents'] as List), isEmpty);
     });
+
+    test('medical conditions with syncMedical=false are excluded by default', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice', syncMedical: false),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      provider.medicalConditions = [
+        MedicalCondition(
+          id: 'mc1',
+          personId: 'p1',
+          condition: 'Hypertension',
+          category: 'Cardiovascular',
+        ),
+      ];
+      provider.researchTasks = [];
+      final data = provider.exportForSync();
+      expect((data['medicalConditions'] as List), isEmpty);
+    });
+
+    test('medical conditions with syncMedical=true are included', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice', syncMedical: true),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      provider.medicalConditions = [
+        MedicalCondition(
+          id: 'mc1',
+          personId: 'p1',
+          condition: 'Hypertension',
+          category: 'Cardiovascular',
+        ),
+      ];
+      provider.researchTasks = [];
+      final data = provider.exportForSync();
+      expect((data['medicalConditions'] as List).length, 1);
+    });
+
+    test('includeAllMedical=true exports all non-private persons medical conditions', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'p1', name: 'Alice', syncMedical: false),
+        Person(id: 'p2', name: 'Bob', syncMedical: false),
+        Person(id: 'priv', name: 'Private', isPrivate: true, syncMedical: false),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      provider.medicalConditions = [
+        MedicalCondition(id: 'mc1', personId: 'p1', condition: 'Asthma', category: 'Respiratory'),
+        MedicalCondition(id: 'mc2', personId: 'p2', condition: 'Diabetes', category: 'Metabolic / Endocrine'),
+        MedicalCondition(id: 'mc3', personId: 'priv', condition: 'Cancer', category: 'Cancer'),
+      ];
+      provider.researchTasks = [];
+      final data = provider.exportForSync(includeAllMedical: true);
+      final exported = data['medicalConditions'] as List;
+      // Private person excluded; both public persons included
+      expect(exported.length, 2);
+      expect(exported.map((e) => (e as Map)['id']), containsAll(['mc1', 'mc2']));
+    });
+
+    test('medical condition for private person is always excluded even with includeAllMedical', () {
+      final provider = TreeProvider();
+      provider.persons = [
+        Person(id: 'priv', name: 'Private', isPrivate: true, syncMedical: true),
+      ];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      provider.medicalConditions = [
+        MedicalCondition(id: 'mc1', personId: 'priv', condition: 'Epilepsy', category: 'Neurological'),
+      ];
+      provider.researchTasks = [];
+      final data = provider.exportForSync(includeAllMedical: true);
+      expect((data['medicalConditions'] as List), isEmpty);
+    });
+
+    test('researchTasks are included for the current tree', () {
+      final provider = TreeProvider();
+      provider.currentTreeId = 'tree-1';
+      provider.persons = [Person(id: 'p1', name: 'Alice')];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      provider.medicalConditions = [];
+      provider.researchTasks = [
+        ResearchTask(id: 'rt1', title: 'Find census', treeId: 'tree-1'),
+        ResearchTask(id: 'rt2', title: 'Other tree task', treeId: 'tree-2'),
+      ];
+      final data = provider.exportForSync();
+      final exported = data['researchTasks'] as List;
+      expect(exported.length, 1);
+      expect((exported.first as Map)['id'], 'rt1');
+    });
+
+    test('researchTasks with null treeId are always exported', () {
+      final provider = TreeProvider();
+      provider.currentTreeId = 'tree-1';
+      provider.persons = [Person(id: 'p1', name: 'Alice')];
+      provider.partnerships = [];
+      provider.sources = [];
+      provider.lifeEvents = [];
+      provider.medicalConditions = [];
+      provider.researchTasks = [
+        ResearchTask(id: 'rt1', title: 'Global task'),
+      ];
+      final data = provider.exportForSync();
+      final exported = data['researchTasks'] as List;
+      expect(exported.length, 1);
+    });
   });
 
   // ── TreeProvider settings ──────────────────────────────────────────────────

@@ -21,11 +21,12 @@ process.env.RATE_LIMIT_IP_PER_MIN = '1000';
 process.env.RATE_LIMIT_ACCOUNT_PER_MIN = '1000';
 process.env.LOCKOUT_THRESHOLD = '3';
 process.env.LOCKOUT_BASE_SECONDS = '5';
+process.env.ADMIN_SECRET = 'test-admin-secret-veryverylong-999';
 
 // Make absolutely sure the http server inside license_server.js does not
 // actually bind a port — main entrypoint is gated on require.main === module.
 const mod = require('../license_server');
-const { rateLimit, sessionToken, totp, passwordPolicy, treeStorage, appVersion } =
+const { rateLimit, sessionToken, totp, passwordPolicy, treeStorage, auditLog, appVersion } =
   mod._internal;
 
 const http = require('http');
@@ -85,7 +86,31 @@ function request(method, port, pathname, { json, raw, headers } = {}) {
   });
 }
 
-// ── Library-level tests ──────────────────────────────────────────────────────
+// ── TOTP/HOTP helper (used for MFA tests) ────────────────────────────────────
+const crypto = require('crypto');
+function hotp(secret, counter) {
+  const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = 0, val = 0; const out = [];
+  for (const ch of secret) {
+    const i = alpha.indexOf(ch); if (i < 0) continue;
+    val = (val << 5) | i; bits += 5;
+    if (bits >= 8) { bits -= 8; out.push((val >>> bits) & 0xff); }
+  }
+  const key = Buffer.from(out);
+  const buf = Buffer.alloc(8);
+  let cc = counter;
+  for (let i = 7; i >= 0; i--) { buf[i] = cc & 0xff; cc = Math.floor(cc / 256); }
+  const h = crypto.createHmac('sha1', key).update(buf).digest();
+  const offset = h[h.length - 1] & 0xf;
+  const code = ((h[offset] & 0x7f) << 24) | ((h[offset + 1] & 0xff) << 16)
+             | ((h[offset + 2] & 0xff) << 8) | (h[offset + 3] & 0xff);
+  return String(code % 1_000_000).padStart(6, '0');
+}
+function currentTotpCode(secret) {
+  return hotp(secret, Math.floor(Date.now() / 1000 / 30));
+}
+
+
 async function libraryTests() {
   console.log('Library tests');
 
@@ -192,6 +217,278 @@ async function libraryTests() {
     assert.strictEqual(v.ok, true);
     assert.ok(v.platforms.android.latest);
     assert.ok(v.platforms.windows.downloadUrl);
+  });
+
+  // ── auditLog ─────────────────────────────────────────────────────────────────
+  await test('auditLog: append adds entry with required fields', () => {
+    const db = {};
+    auditLog.append(db, { email: 'u@e.com', event: 'login', ok: true });
+    assert.ok(Array.isArray(db.auditLog));
+    assert.strictEqual(db.auditLog.length, 1);
+    const entry = db.auditLog[0];
+    assert.ok(entry.ts);
+    assert.strictEqual(entry.email, 'u@e.com');
+    assert.strictEqual(entry.event, 'login');
+    assert.strictEqual(entry.ok, true);
+    assert.strictEqual(entry.ip, null);
+    assert.strictEqual(entry.detail, null);
+  });
+
+  await test('auditLog: append records ip and detail when provided', () => {
+    const db = {};
+    auditLog.append(db, { ip: '1.2.3.4', email: 'u@e.com', event: 'mfa.verify', ok: false, detail: { reason: 'bad_code' } });
+    const e = db.auditLog[0];
+    assert.strictEqual(e.ip, '1.2.3.4');
+    assert.deepStrictEqual(e.detail, { reason: 'bad_code' });
+    assert.strictEqual(e.ok, false);
+  });
+
+  await test('auditLog: caps list at MAX_ENTRIES', () => {
+    const db = {};
+    const limit = auditLog.MAX_ENTRIES;
+    for (let i = 0; i <= limit + 5; i++) {
+      auditLog.append(db, { email: 'cap@e.com', event: 'test', ok: true });
+    }
+    assert.strictEqual(db.auditLog.length, limit);
+  });
+
+  await test('auditLog: initialises auditLog array when absent', () => {
+    const db = { auditLog: null };
+    auditLog.append(db, { email: 'a@b.com', event: 'register', ok: true });
+    assert.ok(Array.isArray(db.auditLog));
+    assert.strictEqual(db.auditLog.length, 1);
+  });
+
+  // ── sessionToken.extractBearer ────────────────────────────────────────────────
+  await test('sessionToken.extractBearer: returns token from valid header', () => {
+    const req = { headers: { authorization: 'Bearer abc123' } };
+    assert.strictEqual(sessionToken.extractBearer(req), 'abc123');
+  });
+
+  await test('sessionToken.extractBearer: returns null when header absent', () => {
+    const req = { headers: {} };
+    assert.strictEqual(sessionToken.extractBearer(req), null);
+  });
+
+  await test('sessionToken.extractBearer: returns null for malformed header', () => {
+    assert.strictEqual(sessionToken.extractBearer({ headers: { authorization: 'Token abc' } }), null);
+    assert.strictEqual(sessionToken.extractBearer({ headers: { authorization: 'Bearer' } }), null);
+    assert.strictEqual(sessionToken.extractBearer({ headers: { authorization: '' } }), null);
+  });
+
+  await test('sessionToken.extractBearer: handles capitalised Authorization header', () => {
+    const req = { headers: { Authorization: 'Bearer mytoken' } };
+    assert.strictEqual(sessionToken.extractBearer(req), 'mytoken');
+  });
+
+  // ── totp helpers ─────────────────────────────────────────────────────────────
+  await test('totp.generateSecret: returns non-empty base32 string', () => {
+    const s = totp.generateSecret();
+    assert.ok(typeof s === 'string' && s.length > 0);
+    // Base32: only uppercase letters and digits 2-7
+    assert.ok(/^[A-Z2-7]+$/.test(s));
+  });
+
+  await test('totp.generateSecret: each call produces a different secret', () => {
+    const s1 = totp.generateSecret();
+    const s2 = totp.generateSecret();
+    assert.notStrictEqual(s1, s2);
+  });
+
+  await test('totp.verifyCode: returns false for non-6-digit input', () => {
+    const secret = totp.generateSecret();
+    assert.strictEqual(totp.verifyCode(secret, '12345'), false);    // 5 digits
+    assert.strictEqual(totp.verifyCode(secret, '1234567'), false);  // 7 digits
+    assert.strictEqual(totp.verifyCode(secret, 'abcdef'), false);   // non-numeric
+  });
+
+  await test('totp.verifyCode: returns false for missing/null inputs', () => {
+    assert.strictEqual(totp.verifyCode(null, '123456'), false);
+    assert.strictEqual(totp.verifyCode('SECRET', null), false);
+    assert.strictEqual(totp.verifyCode('', ''), false);
+  });
+
+  await test('totp.generateRecoveryCodes: returns n uppercase hex strings', () => {
+    const codes = totp.generateRecoveryCodes(6);
+    assert.strictEqual(codes.length, 6);
+    for (const c of codes) {
+      assert.ok(/^[0-9A-F]+$/.test(c), `Expected hex: ${c}`);
+    }
+  });
+
+  await test('totp.generateRecoveryCodes: codes are distinct', () => {
+    const codes = totp.generateRecoveryCodes(10);
+    const unique = new Set(codes);
+    assert.strictEqual(unique.size, 10);
+  });
+
+  await test('totp.hashRecoveryCode: same input produces same hash', () => {
+    const h1 = totp.hashRecoveryCode('ABC123');
+    const h2 = totp.hashRecoveryCode('ABC123');
+    assert.strictEqual(h1, h2);
+    assert.ok(/^[0-9a-f]{64}$/.test(h1)); // SHA-256 hex
+  });
+
+  await test('totp.hashRecoveryCode: normalises to uppercase before hashing', () => {
+    assert.strictEqual(totp.hashRecoveryCode('abc123'), totp.hashRecoveryCode('ABC123'));
+    assert.strictEqual(totp.hashRecoveryCode('  abc123  '), totp.hashRecoveryCode('ABC123'));
+  });
+
+  await test('totp.hashRecoveryCode: different inputs produce different hashes', () => {
+    assert.notStrictEqual(totp.hashRecoveryCode('AAA'), totp.hashRecoveryCode('BBB'));
+  });
+
+  await test('totp.otpauthUri: includes secret, label, and issuer', () => {
+    const uri = totp.otpauthUri({ secret: 'MYSECRET', label: 'user@example.com' });
+    assert.ok(uri.startsWith('otpauth://totp/'));
+    assert.ok(uri.includes('MYSECRET'));
+    assert.ok(uri.includes('Vetviona'));
+    assert.ok(uri.includes('SHA1'));
+    assert.ok(uri.includes(`digits=${totp.DIGITS}`));
+    assert.ok(uri.includes(`period=${totp.STEP_SECONDS}`));
+  });
+
+  // ── treeStorage unit tests ────────────────────────────────────────────────────
+  await test('treeStorage.listTrees: returns empty list for new account', () => {
+    const db = {};
+    const r = treeStorage.listTrees(db, 'acc1');
+    assert.strictEqual(r.trees.length, 0);
+    assert.strictEqual(r.usedBytes, 0);
+    assert.strictEqual(r.usedTrees, 0);
+  });
+
+  await test('treeStorage.getManifest: returns 404 for missing tree', () => {
+    const db = {};
+    const r = treeStorage.getManifest(db, 'acc1', 'no-such-tree');
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 404);
+  });
+
+  await test('treeStorage.getManifest: rejects invalid treeId characters', () => {
+    const db = {};
+    const r = treeStorage.getManifest(db, 'acc1', 'bad id!');
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.status, 400);
+  });
+
+  await test('treeStorage: put + get manifest roundtrip', () => {
+    const db = {};
+    const manifest = { revision: 1, kdfSalt: 'AABB', chunks: [] };
+    const put = treeStorage.putManifest(db, 'acc2', 'tree-x', manifest);
+    assert.strictEqual(put.ok, true);
+    const get = treeStorage.getManifest(db, 'acc2', 'tree-x');
+    assert.strictEqual(get.ok, true);
+    assert.strictEqual(get.manifest.revision, 1);
+  });
+
+  await test('treeStorage.deleteTree: returns deleted=true for existing tree', () => {
+    const db = {};
+    treeStorage.putManifest(db, 'acc3', 'del-tree', { revision: 1, chunks: [] });
+    const r = treeStorage.deleteTree(db, 'acc3', 'del-tree');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.deleted, true);
+  });
+
+  await test('treeStorage.deleteTree: returns deleted=false for non-existent tree', () => {
+    const db = {};
+    const r = treeStorage.deleteTree(db, 'acc4', 'no-tree');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.deleted, false);
+  });
+
+  await test('treeStorage.chunkS3Key: produces expected key format', () => {
+    const key = treeStorage.chunkS3Key('accA', 'treeB', 'chunkC');
+    assert.ok(key.includes('accA'));
+    assert.ok(key.includes('treeB'));
+    assert.ok(key.includes('chunkC'));
+    assert.ok(key.endsWith('.bin'));
+  });
+
+  await test('treeStorage.memPut + memGet: stores and retrieves chunk', () => {
+    treeStorage.memReset();
+    const data = Buffer.from('hello-chunk');
+    treeStorage.memPut('acc5', 'tree5', 'c5', data);
+    const got = treeStorage.memGet('acc5', 'tree5', 'c5');
+    assert.ok(got !== null);
+    assert.strictEqual(got.toString(), 'hello-chunk');
+  });
+
+  await test('treeStorage.memGet: returns null for missing chunk', () => {
+    treeStorage.memReset();
+    assert.strictEqual(treeStorage.memGet('acc6', 'tree6', 'missing'), null);
+  });
+
+  await test('treeStorage.memDelete: removes chunk from store', () => {
+    treeStorage.memReset();
+    treeStorage.memPut('acc7', 'tree7', 'c7', Buffer.from('x'));
+    treeStorage.memDelete('acc7', 'tree7', 'c7');
+    assert.strictEqual(treeStorage.memGet('acc7', 'tree7', 'c7'), null);
+  });
+
+  await test('treeStorage.sha256Hex: returns correct 64-char hex digest', () => {
+    const h = treeStorage.sha256Hex(Buffer.from('hello'));
+    assert.strictEqual(h.length, 64);
+    assert.ok(/^[0-9a-f]{64}$/.test(h));
+    // SHA-256 of "hello" is well-known
+    assert.strictEqual(h, '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
+  });
+
+  // ── rateLimit.consume ─────────────────────────────────────────────────────────
+  await test('rateLimit.consume: succeeds for a fresh IP', () => {
+    rateLimit._resetForTests();
+    const r = rateLimit.consume({ ip: '10.0.0.1', email: 'fresh@e.com' });
+    assert.strictEqual(r.ok, true);
+  });
+
+  await test('rateLimit.consume: depletes IP bucket and returns 429', () => {
+    rateLimit._resetForTests();
+    let limited = false;
+    for (let i = 0; i < rateLimit.IP_BUCKET_CAPACITY + 5; i++) {
+      const r = rateLimit.consume({ ip: 'depletion-ip', email: 'dep@e.com' });
+      if (!r.ok) { limited = true; break; }
+    }
+    assert.ok(limited, 'Should be rate-limited after exhausting IP bucket');
+  });
+
+  await test('rateLimit.consume: depletes account bucket and returns 429', () => {
+    rateLimit._resetForTests();
+    let limited = false;
+    for (let i = 0; i < rateLimit.ACCOUNT_BUCKET_CAPACITY + 5; i++) {
+      const r = rateLimit.consume({ ip: `unique-ip-${i}`, email: 'acct-dep@e.com' });
+      if (!r.ok) { limited = true; break; }
+    }
+    assert.ok(limited, 'Should be rate-limited after exhausting account bucket');
+  });
+
+  await test('rateLimit.consume: ok when email is absent', () => {
+    rateLimit._resetForTests();
+    const r = rateLimit.consume({ ip: '10.0.0.2' });
+    assert.strictEqual(r.ok, true);
+  });
+
+  await test('rateLimit.recordFailure: exponential backoff doubles lockout duration', () => {
+    rateLimit._resetForTests();
+    const email = 'backoff@e.com';
+    // Trigger threshold to start lockout.
+    for (let i = 0; i < rateLimit.LOCKOUT_THRESHOLD; i++) {
+      rateLimit.recordFailure(email);
+    }
+    const first = rateLimit.checkLockout(email);
+    assert.ok(first.locked, 'Should be locked after threshold failures');
+    // One more failure past threshold should increase lockout duration.
+    rateLimit.recordFailure(email);
+    const second = rateLimit.checkLockout(email);
+    assert.ok(second.retryAfterSeconds >= first.retryAfterSeconds);
+  });
+
+  await test('rateLimit.clientIp: returns socket remoteAddress by default', () => {
+    const req = { socket: { remoteAddress: '9.9.9.9' }, headers: {} };
+    assert.strictEqual(rateLimit.clientIp(req), '9.9.9.9');
+  });
+
+  await test('rateLimit.clientIp: returns "unknown" when socket is missing', () => {
+    const req = { headers: {} };
+    assert.strictEqual(rateLimit.clientIp(req), 'unknown');
   });
 }
 
@@ -381,26 +678,8 @@ async function httpTests() {
     });
     assert.strictEqual(start.status, 200);
     const secret = start.body.secret;
-    // Compute current code.
+    // Compute current code using the module-level hotp helper.
     const counter = Math.floor(Date.now() / 1000 / 30);
-    const crypto = require('crypto');
-    function hotp(s, c) {
-      const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-      let bits = 0, val = 0; const out = [];
-      for (const ch of s) {
-        const i = alpha.indexOf(ch); if (i < 0) continue;
-        val = (val << 5) | i; bits += 5;
-        if (bits >= 8) { bits -= 8; out.push((val >>> bits) & 0xff); }
-      }
-      const key = Buffer.from(out);
-      const buf = Buffer.alloc(8);
-      let cc = c; for (let i = 7; i >= 0; i--) { buf[i] = cc & 0xff; cc = Math.floor(cc / 256); }
-      const h = crypto.createHmac('sha1', key).update(buf).digest();
-      const offset = h[h.length - 1] & 0xf;
-      const code = ((h[offset] & 0x7f) << 24) | ((h[offset+1] & 0xff) << 16)
-                 | ((h[offset+2] & 0xff) << 8) | (h[offset+3] & 0xff);
-      return String(code % 1_000_000).padStart(6, '0');
-    }
     const code = hotp(secret, counter);
     const confirm = await request('POST', port, '/v1/account/mfa/enroll/confirm', {
       json: { code }, headers: { Authorization: `Bearer ${tok}` },
@@ -418,7 +697,7 @@ async function httpTests() {
     assert.strictEqual(noMfa.status, 403);
     assert.strictEqual(noMfa.body.code, 'mfa_required');
 
-    const code2 = hotp(secret, Math.floor(Date.now() / 1000 / 30));
+    const code2 = currentTotpCode(secret);
     const withMfa = await request('POST', port, '/v1/license/verify', {
       json: {
         email: 'mfa@example.com', password: 'Tr0ub4dor&3xpand',
@@ -453,7 +732,6 @@ async function httpTests() {
     const auth = { Authorization: `Bearer ${tok}` };
 
     const blob = Buffer.from('encrypted-blob-payload');
-    const crypto = require('crypto');
     const sha = crypto.createHash('sha256').update(blob).digest('hex');
 
     const putManifest = await request('POST', port, '/v1/tree/manifest/put', {
@@ -500,6 +778,311 @@ async function httpTests() {
     const r = await request('POST', port, '/v1/account/sync', { json: {} });
     assert.ok(r.headers['strict-transport-security']);
     assert.strictEqual(r.headers['x-content-type-options'], 'nosniff');
+  });
+
+  // ── Health check ─────────────────────────────────────────────────────────────
+  await test('health: GET /health returns healthy status', async () => {
+    const r = await request('GET', port, '/health', {});
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.status, 'healthy');
+  });
+
+  // ── Resend verification ───────────────────────────────────────────────────────
+  await test('resend-verification: already-verified account returns ok message', async () => {
+    rateLimit._resetForTests();
+    // u1@example.com is email-verified; current password after reset flow.
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'u1@example.com', password: 'AnotherStrongOne!9',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-rv-0001',
+      },
+    });
+    assert.strictEqual(login.status, 200, `re-login failed: ${JSON.stringify(login.body)}`);
+    const tok = login.body.session.token;
+    const r = await request('POST', port, '/v1/account/resend-verification', {
+      json: {}, headers: { Authorization: `Bearer ${tok}` },
+    });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.ok, true);
+    assert.ok(r.body.message.toLowerCase().includes('already verified'));
+  });
+
+  await test('resend-verification: unverified account receives a new dev token', async () => {
+    rateLimit._resetForTests();
+    // Register a fresh account and do NOT verify its email.
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'rv-unverified@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    // license/verify does not require email verification, so we can get a session token.
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'rv-unverified@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-rv-0002',
+      },
+    });
+    assert.strictEqual(login.status, 200, `login failed: ${JSON.stringify(login.body)}`);
+    const tok = login.body.session.token;
+    const r = await request('POST', port, '/v1/account/resend-verification', {
+      json: {}, headers: { Authorization: `Bearer ${tok}` },
+    });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.ok, true);
+    // In dev mode the new token is returned in _devToken.
+    assert.ok(r.body._devToken, 'dev token should be returned for unverified account in dev mode');
+  });
+
+  // ── Session revoke all ────────────────────────────────────────────────────────
+  await test('session/revoke-all: revoked token is rejected on subsequent requests', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'revoke-test@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'revoke-test@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-revoke-0001',
+      },
+    });
+    assert.strictEqual(login.status, 200);
+    const tok = login.body.session.token;
+
+    const revoke = await request('POST', port, '/v1/account/session/revoke-all', {
+      json: {}, headers: { Authorization: `Bearer ${tok}` },
+    });
+    assert.strictEqual(revoke.status, 200);
+    assert.strictEqual(revoke.body.ok, true);
+
+    // The same token must now be rejected.
+    const sync = await request('POST', port, '/v1/account/sync', {
+      json: {}, headers: { Authorization: `Bearer ${tok}` },
+    });
+    assert.strictEqual(sync.status, 401);
+  });
+
+  // ── MFA disable ──────────────────────────────────────────────────────────────
+  await test('mfa/disable: login succeeds without MFA after disabling', async () => {
+    rateLimit._resetForTests();
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'mfadis@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login1 = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'mfadis@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-mfadis-0001',
+      },
+    });
+    const tok1 = login1.body.session.token;
+
+    // Enroll MFA.
+    const start = await request('POST', port, '/v1/account/mfa/enroll/start', {
+      json: {}, headers: { Authorization: `Bearer ${tok1}` },
+    });
+    assert.strictEqual(start.status, 200);
+    const secret = start.body.secret;
+    const enrollCode = currentTotpCode(secret);
+    const confirm = await request('POST', port, '/v1/account/mfa/enroll/confirm', {
+      json: { code: enrollCode }, headers: { Authorization: `Bearer ${tok1}` },
+    });
+    assert.strictEqual(confirm.status, 200);
+
+    // Login again with MFA to get an mfa=true session token.
+    const loginCode = currentTotpCode(secret);
+    const login2 = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'mfadis@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-mfadis-0002',
+        mfaCode: loginCode,
+      },
+    });
+    assert.strictEqual(login2.status, 200, `login2 failed: ${JSON.stringify(login2.body)}`);
+    const tok2 = login2.body.session.token;
+
+    // Disable MFA using the step-up token.
+    const disable = await request('POST', port, '/v1/account/mfa/disable', {
+      json: {}, headers: { Authorization: `Bearer ${tok2}` },
+    });
+    assert.strictEqual(disable.status, 200);
+    assert.strictEqual(disable.body.ok, true);
+
+    // Login without MFA should now succeed.
+    const login3 = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'mfadis@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-mfadis-0003',
+      },
+    });
+    assert.strictEqual(login3.status, 200, `login without MFA after disable should succeed`);
+    assert.strictEqual(login3.body.mfaEnabled, false);
+  });
+
+  // ── Gift: initiate + claim + cancel ──────────────────────────────────────────
+  await test('gift: initiate → claim transfers desktop license', async () => {
+    rateLimit._resetForTests();
+    // Create sender with a verified email and a desktop license.
+    const senderReg = await request('POST', port, '/v1/account/register', {
+      json: { email: 'gift-sender@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    assert.strictEqual(senderReg.status, 201);
+    await request('POST', port, '/v1/account/verify-email', {
+      json: { email: 'gift-sender@example.com', token: senderReg.body._devToken },
+    });
+    const senderLogin = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'gift-sender@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-giftsnd-0001',
+      },
+    });
+    assert.strictEqual(senderLogin.status, 200, `sender login failed: ${JSON.stringify(senderLogin.body)}`);
+    const senderTok = senderLogin.body.session.token;
+
+    // Register recipient (starts with an android license so the account exists;
+    // the gift will add a desktop license).
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'gift-recip@example.com', password: 'Tr0ub4dor&3xpandR', androidLicense: true },
+    });
+
+    // Initiate the gift.
+    const initiate = await request('POST', port, '/v1/license/gift/initiate', {
+      json: { licenseType: 'desktop', toEmail: 'gift-recip@example.com' },
+      headers: { Authorization: `Bearer ${senderTok}` },
+    });
+    assert.strictEqual(initiate.status, 200, `gift initiate failed: ${JSON.stringify(initiate.body)}`);
+    assert.strictEqual(initiate.body.ok, true);
+    const giftToken = initiate.body._devToken;
+    assert.ok(giftToken, 'dev gift token should be present in dev mode');
+
+    // Claim the gift as the recipient.
+    const claim = await request('POST', port, '/v1/license/gift/claim', {
+      json: { token: giftToken, email: 'gift-recip@example.com', password: 'Tr0ub4dor&3xpandR' },
+    });
+    assert.strictEqual(claim.status, 200, `gift claim failed: ${JSON.stringify(claim.body)}`);
+    assert.strictEqual(claim.body.ok, true);
+    assert.ok(claim.body.account.entitlements.desktop, 'recipient should now have desktop license');
+  });
+
+  await test('gift: initiate → cancel restores license to sender', async () => {
+    rateLimit._resetForTests();
+    // Create a fresh verified sender.
+    const senderReg = await request('POST', port, '/v1/account/register', {
+      json: { email: 'gift-cancel@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    await request('POST', port, '/v1/account/verify-email', {
+      json: { email: 'gift-cancel@example.com', token: senderReg.body._devToken },
+    });
+    const senderLogin = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'gift-cancel@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-giftcancel-0001',
+      },
+    });
+    const senderTok = senderLogin.body.session.token;
+
+    // Initiate a gift.
+    const initiate = await request('POST', port, '/v1/license/gift/initiate', {
+      json: { licenseType: 'desktop', toEmail: 'no-such-recip@example.com' },
+      headers: { Authorization: `Bearer ${senderTok}` },
+    });
+    assert.strictEqual(initiate.status, 200);
+    const giftId = initiate.body.gift.id;
+
+    // Cancel the gift by ID.
+    const cancel = await request('POST', port, '/v1/license/gift/cancel', {
+      json: { giftId },
+      headers: { Authorization: `Bearer ${senderTok}` },
+    });
+    assert.strictEqual(cancel.status, 200, `gift cancel failed: ${JSON.stringify(cancel.body)}`);
+    assert.strictEqual(cancel.body.ok, true);
+
+    // Sender should still see the gift as cancelled (no pending gifts).
+    const sync = await request('POST', port, '/v1/account/sync', {
+      json: {}, headers: { Authorization: `Bearer ${senderTok}` },
+    });
+    assert.strictEqual(sync.status, 200);
+    assert.strictEqual(sync.body.incomingGifts.length, 0);
+  });
+
+  // ── Voucher (open gift) creation ──────────────────────────────────────────────
+  await test('voucher/create: creates redeemable voucher with admin secret', async () => {
+    rateLimit._resetForTests();
+    const create = await request('POST', port, '/v1/license/voucher/create', {
+      json: {
+        adminSecret: process.env.ADMIN_SECRET,
+        licenseType: 'desktop',
+        quantity: 1,
+      },
+    });
+    assert.strictEqual(create.status, 200, `voucher create failed: ${JSON.stringify(create.body)}`);
+    assert.strictEqual(create.body.ok, true);
+    assert.ok(Array.isArray(create.body.vouchers));
+    assert.strictEqual(create.body.vouchers.length, 1);
+    const voucherToken = create.body.vouchers[0].token;
+
+    // Register a new user with an android license so the account can be created
+    // (registration requires at least one license), then claim the voucher.
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'voucher-claimer@example.com', password: 'Tr0ub4dor&3xpandV', androidLicense: true },
+    });
+    const claim = await request('POST', port, '/v1/license/gift/claim', {
+      json: {
+        token: voucherToken,
+        email: 'voucher-claimer@example.com',
+        password: 'Tr0ub4dor&3xpandV',
+      },
+    });
+    assert.strictEqual(claim.status, 200, `voucher claim failed: ${JSON.stringify(claim.body)}`);
+    assert.strictEqual(claim.body.ok, true);
+    assert.ok(claim.body.account.entitlements.desktop);
+  });
+
+  await test('voucher/create: rejects invalid admin secret', async () => {
+    const r = await request('POST', port, '/v1/license/voucher/create', {
+      json: { adminSecret: 'wrong-secret', licenseType: 'desktop', quantity: 1 },
+    });
+    assert.strictEqual(r.status, 403);
+    assert.strictEqual(r.body.ok, false);
+  });
+
+  // ── Tree delete-all ───────────────────────────────────────────────────────────
+  await test('tree/delete-all: removes all trees for an account', async () => {
+    rateLimit._resetForTests();
+    // Register a fresh user for this test.
+    await request('POST', port, '/v1/account/register', {
+      json: { email: 'delall@example.com', password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+    });
+    const login = await request('POST', port, '/v1/license/verify', {
+      json: {
+        email: 'delall@example.com', password: 'Tr0ub4dor&3xpand',
+        appType: 'desktop', os: 'linux', deviceId: 'dev-delall-0001',
+      },
+    });
+    assert.strictEqual(login.status, 200);
+    const tok = login.body.session.token;
+    const auth = { Authorization: `Bearer ${tok}` };
+
+    // Upload two tree manifests.
+    for (const treeId of ['del-tree-1', 'del-tree-2']) {
+      await request('POST', port, '/v1/tree/manifest/put', {
+        json: { treeId, manifest: { revision: 1, kdfSalt: 'AAAA', chunks: [] } },
+        headers: auth,
+      });
+    }
+
+    // Verify two trees exist.
+    const listBefore = await request('POST', port, '/v1/tree/list', { json: {}, headers: auth });
+    assert.strictEqual(listBefore.status, 200);
+    assert.strictEqual(listBefore.body.trees.length, 2);
+
+    // Delete all trees.
+    const delAll = await request('POST', port, '/v1/tree/delete-all', {
+      json: {}, headers: auth,
+    });
+    assert.strictEqual(delAll.status, 200, `tree/delete-all failed: ${JSON.stringify(delAll.body)}`);
+    assert.strictEqual(delAll.body.ok, true);
+    assert.strictEqual(delAll.body.deletedTrees, 2);
+
+    // Verify no trees remain.
+    const listAfter = await request('POST', port, '/v1/tree/list', { json: {}, headers: auth });
+    assert.strictEqual(listAfter.body.trees.length, 0);
   });
 
   await close();

@@ -122,6 +122,38 @@ void main() {
         expect(e.personId, 'p-5');
         expect(e.title, 'Other');
       });
+
+      test('updatedAt defaults to null', () {
+        final e = LifeEvent(id: 'e1', personId: 'p1', title: 'Baptism');
+        expect(e.updatedAt, isNull);
+      });
+
+      test('updatedAt survives roundtrip', () {
+        final e = LifeEvent(
+          id: 'ev-6',
+          personId: 'p-1',
+          title: 'Immigration',
+          updatedAt: 1700000000000,
+        );
+        final r = LifeEvent.fromMap(e.toMap());
+        expect(r.updatedAt, 1700000000000);
+      });
+
+      test('null updatedAt survives roundtrip', () {
+        final e = LifeEvent(id: 'ev-7', personId: 'p-1', title: 'Residence');
+        final r = LifeEvent.fromMap(e.toMap());
+        expect(r.updatedAt, isNull);
+      });
+
+      test('fromMap with null updatedAt returns null', () {
+        final map = <String, dynamic>{
+          'id': 'ev-8',
+          'personId': 'p-1',
+          'title': 'Census',
+          'updatedAt': null,
+        };
+        expect(LifeEvent.fromMap(map).updatedAt, isNull);
+      });
     });
   });
 }
