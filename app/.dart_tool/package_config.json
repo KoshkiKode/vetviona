@@ -278,6 +278,12 @@
       "languageVersion": "3.9"
     },
     {
+      "name": "flutter_ble_peripheral",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/flutter_ble_peripheral-2.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "flutter_blue_plus",
       "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/flutter_blue_plus-2.2.1",
       "packageUri": "lib/",
@@ -632,10 +638,22 @@
       "languageVersion": "3.10"
     },
     {
+      "name": "ndef_record",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/ndef_record-1.4.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.11"
+    },
+    {
       "name": "nested",
       "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/nested-1.0.0",
       "packageUri": "lib/",
       "languageVersion": "2.12"
+    },
+    {
+      "name": "nfc_manager",
+      "rootUri": "file:///home/runner/.pub-cache/hosted/pub.dev/nfc_manager-4.2.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.11"
     },
     {
       "name": "objective_c",
