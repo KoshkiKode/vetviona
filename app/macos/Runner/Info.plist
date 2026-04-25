@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Vetviona uses Bluetooth to discover nearby devices for family tree sync.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Vetviona uses the local network to discover and sync with nearby devices on the same Wi-Fi network.</string>
 </dict>
 </plist>
