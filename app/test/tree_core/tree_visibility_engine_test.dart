@@ -137,6 +137,52 @@ void main() {
       engine.resetToHome();
       expect(engine.visibleIds, containsAll(['Home', 'Spouse']));
     });
+
+    test("partner's parents are visible when they exist", () {
+      // Tree: SpouseDad + SpouseMom → Spouse, and Home is partnered to Spouse.
+      // Both spouses' parents should be visible after reset; Home has none.
+      final home = _p('Home');
+      final spouse = _p('Spouse', parentIds: ['SpouseDad', 'SpouseMom']);
+      final spouseDad = _p('SpouseDad', childIds: ['Spouse']);
+      final spouseMom = _p('SpouseMom', childIds: ['Spouse']);
+      final engine = TreeVisibilityEngine(
+        persons: [home, spouse, spouseDad, spouseMom],
+        partnerships: [
+          _couple('p1', 'Home', 'Spouse'),
+          _couple('p2', 'SpouseDad', 'SpouseMom'),
+        ],
+        homePersonId: 'Home',
+      );
+      engine.resetToHome();
+      expect(
+        engine.visibleIds,
+        containsAll(['Home', 'Spouse', 'SpouseDad', 'SpouseMom']),
+      );
+    });
+
+    test("descendant's spouse parents are visible", () {
+      // Home → Child, Child partnered to ChildSpouse whose parents exist.
+      // Both Child and ChildSpouse parents should appear in the same row.
+      final home = _p('Home', childIds: ['Child']);
+      final child = _p('Child', parentIds: ['Home']);
+      final childSpouse =
+          _p('ChildSpouse', parentIds: ['CSDad', 'CSMom']);
+      final csDad = _p('CSDad', childIds: ['ChildSpouse']);
+      final csMom = _p('CSMom', childIds: ['ChildSpouse']);
+      final engine = TreeVisibilityEngine(
+        persons: [home, child, childSpouse, csDad, csMom],
+        partnerships: [
+          _couple('p1', 'Child', 'ChildSpouse'),
+          _couple('p2', 'CSDad', 'CSMom'),
+        ],
+        homePersonId: 'Home',
+      );
+      engine.resetToHome(descendantGens: 1);
+      expect(
+        engine.visibleIds,
+        containsAll(['Home', 'Child', 'ChildSpouse', 'CSDad', 'CSMom']),
+      );
+    });
   });
 
   // ── expandParents ────────────────────────────────────────────────────────────
