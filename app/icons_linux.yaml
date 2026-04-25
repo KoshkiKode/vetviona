@@ -1,6 +1,9 @@
+# flutter_launcher_icons does not support Linux icon generation.
+# The Linux window icon is set manually:
+#   - Source: assets/icon/app_icon.png
+#   - Bundled to: linux/runner/resources/app_icon.png
+#   - Installed alongside the binary at: data/app_icon.png
+#   - Loaded at runtime in: linux/runner/my_application.cc
 flutter_launcher_icons:
   android: false
   ios: false
-  linux:
-    generate: true
-    image_path: "assets/icon/app_icon.png"

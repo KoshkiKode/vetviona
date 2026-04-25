@@ -4,6 +4,8 @@
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
+#include <limits.h>
+#include <unistd.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -25,6 +27,27 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
+  // Set the window icon from data/app_icon.png bundled alongside the binary.
+  {
+    char exe_path[PATH_MAX];
+    ssize_t exe_len =
+        readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (exe_len != -1) {
+      exe_path[exe_len] = '\0';
+      g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+      g_autofree gchar* icon_path =
+          g_build_filename(exe_dir, "data", "app_icon.png", nullptr);
+      GError* icon_err = nullptr;
+      GdkPixbuf* icon = gdk_pixbuf_new_from_file(icon_path, &icon_err);
+      if (icon != nullptr) {
+        gtk_window_set_icon(window, icon);
+        g_object_unref(icon);
+      } else if (icon_err != nullptr) {
+        g_error_free(icon_err);
+      }
+    }
+  }
+
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
   // desktop).
@@ -45,11 +68,11 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "vetviona_app");
+    gtk_header_bar_set_title(header_bar, "Vetviona");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "vetviona_app");
+    gtk_window_set_title(window, "Vetviona");
   }
 
   gtk_window_set_default_size(window, 1280, 720);
