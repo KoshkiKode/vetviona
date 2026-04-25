@@ -22,6 +22,7 @@
 | Data models, DB schema, services | [Architecture and Technical Reference](Architecture-and-Technical-Reference) |
 | Build the app from source | [Building and Development](Building-and-Development) |
 | Deploy the backend and database search services | [Deployment](Deploy) |
+| Step-by-step deployment walkthrough | [Deploy Step by Step](Deploy-Step-by-Step) |
 | Encryption, privacy, security | [Security and Privacy](Security-and-Privacy) |
 
 ---
