@@ -47,6 +47,7 @@ import 'package:vetviona_app/screens/tree_screen.dart';
 import 'package:vetviona_app/screens/wikitree_screen.dart';
 import 'package:vetviona_app/services/bluetooth_sync_service.dart';
 import 'package:vetviona_app/services/license_backend_service.dart';
+import 'package:vetviona_app/services/nfc_sync_service.dart';
 import 'package:vetviona_app/services/purchase_service.dart';
 import 'package:vetviona_app/services/sync_service.dart';
 
@@ -74,6 +75,8 @@ Widget _buildTestApp(Widget child, {TreeProvider? provider}) {
           value: BluetoothSyncService()),
       ChangeNotifierProvider<LicenseBackendService>(
           create: (_) => LicenseBackendService()),
+      ChangeNotifierProvider<NfcSyncService>.value(
+          value: NfcSyncService.instance),
     ],
     child: MaterialApp(home: child),
   );
