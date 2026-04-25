@@ -100,12 +100,40 @@ class TreeVisibilityEngine {
 
   void _addPartners(String personId, Set<String> out) {
     for (final part in partnerships) {
+      String? partnerId;
       if (part.person1Id == personId &&
           _personMap.containsKey(part.person2Id)) {
-        out.add(part.person2Id);
+        partnerId = part.person2Id;
       } else if (part.person2Id == personId &&
           _personMap.containsKey(part.person1Id)) {
-        out.add(part.person1Id);
+        partnerId = part.person1Id;
+      }
+      if (partnerId == null) continue;
+      out.add(partnerId);
+      // Also surface the partner's direct parents so that, whenever a couple
+      // is visible in the tree, both spouses' parents render together when
+      // they exist in the data.  The partner's wider ancestry is not walked
+      // here — that remains controlled by the explicit ancestor-expansion
+      // helpers — only their immediate parents (and each parent's partner)
+      // are added.
+      final partner = _personMap[partnerId]!;
+      for (final parentId in partner.parentIds) {
+        if (!_personMap.containsKey(parentId) ||
+            out.contains(parentId)) {
+          continue;
+        }
+        out.add(parentId);
+        // Pull in the parent's spouse too, mirroring how parents are added
+        // elsewhere — otherwise a parent's partner would be left dangling.
+        for (final pp in partnerships) {
+          if (pp.person1Id == parentId &&
+              _personMap.containsKey(pp.person2Id)) {
+            out.add(pp.person2Id);
+          } else if (pp.person2Id == parentId &&
+              _personMap.containsKey(pp.person1Id)) {
+            out.add(pp.person1Id);
+          }
+        }
       }
     }
   }
