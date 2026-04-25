@@ -175,6 +175,58 @@ class TreeLayout {
       }
     }
 
+    // ── Align spouse generations ──────────────────────────────────────────────
+    // Spouses must always render on the same generation row.  Without this
+    // pass, a spouse added with no parents (a fresh person) would stay at
+    // generation 0 while their partner sits several rows below, causing the
+    // couple knot and edges to render across rows.  We bump the lower-gen
+    // partner up to match the higher-gen partner, then re-cascade so any
+    // descendants remain one row below their (now-bumped) parent.  Iterating
+    // handles chains where bumping cascades through multiple partnerships.
+    bool genChanged = true;
+    int spouseIter = 0;
+    while (genChanged && spouseIter < 8) {
+      genChanged = false;
+      spouseIter++;
+      for (final part in sortedPartnerships) {
+        if (!personMap.containsKey(part.person1Id) ||
+            !personMap.containsKey(part.person2Id)) {
+          continue;
+        }
+        final g1 = generation[part.person1Id] ?? 0;
+        final g2 = generation[part.person2Id] ?? 0;
+        if (g1 == g2) continue;
+        final maxG = math.max(g1, g2);
+        if (g1 < maxG) {
+          generation[part.person1Id] = maxG;
+          genChanged = true;
+        }
+        if (g2 < maxG) {
+          generation[part.person2Id] = maxG;
+          genChanged = true;
+        }
+      }
+      if (genChanged) {
+        // Re-cascade child generations from every person whose gen may have
+        // shifted, so descendants of a bumped spouse stay below their parent.
+        final cascade = <String>[for (final p in sortedPersons) p.id];
+        int ci = 0;
+        while (ci < cascade.length) {
+          final cur = cascade[ci++];
+          final person = personMap[cur];
+          if (person == null) continue;
+          final g = generation[cur]!;
+          for (final childId in person.childIds) {
+            if (!personMap.containsKey(childId)) continue;
+            if ((generation[childId] ?? 0) < g + 1) {
+              generation[childId] = g + 1;
+              cascade.add(childId);
+            }
+          }
+        }
+      }
+    }
+
     // ── Build person nodes ───────────────────────────────────────────────────
     for (final p in sortedPersons) {
       nodes[p.id] = TreeNodeInfo(id: p.id, generation: generation[p.id] ?? 0);

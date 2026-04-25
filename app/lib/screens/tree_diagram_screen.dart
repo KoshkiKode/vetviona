@@ -909,19 +909,30 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
   /// Slot specs (relation, dx-mul, dy-mul) used by both
   /// [_collectEmptyAddSlotPositions] and [_buildEmptyAddSlots].  Filtered at
-  /// call time to omit parent slots when those parents already exist.
-  List<_AddSlotSpec> _activeAddSlotSpecs(Person anchorPerson, Map<String, Person> personMap) {
+  /// call time to omit parent slots when those parents already exist, and to
+  /// omit the spouse slot once the anchor already has any partner — once a
+  /// spouse exists, additional partners are managed through the Relationships
+  /// screen rather than the inline tree shortcut.
+  List<_AddSlotSpec> _activeAddSlotSpecs(
+    Person anchorPerson,
+    Map<String, Person> personMap,
+    List<Partnership> partnerships,
+  ) {
     final existingParentGenders = anchorPerson.parentIds
         .map((pid) => personMap[pid]?.gender?.toLowerCase())
         .whereType<String>()
         .toSet();
     final hasMom = existingParentGenders.contains('female');
     final hasDad = existingParentGenders.contains('male');
+    final hasSpouse = partnerships.any(
+      (p) =>
+          p.person1Id == anchorPerson.id || p.person2Id == anchorPerson.id,
+    );
     return <_AddSlotSpec>[
       if (!hasMom) const _AddSlotSpec(_TreeQuickRelation.mom, -1, -1),
       if (!hasDad) const _AddSlotSpec(_TreeQuickRelation.dad, 1, -1),
       const _AddSlotSpec(_TreeQuickRelation.sibling, -1, 0),
-      const _AddSlotSpec(_TreeQuickRelation.spouse, 1, 0),
+      if (!hasSpouse) const _AddSlotSpec(_TreeQuickRelation.spouse, 1, 0),
       const _AddSlotSpec(_TreeQuickRelation.son, -1, 1),
       const _AddSlotSpec(_TreeQuickRelation.daughter, 1, 1),
     ];
@@ -939,13 +950,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     required TreeLayout layout,
     required String anchorId,
     required Map<String, Person> personMap,
+    required List<Partnership> partnerships,
   }) {
     if (!_effectiveShowEmptySlots) return null;
     final anchorNode = layout.nodes[anchorId];
     final anchorPerson = personMap[anchorId];
     if (anchorNode == null || anchorPerson == null) return null;
 
-    final relations = _activeAddSlotSpecs(anchorPerson, personMap);
+    final relations = _activeAddSlotSpecs(anchorPerson, personMap, partnerships);
     if (relations.isEmpty) return null;
 
     final nw = _preset.nodeWidth;
@@ -976,6 +988,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     required String anchorId,
     required Map<String, Person> personMap,
     required ColorScheme colorScheme,
+    required List<Partnership> partnerships,
     double offsetX = 0,
     double offsetY = 0,
   }) {
@@ -985,7 +998,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     if (anchorNode == null || anchorPerson == null) return const [];
 
     final slots = <Widget>[];
-    final relations = _activeAddSlotSpecs(anchorPerson, personMap);
+    final relations = _activeAddSlotSpecs(anchorPerson, personMap, partnerships);
 
     final nw = _preset.nodeWidth;
     final nh = _preset.nodeHeight;
@@ -1295,6 +1308,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                   layout: layout,
                   anchorId: anchorId,
                   personMap: personMap,
+                  partnerships: partnerships,
                 );
           final double offsetX = slotBounds == null
               ? 0
@@ -1420,6 +1434,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                           anchorId: anchorId,
                           personMap: personMap,
                           colorScheme: colorScheme,
+                          partnerships: partnerships,
                           offsetX: offsetX,
                           offsetY: offsetY,
                         ),
