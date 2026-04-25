@@ -323,7 +323,6 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f icons_linux.yaml
       - name: Build Linux (paid)
         working-directory: app
         run: flutter build linux --release --dart-define=PAID=true
@@ -393,7 +392,6 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f icons_linux.yaml
       - name: Build Linux (paid)
         working-directory: app
         run: flutter build linux --release --dart-define=PAID=true
@@ -446,7 +444,6 @@ jobs:
           flutter config --enable-linux-desktop
           flutter create --platforms=linux --org com.koshkikode .
           flutter pub get
-          dart run flutter_launcher_icons -f icons_linux.yaml
       - name: Build Linux (paid)
         working-directory: app
         run: flutter build linux --release --dart-define=PAID=true
