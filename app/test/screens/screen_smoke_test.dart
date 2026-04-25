@@ -303,6 +303,67 @@ void main() {
       expect(find.text('Add daughter?'), findsOneWidget);
     });
 
+    testWidgets(
+        'empty add slots do not overlap the anchor person card '
+        '(regression: slot stack-on-top bug)', (tester) async {
+      // Single-person tree puts the anchor at layout (0, 0).  Before the
+      // canvas-expansion fix, every empty add-slot was clamped into the tiny
+      // person-only canvas and stacked on top of the main person card.
+      final provider = TreeProvider()
+        ..isLoaded = true
+        ..loadingMessage = 'Ready'
+        ..loadingProgress = 1.0
+        ..persons = [Person(id: 'p1', name: 'Alice')];
+
+      await tester.pumpWidget(
+          _buildTestApp(const TreeDiagramScreen(), provider: provider));
+      await tester.pump();
+      // Allow the post-frame fit-to-view to settle.
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final aliceRect = tester.getRect(find.text('Alice').first);
+      final momRect = tester.getRect(find.text('Add mom?'));
+      final dadRect = tester.getRect(find.text('Add dad?'));
+      final sibRect = tester.getRect(find.text('Add sibling?'));
+      final spouseRect = tester.getRect(find.text('Add spouse?'));
+      final sonRect = tester.getRect(find.text('Add son?'));
+      final daughterRect = tester.getRect(find.text('Add daughter?'));
+
+      // None of the six slots may share the same screen position as the
+      // anchor person card — that's exactly the stacking bug we fixed.
+      for (final slot in [
+        momRect,
+        dadRect,
+        sibRect,
+        spouseRect,
+        sonRect,
+        daughterRect,
+      ]) {
+        expect(slot.center == aliceRect.center, isFalse,
+            reason: 'Slot center must not coincide with the anchor person');
+      }
+
+      // The six slot positions must all be distinct from each other —
+      // before the fix they all collapsed to (0, 0) on top of one another.
+      final centers = <Offset>{
+        momRect.center,
+        dadRect.center,
+        sibRect.center,
+        spouseRect.center,
+        sonRect.center,
+        daughterRect.center,
+      };
+      expect(centers.length, 6,
+          reason: 'All six add-slots must occupy distinct positions');
+
+      // Spatial sanity: parents above, children below, sibling left of spouse.
+      expect(momRect.center.dy, lessThan(aliceRect.center.dy));
+      expect(dadRect.center.dy, lessThan(aliceRect.center.dy));
+      expect(sonRect.center.dy, greaterThan(aliceRect.center.dy));
+      expect(daughterRect.center.dy, greaterThan(aliceRect.center.dy));
+      expect(sibRect.center.dx, lessThan(spouseRect.center.dx));
+    });
+
     testWidgets('can toggle empty add slots off', (tester) async {
       final provider = TreeProvider()
         ..isLoaded = true
