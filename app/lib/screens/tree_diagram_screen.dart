@@ -43,6 +43,12 @@ const double _kEmptySlotTier1Opacity = 0.28;
 const double _kEmptySlotOpacityBase = 0.18;
 const double _kEmptySlotOpacityMin = 0.08;
 
+/// Padding (logical px) added beyond the right/bottom edge of the
+/// outermost empty add-slot ghost card so the SizedBox host has a small
+/// breathing margin around them.  Mirrors the 40 px margin baked into
+/// `TreeLayout.canvasSize` for the person nodes themselves.
+const double _kSlotCanvasPadding = 40.0;
+
 // Edge painter — supports bezier, orthogonal, and straight connector styles.
 class _EdgePainter extends CustomPainter {
   final Map<String, TreeNodeInfo> nodes;
@@ -61,6 +67,15 @@ class _EdgePainter extends CustomPainter {
   /// active preset so every layout's own stroke weight is honoured.
   final double edgeStrokeWidth;
 
+  /// Horizontal offset applied to every node coordinate before drawing.
+  /// Used to keep edges aligned with the person/knot widgets when the host
+  /// Stack has been shifted to make room for empty-add-slot ghost cards that
+  /// would otherwise sit at negative coordinates.
+  final double offsetX;
+
+  /// Vertical offset applied to every node coordinate before drawing.
+  final double offsetY;
+
   _EdgePainter({
     required this.nodes,
     required this.edges,
@@ -71,10 +86,16 @@ class _EdgePainter extends CustomPainter {
     this.nodeHeight = kTreeNodeH,
     this.rowGap = kTreeRowGap,
     this.edgeStrokeWidth = 1.8,
+    this.offsetX = 0,
+    this.offsetY = 0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (offsetX != 0 || offsetY != 0) {
+      canvas.save();
+      canvas.translate(offsetX, offsetY);
+    }
     final parentPaint = Paint()
       ..color = edgeColor
       ..strokeWidth = edgeStrokeWidth
@@ -196,6 +217,9 @@ class _EdgePainter extends CustomPainter {
         }
       }
     }
+    if (offsetX != 0 || offsetY != 0) {
+      canvas.restore();
+    }
   }
 
   @override
@@ -208,7 +232,9 @@ class _EdgePainter extends CustomPainter {
       old.nodeWidth != nodeWidth ||
       old.nodeHeight != nodeHeight ||
       old.rowGap != rowGap ||
-      old.edgeStrokeWidth != edgeStrokeWidth;
+      old.edgeStrokeWidth != edgeStrokeWidth ||
+      old.offsetX != offsetX ||
+      old.offsetY != offsetY;
 }
 
 // Main Screen
@@ -303,6 +329,11 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
 
   /// Most recently computed layout — used by fit-to-view.
   TreeLayout? _lastLayout;
+
+  /// Most recently rendered canvas size (after expanding to include any
+  /// empty add-slot ghost cards).  Used by [_fitView] so the auto-fit zoom
+  /// accounts for the slots that surround the anchor person.
+  Size _lastRenderedCanvas = Size.zero;
 
   /// Last measured body viewport size — used by fit-to-view.
   Size _viewportSize = Size.zero;
@@ -500,16 +531,23 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   void _fitView() {
     final layout = _lastLayout;
     final vp = _viewportSize;
-    if (layout == null || layout.canvasSize == Size.zero || vp == Size.zero) {
+    // Prefer the last rendered canvas (which includes empty add-slots) when
+    // available so the zoom level accounts for the ghost cards surrounding
+    // the anchor person.  Falls back to the raw layout canvas before the
+    // first build completes.
+    final canvas = _lastRenderedCanvas != Size.zero
+        ? _lastRenderedCanvas
+        : layout?.canvasSize ?? Size.zero;
+    if (canvas == Size.zero || vp == Size.zero) {
       _resetView();
       return;
     }
     const padding = 48.0;
-    final sx = (vp.width - padding * 2) / layout.canvasSize.width;
-    final sy = (vp.height - padding * 2) / layout.canvasSize.height;
+    final sx = (vp.width - padding * 2) / canvas.width;
+    final sy = (vp.height - padding * 2) / canvas.height;
     final scale = (sx < sy ? sx : sy).clamp(_kMinScale, 1.0);
-    final scaledW = layout.canvasSize.width * scale;
-    final scaledH = layout.canvasSize.height * scale;
+    final scaledW = canvas.width * scale;
+    final scaledH = canvas.height * scale;
     final tx = (vp.width - scaledW) / 2;
     final ty = (vp.height - scaledH) / 2;
     _txCtrl.value = Matrix4.identity()
@@ -869,28 +907,17 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     }
   }
 
-  List<Widget> _buildEmptyAddSlots({
-    required TreeLayout layout,
-    required String anchorId,
-    required Map<String, Person> personMap,
-    required ColorScheme colorScheme,
-  }) {
-    if (!_effectiveShowEmptySlots) return const [];
-    final anchorNode = layout.nodes[anchorId];
-    final anchorPerson = personMap[anchorId];
-    if (anchorNode == null || anchorPerson == null) return const [];
-
-    // Determine which parent genders the anchor already has so we don't show
-    // a ghost "Add mom?" / "Add dad?" slot when that parent already exists.
+  /// Slot specs (relation, dx-mul, dy-mul) used by both
+  /// [_collectEmptyAddSlotPositions] and [_buildEmptyAddSlots].  Filtered at
+  /// call time to omit parent slots when those parents already exist.
+  List<_AddSlotSpec> _activeAddSlotSpecs(Person anchorPerson, Map<String, Person> personMap) {
     final existingParentGenders = anchorPerson.parentIds
         .map((pid) => personMap[pid]?.gender?.toLowerCase())
         .whereType<String>()
         .toSet();
     final hasMom = existingParentGenders.contains('female');
     final hasDad = existingParentGenders.contains('male');
-
-    final slots = <Widget>[];
-    final relations = <_AddSlotSpec>[
+    return <_AddSlotSpec>[
       if (!hasMom) const _AddSlotSpec(_TreeQuickRelation.mom, -1, -1),
       if (!hasDad) const _AddSlotSpec(_TreeQuickRelation.dad, 1, -1),
       const _AddSlotSpec(_TreeQuickRelation.sibling, -1, 0),
@@ -898,31 +925,84 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       const _AddSlotSpec(_TreeQuickRelation.son, -1, 1),
       const _AddSlotSpec(_TreeQuickRelation.daughter, 1, 1),
     ];
+  }
+
+  /// Computes the un-clamped bounding rectangle (in layout coordinates) of
+  /// every empty add-slot ghost card that would be drawn for [anchorId].
+  /// Returns `null` when slots are disabled or there's no valid anchor.
+  ///
+  /// The build method uses this to grow the canvas and apply a global
+  /// translation so slots that would otherwise sit at negative coordinates
+  /// (e.g. mom/dad above a root person, sibling to the left of the leftmost
+  /// person) are visible instead of stacking on top of the anchor.
+  Rect? _collectEmptyAddSlotBounds({
+    required TreeLayout layout,
+    required String anchorId,
+    required Map<String, Person> personMap,
+  }) {
+    if (!_effectiveShowEmptySlots) return null;
+    final anchorNode = layout.nodes[anchorId];
+    final anchorPerson = personMap[anchorId];
+    if (anchorNode == null || anchorPerson == null) return null;
+
+    final relations = _activeAddSlotSpecs(anchorPerson, personMap);
+    if (relations.isEmpty) return null;
 
     final nw = _preset.nodeWidth;
     final nh = _preset.nodeHeight;
     final baseDx = nw + _preset.colGap;
     final baseDy = nh + (_preset.rowGap * 0.55);
-    final maxLeft = (layout.canvasSize.width - nw) < 0
-        ? 0.0
-        : (layout.canvasSize.width - nw);
-    final maxTop = (layout.canvasSize.height - nh) < 0
-        ? 0.0
-        : (layout.canvasSize.height - nh);
+
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+    for (int tier = 1; tier <= _effectiveEmptyTiers; tier++) {
+      for (final slot in relations) {
+        final left = anchorNode.x + slot.horizontalMultiplier * baseDx * tier;
+        final top = anchorNode.y + slot.verticalMultiplier * baseDy * tier;
+        if (left < minX) minX = left;
+        if (top < minY) minY = top;
+        if (left + nw > maxX) maxX = left + nw;
+        if (top + nh > maxY) maxY = top + nh;
+      }
+    }
+    if (minX == double.infinity) return null;
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
+
+  List<Widget> _buildEmptyAddSlots({
+    required TreeLayout layout,
+    required String anchorId,
+    required Map<String, Person> personMap,
+    required ColorScheme colorScheme,
+    double offsetX = 0,
+    double offsetY = 0,
+  }) {
+    if (!_effectiveShowEmptySlots) return const [];
+    final anchorNode = layout.nodes[anchorId];
+    final anchorPerson = personMap[anchorId];
+    if (anchorNode == null || anchorPerson == null) return const [];
+
+    final slots = <Widget>[];
+    final relations = _activeAddSlotSpecs(anchorPerson, personMap);
+
+    final nw = _preset.nodeWidth;
+    final nh = _preset.nodeHeight;
+    final baseDx = nw + _preset.colGap;
+    final baseDy = nh + (_preset.rowGap * 0.55);
 
     for (int tier = 1; tier <= _effectiveEmptyTiers; tier++) {
       for (final slot in relations) {
         final relation = slot.relation;
+        // Raw positions — no clamping to canvasSize, because the host Stack
+        // is grown (and shifted via offsetX/offsetY) to fit slots that would
+        // otherwise sit at negative coordinates.  Without this, every slot
+        // collapsed onto the anchor and rendered on top of the person card.
         final targetLeft =
-            (anchorNode.x + slot.horizontalMultiplier * baseDx * tier).clamp(
-              0.0,
-              maxLeft,
-            );
+            anchorNode.x + slot.horizontalMultiplier * baseDx * tier + offsetX;
         final targetTop =
-            (anchorNode.y + slot.verticalMultiplier * baseDy * tier).clamp(
-              0.0,
-              maxTop,
-            );
+            anchorNode.y + slot.verticalMultiplier * baseDy * tier + offsetY;
         final opacity = _slotOpacityForTier(tier);
 
         slots.add(
@@ -1202,6 +1282,36 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
           // Track viewport size for fit-to-view.
           _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
 
+          // ── Compute slot-aware canvas extents ─────────────────────────────
+          // Empty add-slot ghost cards (mom/dad/sibling/spouse/son/daughter)
+          // can sit at negative coordinates relative to the layout (e.g. the
+          // mom slot above a root person, the sibling slot to the left of
+          // the leftmost person).  We grow the host SizedBox and apply a
+          // global (offsetX, offsetY) translation so those slots are visible
+          // instead of stacking on top of the anchor person.
+          final slotBounds = anchorId == null
+              ? null
+              : _collectEmptyAddSlotBounds(
+                  layout: layout,
+                  anchorId: anchorId,
+                  personMap: personMap,
+                );
+          final double offsetX = slotBounds == null
+              ? 0
+              : math.max(0, -slotBounds.left);
+          final double offsetY = slotBounds == null
+              ? 0
+              : math.max(0, -slotBounds.top);
+          final double canvasWidth = math.max(
+            layout.canvasSize.width + offsetX,
+            (slotBounds?.right ?? 0) + offsetX + _kSlotCanvasPadding,
+          );
+          final double canvasHeight = math.max(
+            layout.canvasSize.height + offsetY,
+            (slotBounds?.bottom ?? 0) + offsetY + _kSlotCanvasPadding,
+          );
+          _lastRenderedCanvas = Size(canvasWidth, canvasHeight);
+
           return Stack(
             children: [
               InteractiveViewer(
@@ -1211,8 +1321,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 maxScale: _kMaxScale,
                 boundaryMargin: const EdgeInsets.all(_kBoundaryMargin),
                 child: SizedBox(
-                  width: layout.canvasSize.width,
-                  height: layout.canvasSize.height,
+                  width: canvasWidth,
+                  height: canvasHeight,
                   child: Stack(
                     children: [
                       // Edge lines — style driven by the active preset
@@ -1232,6 +1342,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                             nodeHeight: _preset.nodeHeight,
                             rowGap: _preset.rowGap,
                             edgeStrokeWidth: _preset.edgeStrokeWidth,
+                            offsetX: offsetX,
+                            offsetY: offsetY,
                           ),
                         ),
                       ),
@@ -1241,7 +1353,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                         for (final row in layout.generationRows)
                           Positioned(
                             left: 0,
-                            top: (row.y - _kGenLabelTopOffset).clamp(
+                            top: (row.y + offsetY - _kGenLabelTopOffset).clamp(
                               0.0,
                               double.infinity,
                             ),
@@ -1254,8 +1366,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                       // Person / couple-knot nodes
                       for (final node in layout.nodes.values)
                         Positioned(
-                          left: node.x,
-                          top: node.y,
+                          left: node.x + offsetX,
+                          top: node.y + offsetY,
                           width: _preset.nodeWidth,
                           height: _preset.nodeHeight,
                           child: node.isCoupleKnot && _preset.showCoupleKnot
@@ -1298,12 +1410,18 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                                   },
                                 ),
                         ),
+                      // Empty add-slot ghost cards (mom/dad/sibling/spouse/
+                      // son/daughter).  The canvas-expansion above guarantees
+                      // each slot has its own offset from the anchor — they
+                      // never collapse on top of the anchor person card.
                       if (anchorId != null)
                         ..._buildEmptyAddSlots(
                           layout: layout,
                           anchorId: anchorId,
                           personMap: personMap,
                           colorScheme: colorScheme,
+                          offsetX: offsetX,
+                          offsetY: offsetY,
                         ),
                     ],
                   ),
