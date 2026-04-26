@@ -114,19 +114,8 @@ class TreePdfService {
     const int maxAxis = 4;
     int cols = 1;
     int rows = 1;
-    while (true) {
-      final double s = math.min(
-        (usableW * cols) / canvasW,
-        (usableH * rows) / canvasH,
-      );
-      if (s >= minReadable || (cols >= maxAxis && rows >= maxAxis)) {
-        return TreePdfPagePlan(
-          pageFormat: landscape,
-          cols: cols,
-          rows: rows,
-          scale: math.min(s, maxScale),
-        );
-      }
+    double s = math.min(usableW / canvasW, usableH / canvasH);
+    while (s < minReadable && (cols < maxAxis || rows < maxAxis)) {
       // Grow whichever axis is the tighter constraint, but stop when an
       // axis hits the maxAxis cap.
       final double colSlack = (usableW * cols) / canvasW;
@@ -135,18 +124,17 @@ class TreePdfService {
         cols++;
       } else if (rows < maxAxis) {
         rows++;
-      } else if (cols < maxAxis) {
-        cols++;
       } else {
-        // Both axes capped — return whatever we have.
-        return TreePdfPagePlan(
-          pageFormat: landscape,
-          cols: cols,
-          rows: rows,
-          scale: math.min(s, maxScale),
-        );
+        cols++;
       }
+      s = math.min((usableW * cols) / canvasW, (usableH * rows) / canvasH);
     }
+    return TreePdfPagePlan(
+      pageFormat: landscape,
+      cols: cols,
+      rows: rows,
+      scale: math.min(s, maxScale),
+    );
   }
 
   /// Builds a complete PDF document for the given tree layout.

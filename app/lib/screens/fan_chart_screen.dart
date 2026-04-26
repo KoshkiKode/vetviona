@@ -333,13 +333,24 @@ class _FanChartScreenState extends State<FanChartScreen> {
       final bytes = await _buildFanPdf(root, ancestorMap);
       await Printing.layoutPdf(
         onLayout: (_) async => bytes,
-        name: 'fan_chart_${root.name.replaceAll(RegExp(r"\s+"), "_")}',
+        name: 'fan_chart_${_safeFilenamePart(root.name)}',
       );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('PDF export failed: $e')),
       );
     }
+  }
+
+  /// Reduces a person name to characters safe for use in a filename on every
+  /// platform (no path separators, control characters, or shell metachars).
+  static String _safeFilenamePart(String name) {
+    final cleaned = name
+        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    if (cleaned.isEmpty) return 'unknown';
+    return cleaned.length > 40 ? cleaned.substring(0, 40) : cleaned;
   }
 
   /// Builds a single-page A3 landscape PDF with a vector fan chart.
@@ -471,27 +482,32 @@ class _FanChartScreenState extends State<FanChartScreen> {
     }
     final g = person.gender?.toLowerCase();
     if (g == 'male') {
-      return PdfColor.fromInt(_blueShade(gen));
+      // Blue palette: lighten the red and green channels for outer rings.
+      return _shadeForGen(gen, baseR: 0, baseG: 0, baseB: 255);
     } else if (g == 'female') {
-      return PdfColor.fromInt(_pinkShade(gen));
+      // Pink palette: keep red strong, lighten green/blue.
+      return _shadeForGen(gen, baseR: 255, baseG: 64, baseB: 96);
     }
-    return PdfColor.fromInt(_neutralShade(gen));
+    // Unknown gender — neutral warm grey palette.
+    return _shadeForGen(gen, baseR: 180, baseG: 170, baseB: 150);
   }
 
-  static int _blueShade(int gen) {
-    // Lighter for outer rings.
-    final lerp = (210 - gen * 12).clamp(120, 220);
-    return 0xFF000000 | (lerp << 16) | (lerp << 8) | 0xFF;
-  }
-
-  static int _pinkShade(int gen) {
-    final lerp = (220 - gen * 10).clamp(160, 230);
-    return 0xFF000000 | (0xFF << 16) | (lerp << 8) | (lerp + 5).clamp(0, 255);
-  }
-
-  static int _neutralShade(int gen) {
-    final lerp = (220 - gen * 12).clamp(140, 220);
-    return 0xFF000000 | (lerp << 16) | (lerp << 8) | (lerp - 10).clamp(0, 255);
+  /// Generates a per-generation tint of [baseR],[baseG],[baseB] that gets
+  /// lighter (more white) for outer rings.  `gen` 1 → most saturated,
+  /// `gen` 8 → most washed out.  Returns an opaque [PdfColor].
+  static PdfColor _shadeForGen(
+    int gen, {
+    required int baseR,
+    required int baseG,
+    required int baseB,
+  }) {
+    // Lerp factor: 0.18 (gen 1) → ~0.7 (gen 8) toward white.
+    final t = (0.18 + (gen - 1) * 0.075).clamp(0.0, 0.85);
+    int mix(int channel) =>
+        (channel + (255 - channel) * t).round().clamp(0, 255).toInt();
+    return PdfColor.fromInt(
+      0xFF000000 | (mix(baseR) << 16) | (mix(baseG) << 8) | mix(baseB),
+    );
   }
 
   static String _shortNamePdf(String name) {
