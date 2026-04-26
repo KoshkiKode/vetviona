@@ -342,6 +342,16 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   /// Tracks the last known home person ID so we can reset when it changes.
   String? _lastHomePersonId;
 
+  /// The person ID the tree is temporarily focused on via the "Focus" button.
+  ///
+  /// `null` means the tree is centred on the provider's home person (default
+  /// behaviour).  Setting a local focus does **not** permanently change the
+  /// provider's home person — it is only a transient view override.
+  ///
+  /// Ghost "Add…" slots are only rendered when this is `null` (i.e. the tree
+  /// is currently centred on the real home person, not a temporary focus).
+  String? _localFocusId;
+
   /// Most recently computed layout — used by fit-to-view.
   TreeLayout? _lastLayout;
 
@@ -451,6 +461,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       // persons are also included in the visible set.
       if (_showingAll) {
         _engine!.showAll();
+      } else if (_localFocusId != null) {
+        // Re-apply the local focus so that newly-added persons don't suddenly
+        // appear outside the focused subtree.
+        _engine!.focusOn(
+          _localFocusId!,
+          ancestorGens: _effectiveAncestorGens,
+          descendantGens: _effectiveDescendantGens,
+        );
       }
     }
   }
@@ -462,6 +480,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     if (effectiveHomeId == null) return;
     setState(() {
       _showingAll = false;
+      _localFocusId = null;
       _engine = TreeVisibilityEngine(
         persons: persons,
         partnerships: partnerships,
@@ -479,6 +498,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   void _showAll(List<Person> persons) {
     setState(() {
       _showingAll = true;
+      _localFocusId = null;
       _engine!.showAll();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
@@ -747,14 +767,18 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                       onPressed: () {
                         Navigator.pop(ctx);
                         setState(() {
+                          _localFocusId = person.id;
                           _selectedPersonId = person.id;
+                          _showingAll = false;
                           _engine!.focusOn(
                             person.id,
                             ancestorGens: _effectiveAncestorGens,
                             descendantGens: _effectiveDescendantGens,
                           );
                         });
-                        _resetView();
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => _fitView(),
+                        );
                       },
                     ),
                   ),
@@ -1457,6 +1481,13 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         ? provider.homePersonId
         : _stableDefaultPersonId(visiblePersons);
 
+    // Ghost "Add…" slots are only rendered when the tree is centred on the
+    // real home person.  When the user has pressed "Focus" on a different
+    // person (_localFocusId != null) or has switched to "show all" mode the
+    // ghost cards are hidden — they would be confusing or misleading there.
+    final bool showGhosts =
+        _effectiveShowEmptySlots && _localFocusId == null && !_showingAll;
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -1582,7 +1613,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
           // the leftmost person).  We grow the host SizedBox and apply a
           // global (offsetX, offsetY) translation so those slots are visible
           // instead of stacking on top of the anchor person.
-          final slotBounds = anchorId == null
+          final slotBounds = (anchorId == null || !showGhosts)
               ? null
               : _collectEmptyAddSlotBounds(
                   layout: layout,
@@ -1758,10 +1789,10 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                                       ),
                               ),
                           // Empty add-slot ghost cards (mom/dad/sibling/spouse/
-                          // son/daughter).  The canvas-expansion above guarantees
-                          // each slot has its own offset from the anchor — they
-                          // never collapse on top of the anchor person card.
-                          if (anchorId != null)
+                          // son/daughter).  Only rendered when the tree is
+                          // showing the home person's subtree — hidden in local
+                          // focus or "show all" mode.
+                          if (anchorId != null && showGhosts)
                             ..._buildEmptyAddSlots(
                               layout: layout,
                               anchorId: anchorId,
