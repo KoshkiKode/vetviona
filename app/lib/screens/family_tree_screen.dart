@@ -158,7 +158,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen>
                   emptyAddSlotTiers: _settings.emptyAddSlotTiers,
                 ),
                 // 1: Fan Chart
-                const FanChartScreen(),
+                FanChartScreen(
+                  initialGenerations: _settings.ancestorGenerations.clamp(
+                    2,
+                    8,
+                  ),
+                ),
                 // 2: Ancestry
                 AncestryChartScreen(
                   preset: preset,
