@@ -1047,11 +1047,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     required _TreeQuickRelation relation,
     String? visiblePartnerId,
   }) async {
-    // `?visiblePartnerId` is Dart 3 null-aware element syntax: the partner ID
-    // is only included in the list when it is non-null.
     final parentIds =
-        (relation == _TreeQuickRelation.son ||
-            relation == _TreeQuickRelation.daughter)
+        _isChildRelation(relation)
         ? [anchor.id, ?visiblePartnerId]
         : <String>[];
     final parentRelTypes = {for (final pid in parentIds) pid: 'biological'};
@@ -1062,11 +1059,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       gender: input.gender ?? relation.defaultGender,
       parentIds: parentIds,
       parentRelTypes: parentRelTypes,
-      childIds:
-          relation == _TreeQuickRelation.mom ||
-              relation == _TreeQuickRelation.dad
-          ? [anchor.id]
-          : [],
+      childIds: _isParentRelation(relation) ? [anchor.id] : [],
     );
     await provider.addPerson(created);
 
@@ -1342,6 +1335,16 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       _kEmptySlotOpacityBase,
     );
   }
+
+  /// Returns `true` for relations where the new person becomes a child of
+  /// [anchor] (son or daughter).
+  static bool _isChildRelation(_TreeQuickRelation r) =>
+      r == _TreeQuickRelation.son || r == _TreeQuickRelation.daughter;
+
+  /// Returns `true` for relations where the new person becomes a parent of
+  /// [anchor] (mom or dad).
+  static bool _isParentRelation(_TreeQuickRelation r) =>
+      r == _TreeQuickRelation.mom || r == _TreeQuickRelation.dad;
 
   @override
   Widget build(BuildContext context) {
