@@ -869,93 +869,42 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       }
     }
 
+    // Build a list of candidates the user can pick from the existing tree
+    // (excludes the anchor itself and people already in the relevant role).
+    final existingCandidates = provider.persons
+        .where((p) => p.id != current.id)
+        .toList();
+
     final input = await showQuickAddPersonDialog(
       context,
       title: relation.dialogTitle,
       subtitle: relation.subtitleFor(current.name, tier),
       confirmLabel: relation.confirmLabel,
       initialGender: relation.defaultGender,
+      existingPersons: existingCandidates,
     );
     if (input == null) return;
 
     try {
-      final parentIds =
-          (relation == _TreeQuickRelation.son ||
-              relation == _TreeQuickRelation.daughter)
-          ? [current.id, ?visiblePartnerId]
-          : <String>[];
-      final parentRelTypes = {for (final pid in parentIds) pid: 'biological'};
-
-      final created = Person(
-        id: '',
-        name: input.name,
-        gender: input.gender ?? relation.defaultGender,
-        parentIds: parentIds,
-        parentRelTypes: parentRelTypes,
-        childIds:
-            relation == _TreeQuickRelation.mom ||
-                relation == _TreeQuickRelation.dad
-            ? [current.id]
-            : [],
-      );
-      await provider.addPerson(created);
-
-      switch (relation) {
-        case _TreeQuickRelation.mom:
-        case _TreeQuickRelation.dad:
-          if (!current.parentIds.contains(created.id)) {
-            current.parentIds.add(created.id);
-            current.parentRelTypes[created.id] = 'biological';
-            await provider.updatePerson(current);
-          }
-          break;
-        case _TreeQuickRelation.spouse:
-          await provider.addPartnership(
-            Partnership(id: '', person1Id: current.id, person2Id: created.id),
-          );
-          break;
-        case _TreeQuickRelation.sibling:
-          created.parentIds = List<String>.from(current.parentIds);
-          created.parentRelTypes = {
-            for (final parentId in current.parentIds)
-              parentId: current.parentRelType(parentId),
-          };
-          await provider.updatePerson(created);
-          for (final parentId in current.parentIds) {
-            final parent = provider.persons
-                .where((p) => p.id == parentId)
-                .firstOrNull;
-            if (parent == null || parent.childIds.contains(created.id)) {
-              continue;
-            }
-            parent.childIds.add(created.id);
-            await provider.updatePerson(parent);
-          }
-          break;
-        case _TreeQuickRelation.son:
-        case _TreeQuickRelation.daughter:
-          if (!current.childIds.contains(created.id)) {
-            current.childIds.add(created.id);
-            await provider.updatePerson(current);
-          }
-          // Also update the partner's childIds if a visible partner was found.
-          if (visiblePartnerId != null) {
-            final partner = provider.persons
-                .where((p) => p.id == visiblePartnerId)
-                .firstOrNull;
-            if (partner != null && !partner.childIds.contains(created.id)) {
-              partner.childIds.add(created.id);
-              await provider.updatePerson(partner);
-            }
-          }
-          break;
+      if (input.isExisting) {
+        // ── Link an already-existing person ─────────────────────────────
+        await _linkExistingPerson(
+          provider: provider,
+          anchor: current,
+          existingId: input.existingPersonId!,
+          relation: relation,
+          visiblePartnerId: visiblePartnerId,
+        );
+      } else {
+        // ── Create a brand-new person ────────────────────────────────────
+        await _createAndLinkNewPerson(
+          provider: provider,
+          anchor: current,
+          input: input,
+          relation: relation,
+          visiblePartnerId: visiblePartnerId,
+        );
       }
-
-      if (!mounted) return;
-      setState(() {
-        _selectedPersonId = current.id;
-        _engine!.addVisibleId(created.id);
-      });
     } on StateError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -964,16 +913,207 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     }
   }
 
+  /// Links [existingId] to [anchor] according to [relation].
+  Future<void> _linkExistingPerson({
+    required TreeProvider provider,
+    required Person anchor,
+    required String existingId,
+    required _TreeQuickRelation relation,
+    String? visiblePartnerId,
+  }) async {
+    final existing = provider.persons
+        .where((p) => p.id == existingId)
+        .firstOrNull;
+    if (existing == null) return;
+
+    switch (relation) {
+      case _TreeQuickRelation.mom:
+      case _TreeQuickRelation.dad:
+        // Existing person becomes a parent of anchor.
+        if (!anchor.parentIds.contains(existingId)) {
+          anchor.parentIds.add(existingId);
+          anchor.parentRelTypes[existingId] = 'biological';
+          await provider.updatePerson(anchor);
+        }
+        if (!existing.childIds.contains(anchor.id)) {
+          existing.childIds.add(anchor.id);
+          await provider.updatePerson(existing);
+        }
+        break;
+
+      case _TreeQuickRelation.spouse:
+        // Create partnership if one doesn't exist yet.
+        final alreadyPartners = provider.partnerships.any(
+          (p) =>
+              (p.person1Id == anchor.id && p.person2Id == existingId) ||
+              (p.person1Id == existingId && p.person2Id == anchor.id),
+        );
+        if (!alreadyPartners) {
+          await provider.addPartnership(
+            Partnership(
+              id: '',
+              person1Id: anchor.id,
+              person2Id: existingId,
+            ),
+          );
+        }
+        break;
+
+      case _TreeQuickRelation.sibling:
+        // Give existing the same parents as anchor.
+        for (final parentId in anchor.parentIds) {
+          if (!existing.parentIds.contains(parentId)) {
+            existing.parentIds.add(parentId);
+            existing.parentRelTypes[parentId] =
+                anchor.parentRelType(parentId);
+          }
+          final parent = provider.persons
+              .where((p) => p.id == parentId)
+              .firstOrNull;
+          if (parent != null && !parent.childIds.contains(existingId)) {
+            parent.childIds.add(existingId);
+            await provider.updatePerson(parent);
+          }
+        }
+        await provider.updatePerson(existing);
+        break;
+
+      case _TreeQuickRelation.son:
+      case _TreeQuickRelation.daughter:
+        // Existing person becomes a child of anchor (and visible partner).
+        if (!existing.parentIds.contains(anchor.id)) {
+          existing.parentIds.add(anchor.id);
+          existing.parentRelTypes[anchor.id] = 'biological';
+        }
+        if (visiblePartnerId != null &&
+            !existing.parentIds.contains(visiblePartnerId)) {
+          existing.parentIds.add(visiblePartnerId);
+          existing.parentRelTypes[visiblePartnerId] = 'biological';
+        }
+        await provider.updatePerson(existing);
+
+        if (!anchor.childIds.contains(existingId)) {
+          anchor.childIds.add(existingId);
+          await provider.updatePerson(anchor);
+        }
+        if (visiblePartnerId != null) {
+          final partner = provider.persons
+              .where((p) => p.id == visiblePartnerId)
+              .firstOrNull;
+          if (partner != null && !partner.childIds.contains(existingId)) {
+            partner.childIds.add(existingId);
+            await provider.updatePerson(partner);
+          }
+        }
+        break;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedPersonId = anchor.id;
+      _engine!.addVisibleId(existingId);
+    });
+  }
+
+  /// Creates a new person and links them to [anchor] according to [relation].
+  Future<void> _createAndLinkNewPerson({
+    required TreeProvider provider,
+    required Person anchor,
+    required QuickAddPersonInput input,
+    required _TreeQuickRelation relation,
+    String? visiblePartnerId,
+  }) async {
+    final parentIds =
+        (relation == _TreeQuickRelation.son ||
+            relation == _TreeQuickRelation.daughter)
+        ? [anchor.id, ?visiblePartnerId]
+        : <String>[];
+    final parentRelTypes = {for (final pid in parentIds) pid: 'biological'};
+
+    final created = Person(
+      id: '',
+      name: input.name,
+      gender: input.gender ?? relation.defaultGender,
+      parentIds: parentIds,
+      parentRelTypes: parentRelTypes,
+      childIds:
+          relation == _TreeQuickRelation.mom ||
+              relation == _TreeQuickRelation.dad
+          ? [anchor.id]
+          : [],
+    );
+    await provider.addPerson(created);
+
+    switch (relation) {
+      case _TreeQuickRelation.mom:
+      case _TreeQuickRelation.dad:
+        if (!anchor.parentIds.contains(created.id)) {
+          anchor.parentIds.add(created.id);
+          anchor.parentRelTypes[created.id] = 'biological';
+          await provider.updatePerson(anchor);
+        }
+        break;
+      case _TreeQuickRelation.spouse:
+        await provider.addPartnership(
+          Partnership(id: '', person1Id: anchor.id, person2Id: created.id),
+        );
+        break;
+      case _TreeQuickRelation.sibling:
+        created.parentIds = List<String>.from(anchor.parentIds);
+        created.parentRelTypes = {
+          for (final parentId in anchor.parentIds)
+            parentId: anchor.parentRelType(parentId),
+        };
+        await provider.updatePerson(created);
+        for (final parentId in anchor.parentIds) {
+          final parent = provider.persons
+              .where((p) => p.id == parentId)
+              .firstOrNull;
+          if (parent == null || parent.childIds.contains(created.id)) {
+            continue;
+          }
+          parent.childIds.add(created.id);
+          await provider.updatePerson(parent);
+        }
+        break;
+      case _TreeQuickRelation.son:
+      case _TreeQuickRelation.daughter:
+        if (!anchor.childIds.contains(created.id)) {
+          anchor.childIds.add(created.id);
+          await provider.updatePerson(anchor);
+        }
+        // Also update the partner's childIds if a visible partner was found.
+        if (visiblePartnerId != null) {
+          final partner = provider.persons
+              .where((p) => p.id == visiblePartnerId)
+              .firstOrNull;
+          if (partner != null && !partner.childIds.contains(created.id)) {
+            partner.childIds.add(created.id);
+            await provider.updatePerson(partner);
+          }
+        }
+        break;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedPersonId = anchor.id;
+      _engine!.addVisibleId(created.id);
+    });
+  }
+
   /// Slot specs (relation, dx-mul, dy-mul) used by both
   /// [_collectEmptyAddSlotPositions] and [_buildEmptyAddSlots].  Filtered at
-  /// call time to omit parent slots when those parents already exist, and to
-  /// omit the spouse slot once the anchor already has any partner — once a
-  /// spouse exists, additional partners are managed through the Relationships
-  /// screen rather than the inline tree shortcut.
+  /// call time to omit parent slots when those parents already exist, to omit
+  /// the spouse slot once the anchor already has any partner, and to omit
+  /// sibling/son/daughter slots when the anchor already has visible relatives
+  /// of those types — prevents ghost cards from cluttering the family area
+  /// after a focus change.
   List<_AddSlotSpec> _activeAddSlotSpecs(
     Person anchorPerson,
     Map<String, Person> personMap,
     List<Partnership> partnerships,
+    Set<String> visiblePersonIds,
   ) {
     final existingParentGenders = anchorPerson.parentIds
         .map((pid) => personMap[pid]?.gender?.toLowerCase())
@@ -985,13 +1125,30 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       (p) =>
           p.person1Id == anchorPerson.id || p.person2Id == anchorPerson.id,
     );
+
+    // Suppress sibling ghost when any sibling is already visible.
+    final hasVisibleSibling = anchorPerson.parentIds.any((parentId) {
+      final parent = personMap[parentId];
+      if (parent == null) return false;
+      return parent.childIds.any(
+        (id) => id != anchorPerson.id && visiblePersonIds.contains(id),
+      );
+    });
+
+    // Suppress son/daughter ghosts when any child is already visible.
+    final hasVisibleChild = anchorPerson.childIds.any(
+      (id) => visiblePersonIds.contains(id),
+    );
+
     return <_AddSlotSpec>[
       if (!hasMom) const _AddSlotSpec(_TreeQuickRelation.mom, -1, -1),
       if (!hasDad) const _AddSlotSpec(_TreeQuickRelation.dad, 1, -1),
-      const _AddSlotSpec(_TreeQuickRelation.sibling, -1, 0),
+      if (!hasVisibleSibling)
+        const _AddSlotSpec(_TreeQuickRelation.sibling, -1, 0),
       if (!hasSpouse) const _AddSlotSpec(_TreeQuickRelation.spouse, 1, 0),
-      const _AddSlotSpec(_TreeQuickRelation.son, -1, 1),
-      const _AddSlotSpec(_TreeQuickRelation.daughter, 1, 1),
+      if (!hasVisibleChild) const _AddSlotSpec(_TreeQuickRelation.son, -1, 1),
+      if (!hasVisibleChild)
+        const _AddSlotSpec(_TreeQuickRelation.daughter, 1, 1),
     ];
   }
 
@@ -1036,7 +1193,18 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     final anchorPerson = personMap[anchorId];
     if (anchorNode == null || anchorPerson == null) return null;
 
-    final relations = _activeAddSlotSpecs(anchorPerson, personMap, partnerships);
+    // Visible person IDs derived from layout nodes (knots excluded).
+    final visiblePersonIds = layout.nodes.values
+        .where((n) => !n.isCoupleKnot)
+        .map((n) => n.id)
+        .toSet();
+
+    final relations = _activeAddSlotSpecs(
+      anchorPerson,
+      personMap,
+      partnerships,
+      visiblePersonIds,
+    );
     if (relations.isEmpty) return null;
 
     final nw = _preset.nodeWidth;
@@ -1078,8 +1246,19 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     final anchorPerson = personMap[anchorId];
     if (anchorNode == null || anchorPerson == null) return const [];
 
+    // Visible person IDs derived from layout nodes (knots excluded).
+    final visiblePersonIds = layout.nodes.values
+        .where((n) => !n.isCoupleKnot)
+        .map((n) => n.id)
+        .toSet();
+
     final slots = <Widget>[];
-    final relations = _activeAddSlotSpecs(anchorPerson, personMap, partnerships);
+    final relations = _activeAddSlotSpecs(
+      anchorPerson,
+      personMap,
+      partnerships,
+      visiblePersonIds,
+    );
 
     final nw = _preset.nodeWidth;
     final nh = _preset.nodeHeight;
