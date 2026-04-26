@@ -1,17 +1,27 @@
 // app/lib/screens/fan_chart_screen.dart
 //
-// Radial ancestor fan chart.
+// Radial fan chart for ancestors or descendants.
 //
-// The home person appears in a circle at the centre.  Each generation of
-// ancestors fills a concentric ring divided into equal arc segments.  Up to
-// [_maxGenerations] rings are shown.
+// View modes
+// ──────────
+//  • Direction: ancestors (parents radiating outward from the home person)
+//    or descendants (children radiating outward).
+//  • Sweep:     180° (classic half-circle), 270° (three-quarter), or 360°
+//    (full circle).
+//  • Generations: 2 – 8 rings.
+//  • Root person: any person in the tree.
 //
-// Tapping any arc segment navigates to the PersonDetailScreen for that person.
+// Tapping any arc segment opens that person's detail screen.  The chart can
+// also be exported to a high-resolution vector PDF via the printing package.
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
@@ -21,19 +31,61 @@ import 'person_detail_screen.dart';
 // ── Canvas constants ──────────────────────────────────────────────────────────
 const double _kCenterRadius = 46.0;
 const double _kCanvasW = 900.0;
-const double _kCanvasH = 780.0;
-// Centre point — leave room for the top arcs.
-final Offset _kCenter = Offset(_kCanvasW / 2, _kCanvasH * 0.60);
-// Outer radius used by the last generation.
-const double _kMaxOuterRadius = 370.0;
+const double _kCanvasH = 900.0;
+final Offset _kCenter = Offset(_kCanvasW / 2, _kCanvasH / 2);
+const double _kMaxOuterRadius = 400.0;
+
+// ── View mode enums ───────────────────────────────────────────────────────────
+enum FanDirection { ancestors, descendants }
+
+enum FanSweep { half, threeQuarter, full }
+
+extension on FanSweep {
+  /// Total sweep angle in radians.
+  double get angle {
+    switch (this) {
+      case FanSweep.half:
+        return math.pi;
+      case FanSweep.threeQuarter:
+        return math.pi * 1.5;
+      case FanSweep.full:
+        return math.pi * 2;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case FanSweep.half:
+        return '180°';
+      case FanSweep.threeQuarter:
+        return '270°';
+      case FanSweep.full:
+        return '360°';
+    }
+  }
+}
 
 // ── Fan chart screen ──────────────────────────────────────────────────────────
 
-/// Fan chart showing the home person at centre with ancestors radiating
-/// outward in concentric half-rings (upper semicircle, father side on the
-/// left, mother side on the right).
+/// Fan chart showing the home person at centre with ancestors (or
+/// descendants) radiating outward in concentric rings.
 class FanChartScreen extends StatefulWidget {
-  const FanChartScreen({super.key});
+  /// Initial generation depth (rings) to render.  Clamped to [2, 8].
+  /// When null the chart starts with 4 rings.
+  final int? initialGenerations;
+
+  /// Initial fan sweep.  Defaults to half-circle (180°).
+  final FanSweep initialSweep;
+
+  /// Initial fan direction (ancestors vs descendants).
+  final FanDirection initialDirection;
+
+  const FanChartScreen({
+    super.key,
+    this.initialGenerations,
+    this.initialSweep = FanSweep.half,
+    this.initialDirection = FanDirection.ancestors,
+  });
 
   @override
   State<FanChartScreen> createState() => _FanChartScreenState();
@@ -41,7 +93,9 @@ class FanChartScreen extends StatefulWidget {
 
 class _FanChartScreenState extends State<FanChartScreen> {
   final TransformationController _txCtrl = TransformationController();
-  int _maxGenerations = 4;
+  late int _maxGenerations;
+  late FanSweep _sweep;
+  late FanDirection _direction;
   String? _rootPersonId;
 
   // Cached per-segment data built in build() and used for hit-testing.
@@ -50,7 +104,22 @@ class _FanChartScreenState extends State<FanChartScreen> {
   @override
   void initState() {
     super.initState();
+    _maxGenerations = (widget.initialGenerations ?? 4).clamp(2, 8);
+    _sweep = widget.initialSweep;
+    _direction = widget.initialDirection;
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitView());
+  }
+
+  @override
+  void didUpdateWidget(covariant FanChartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Keep the chart in sync with the shared FamilyTreeScreen settings.
+    if (widget.initialGenerations != null &&
+        widget.initialGenerations != oldWidget.initialGenerations) {
+      setState(
+        () => _maxGenerations = widget.initialGenerations!.clamp(2, 8),
+      );
+    }
   }
 
   @override
@@ -80,12 +149,22 @@ class _FanChartScreenState extends State<FanChartScreen> {
     return sorted.first;
   }
 
+  // ── Slot count per generation ──────────────────────────────────────────────
+  /// Returns the number of slots in [gen] for the active direction.
+  ///
+  /// Ancestors always double per generation (2^gen) — every person has two
+  /// biological parents.  Descendants are far less regular: a person can
+  /// have any number of children, so the slot count is determined by the
+  /// actual tree data via [_buildDescendantMap].  This helper returns the
+  /// declared upper bound used by the painter's fallback geometry.
+  int _slotsAtGen(int gen) => 1 << gen;
+
   // ── Ancestor map build ──────────────────────────────────────────────────────
 
-  /// Returns a map of `(generation, slotIndex) → Person?`.
+  /// Returns a map of `(generation, slotIndex) → Person?` for ancestors.
   ///
   /// Generation 0 = root, generation 1 = parents (2 slots), etc.
-  /// Slot 0 is always on the left (father/first-parent) side.
+  /// Slot 0 is always the first parent.
   static Map<(int, int), Person?> _buildAncestorMap(
     Person root,
     Map<String, Person> pm,
@@ -106,6 +185,71 @@ class _FanChartScreenState extends State<FanChartScreen> {
       }
     }
     return result;
+  }
+
+  /// Returns a map of `(generation, slotIndex) → Person?` for descendants.
+  ///
+  /// Each generation's slot count grows with the actual children present:
+  /// gen N has `sum over gen N-1 of max(1, childCount)` slots.  Empty slots
+  /// (children that don't exist) are filled with `null` so the geometry
+  /// remains regular and tappable.
+  static Map<(int, int), Person?> _buildDescendantMap(
+    Person root,
+    Map<String, Person> pm,
+    int maxGen,
+  ) {
+    final result = <(int, int), Person?>{};
+    result[(0, 0)] = root;
+
+    // children[gen] is the list of (slotIndex, person?) at that generation.
+    final List<List<MapEntry<int, Person?>>> byGen = [
+      [MapEntry(0, root)],
+    ];
+
+    for (int gen = 0; gen < maxGen; gen++) {
+      final parents = byGen[gen];
+      final next = <MapEntry<int, Person?>>[];
+      int slotCounter = 0;
+      for (final entry in parents) {
+        final p = entry.value;
+        final childIds = p?.childIds ?? const <String>[];
+        if (childIds.isEmpty) {
+          // Reserve a single placeholder slot so the wedge above stays
+          // visually aligned with its parent.
+          result[(gen + 1, slotCounter)] = null;
+          next.add(MapEntry(slotCounter, null));
+          slotCounter++;
+        } else {
+          for (final cid in childIds) {
+            final child = pm[cid];
+            result[(gen + 1, slotCounter)] = child;
+            next.add(MapEntry(slotCounter, child));
+            slotCounter++;
+          }
+        }
+      }
+      byGen.add(next);
+    }
+    return result;
+  }
+
+  Map<(int, int), Person?> _buildMap(
+    Person root,
+    Map<String, Person> pm,
+  ) =>
+      _direction == FanDirection.ancestors
+          ? _buildAncestorMap(root, pm, _maxGenerations)
+          : _buildDescendantMap(root, pm, _maxGenerations);
+
+  /// Counts the actual slots that exist at [gen] in [map].  For ancestors
+  /// this is always `2^gen`; for descendants it varies with the tree.
+  int _slotCountAt(int gen, Map<(int, int), Person?> map) {
+    if (_direction == FanDirection.ancestors) return _slotsAtGen(gen);
+    int n = 0;
+    while (map.containsKey((gen, n))) {
+      n++;
+    }
+    return n == 0 ? 1 : n;
   }
 
   // ── Hit-testing ─────────────────────────────────────────────────────────────
@@ -133,33 +277,256 @@ class _FanChartScreenState extends State<FanChartScreen> {
 
     // Check each arc segment.
     if (homeDist > _kCenterRadius && homeDist <= _kMaxOuterRadius) {
-      // Determine the angle (-π … 0 for the upper semicircle).
-      final angle = math.atan2(local.dy - _kCenter.dy, local.dx - _kCenter.dx);
-      // Only respond in the upper semicircle (negative y relative to centre).
-      if (angle >= -math.pi && angle <= 0) {
-        final ringWidth = (_kMaxOuterRadius - _kCenterRadius) / _maxGenerations;
-        final gen = ((homeDist - _kCenterRadius) / ringWidth).ceil().clamp(
-          1,
-          _maxGenerations,
-        );
-        final count = 1 << gen; // 2^gen
-        // slot 0 = left (-π side), slot count-1 = right (0 side)
-        final slot = ((angle + math.pi) / (math.pi / count)).floor().clamp(
-          0,
-          count - 1,
-        );
-        final hit = _hitSegments
-            .where((s) => s.gen == gen && s.slot == slot)
-            .firstOrNull;
-        if (hit?.person != null) {
-          Navigator.push(
-            context,
-            fadeSlideRoute(
-              builder: (_) => PersonDetailScreen(person: hit!.person!),
-            ),
-          );
-        }
+      final ringWidth = (_kMaxOuterRadius - _kCenterRadius) / _maxGenerations;
+      final gen = ((homeDist - _kCenterRadius) / ringWidth).ceil().clamp(
+        1,
+        _maxGenerations,
+      );
+
+      // Determine angle relative to the chart's start angle.
+      final rawAngle = math.atan2(
+        local.dy - _kCenter.dy,
+        local.dx - _kCenter.dx,
+      );
+      // Start angle is computed the same way as in the painter.
+      final startAngle = -math.pi / 2 - _sweep.angle / 2;
+      // Normalise rawAngle so it lies in [startAngle, startAngle + 2π).
+      double a = rawAngle;
+      while (a < startAngle) {
+        a += 2 * math.pi;
       }
+      while (a >= startAngle + 2 * math.pi) {
+        a -= 2 * math.pi;
+      }
+      final angleFromStart = a - startAngle;
+      if (angleFromStart < 0 || angleFromStart > _sweep.angle) return;
+
+      final hit = _hitSegments
+          .where((s) => s.gen == gen)
+          .where((s) {
+            final segCount = s.totalSlots;
+            final slotSpan = _sweep.angle / segCount;
+            final slotStart = s.slot * slotSpan;
+            final slotEnd = (s.slot + 1) * slotSpan;
+            return angleFromStart >= slotStart && angleFromStart < slotEnd;
+          })
+          .firstOrNull;
+      if (hit?.person != null) {
+        Navigator.push(
+          context,
+          fadeSlideRoute(
+            builder: (_) => PersonDetailScreen(person: hit!.person!),
+          ),
+        );
+      }
+    }
+  }
+
+  // ── PDF export ──────────────────────────────────────────────────────────────
+
+  Future<void> _exportPdf(
+    Person root,
+    Map<(int, int), Person?> ancestorMap,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final bytes = await _buildFanPdf(root, ancestorMap);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'fan_chart_${root.name.replaceAll(RegExp(r"\s+"), "_")}',
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('PDF export failed: $e')),
+      );
+    }
+  }
+
+  /// Builds a single-page A3 landscape PDF with a vector fan chart.
+  Future<Uint8List> _buildFanPdf(
+    Person root,
+    Map<(int, int), Person?> ancestorMap,
+  ) async {
+    final doc = pw.Document(title: 'Fan Chart — ${root.name}');
+    final pageFormat = PdfPageFormat.a3.landscape;
+    final usableW = pageFormat.width - 48;
+    final usableH = pageFormat.height - 96;
+    final scale = math.min(usableW / _kCanvasW, usableH / _kCanvasH);
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: pageFormat,
+        margin: const pw.EdgeInsets.all(24),
+        build: (ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                _direction == FanDirection.ancestors
+                    ? 'Ancestor Fan Chart — ${root.name}'
+                    : 'Descendant Fan Chart — ${root.name}',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Expanded(
+                child: pw.Center(
+                  child: pw.SizedBox(
+                    width: _kCanvasW * scale,
+                    height: _kCanvasH * scale,
+                    child: pw.CustomPaint(
+                      size: PdfPoint(_kCanvasW * scale, _kCanvasH * scale),
+                      painter: (canvas, size) => _paintFanPdf(
+                        canvas: canvas,
+                        size: size,
+                        ancestorMap: ancestorMap,
+                        slotCounter: _slotCountAt,
+                        scale: scale,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    return doc.save();
+  }
+
+  void _paintFanPdf({
+    required PdfGraphics canvas,
+    required PdfPoint size,
+    required Map<(int, int), Person?> ancestorMap,
+    required int Function(int, Map<(int, int), Person?>) slotCounter,
+    required double scale,
+  }) {
+    final ringWidth = (_kMaxOuterRadius - _kCenterRadius) / _maxGenerations;
+    final cx = _kCenter.dx * scale;
+    final cy = size.y - _kCenter.dy * scale; // PDF Y up
+
+    final startAngle = -math.pi / 2 - _sweep.angle / 2;
+
+    for (int gen = _maxGenerations; gen >= 1; gen--) {
+      final innerR = (_kCenterRadius + (gen - 1) * ringWidth) * scale;
+      final outerR = (_kCenterRadius + gen * ringWidth) * scale;
+      final count = slotCounter(gen, ancestorMap);
+      final span = _sweep.angle / count;
+
+      for (int slot = 0; slot < count; slot++) {
+        final person = ancestorMap[(gen, slot)];
+        final segStart = startAngle + slot * span;
+        // Convert canvas-frame angle (Y-down) to PDF-frame angle (Y-up):
+        // negate.
+        final pdfStart = -segStart;
+        final pdfSweep = -span;
+
+        final fill = _segmentPdfFill(person, gen);
+        canvas
+          ..setFillColor(fill)
+          ..setStrokeColor(PdfColors.grey400)
+          ..setLineWidth(0.4);
+        _arcSegmentPdf(
+          canvas,
+          cx,
+          cy,
+          innerR,
+          outerR,
+          pdfStart,
+          pdfSweep,
+        );
+        canvas.fillAndStrokePath();
+      }
+    }
+
+    // Centre disk.
+    canvas
+      ..setFillColor(PdfColors.indigo400)
+      ..setStrokeColor(PdfColors.indigo700)
+      ..setLineWidth(0.8)
+      ..drawEllipse(cx, cy, _kCenterRadius * scale, _kCenterRadius * scale)
+      ..fillAndStrokePath();
+    final home = ancestorMap[(0, 0)];
+    if (home != null) {
+      final font = canvas.defaultFont;
+      if (font != null) {
+        canvas.setFillColor(PdfColors.white);
+        canvas.drawString(
+          font,
+          9.0 * scale,
+          _shortNamePdf(home.name),
+          cx - (_kCenterRadius * 0.7) * scale,
+          cy - 3 * scale,
+        );
+      }
+    }
+  }
+
+  PdfColor _segmentPdfFill(Person? person, int gen) {
+    if (person == null) {
+      return PdfColors.grey200;
+    }
+    final g = person.gender?.toLowerCase();
+    if (g == 'male') {
+      return PdfColor.fromInt(_blueShade(gen));
+    } else if (g == 'female') {
+      return PdfColor.fromInt(_pinkShade(gen));
+    }
+    return PdfColor.fromInt(_neutralShade(gen));
+  }
+
+  static int _blueShade(int gen) {
+    // Lighter for outer rings.
+    final lerp = (210 - gen * 12).clamp(120, 220);
+    return 0xFF000000 | (lerp << 16) | (lerp << 8) | 0xFF;
+  }
+
+  static int _pinkShade(int gen) {
+    final lerp = (220 - gen * 10).clamp(160, 230);
+    return 0xFF000000 | (0xFF << 16) | (lerp << 8) | (lerp + 5).clamp(0, 255);
+  }
+
+  static int _neutralShade(int gen) {
+    final lerp = (220 - gen * 12).clamp(140, 220);
+    return 0xFF000000 | (lerp << 16) | (lerp << 8) | (lerp - 10).clamp(0, 255);
+  }
+
+  static String _shortNamePdf(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length == 1) return name;
+    return '${parts.first} ${parts.last}';
+  }
+
+  void _arcSegmentPdf(
+    PdfGraphics canvas,
+    double cx,
+    double cy,
+    double innerR,
+    double outerR,
+    double startAngle,
+    double sweep,
+  ) {
+    // Approximate the arc with a polyline; PDF supports arcs but this keeps
+    // the renderer dependency-free and is plenty smooth for printing.
+    const int steps = 32;
+    canvas.moveTo(
+      cx + outerR * math.cos(startAngle),
+      cy + outerR * math.sin(startAngle),
+    );
+    for (int i = 1; i <= steps; i++) {
+      final a = startAngle + sweep * (i / steps);
+      canvas.lineTo(cx + outerR * math.cos(a), cy + outerR * math.sin(a));
+    }
+    canvas.lineTo(
+      cx + innerR * math.cos(startAngle + sweep),
+      cy + innerR * math.sin(startAngle + sweep),
+    );
+    for (int i = steps - 1; i >= 0; i--) {
+      final a = startAngle + sweep * (i / steps);
+      canvas.lineTo(cx + innerR * math.cos(a), cy + innerR * math.sin(a));
     }
   }
 
@@ -183,14 +550,16 @@ class _FanChartScreenState extends State<FanChartScreen> {
     final homeId = _rootPersonId ?? provider.homePersonId ?? fallback.id;
     final root = pm[homeId] ?? fallback;
 
-    final ancestorMap = _buildAncestorMap(root, pm, _maxGenerations);
+    final ancestorMap = _buildMap(root, pm);
 
     // Rebuild hit segments list.
     _hitSegments.clear();
     for (int gen = 0; gen <= _maxGenerations; gen++) {
-      final count = gen == 0 ? 1 : (1 << gen);
+      final count = gen == 0 ? 1 : _slotCountAt(gen, ancestorMap);
       for (int slot = 0; slot < count; slot++) {
-        _hitSegments.add(_SegmentHit(gen, slot, ancestorMap[(gen, slot)]));
+        _hitSegments.add(
+          _SegmentHit(gen, slot, count, ancestorMap[(gen, slot)]),
+        );
       }
     }
 
@@ -198,6 +567,33 @@ class _FanChartScreenState extends State<FanChartScreen> {
       appBar: AppBar(
         title: const Text('Fan Chart'),
         actions: [
+          // Direction toggle
+          IconButton(
+            tooltip: _direction == FanDirection.ancestors
+                ? 'Switch to descendants'
+                : 'Switch to ancestors',
+            icon: Icon(
+              _direction == FanDirection.ancestors
+                  ? Icons.arrow_upward
+                  : Icons.arrow_downward,
+            ),
+            onPressed: () => setState(
+              () => _direction = _direction == FanDirection.ancestors
+                  ? FanDirection.descendants
+                  : FanDirection.ancestors,
+            ),
+          ),
+          // Sweep selector
+          PopupMenuButton<FanSweep>(
+            tooltip: 'Sweep angle',
+            initialValue: _sweep,
+            icon: const Icon(Icons.donut_small_outlined),
+            onSelected: (v) => setState(() => _sweep = v),
+            itemBuilder: (_) => [
+              for (final s in FanSweep.values)
+                PopupMenuItem(value: s, child: Text(s.label)),
+            ],
+          ),
           // Generation depth selector
           PopupMenuButton<int>(
             tooltip: 'Generations',
@@ -205,7 +601,7 @@ class _FanChartScreenState extends State<FanChartScreen> {
             icon: const Icon(Icons.layers_outlined),
             onSelected: (v) => setState(() => _maxGenerations = v),
             itemBuilder: (_) => [
-              for (int g = 2; g <= 6; g++)
+              for (int g = 2; g <= 8; g++)
                 PopupMenuItem(value: g, child: Text('$g generations')),
             ],
           ),
@@ -217,6 +613,12 @@ class _FanChartScreenState extends State<FanChartScreen> {
             itemBuilder: (_) => persons
                 .map((p) => PopupMenuItem(value: p.id, child: Text(p.name)))
                 .toList(),
+          ),
+          // Print to PDF
+          IconButton(
+            tooltip: 'Print to PDF',
+            icon: const Icon(Icons.print_outlined),
+            onPressed: () => _exportPdf(root, ancestorMap),
           ),
         ],
       ),
@@ -235,7 +637,10 @@ class _FanChartScreenState extends State<FanChartScreen> {
             child: CustomPaint(
               painter: _FanPainter(
                 ancestorMap: ancestorMap,
+                slotCountAt: (g) => _slotCountAt(g, ancestorMap),
                 maxGenerations: _maxGenerations,
+                sweep: _sweep,
+                direction: _direction,
                 colorScheme: colorScheme,
               ),
             ),
@@ -282,61 +687,70 @@ class _FanChartScreenState extends State<FanChartScreen> {
 class _SegmentHit {
   final int gen;
   final int slot;
+  final int totalSlots;
   final Person? person;
-  const _SegmentHit(this.gen, this.slot, this.person);
+  const _SegmentHit(this.gen, this.slot, this.totalSlots, this.person);
 }
 
 // ── Fan chart painter ─────────────────────────────────────────────────────────
 
 class _FanPainter extends CustomPainter {
   final Map<(int, int), Person?> ancestorMap;
+  final int Function(int gen) slotCountAt;
   final int maxGenerations;
+  final FanSweep sweep;
+  final FanDirection direction;
   final ColorScheme colorScheme;
 
   const _FanPainter({
     required this.ancestorMap,
+    required this.slotCountAt,
     required this.maxGenerations,
+    required this.sweep,
+    required this.direction,
     required this.colorScheme,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final ringWidth = (_kMaxOuterRadius - _kCenterRadius) / maxGenerations;
+    // Centre the sweep at the top (12 o'clock) for ancestors, bottom for
+    // descendants — matches genealogical convention.
+    final centreAngle = direction == FanDirection.ancestors
+        ? -math.pi / 2
+        : math.pi / 2;
+    final startAngle = centreAngle - sweep.angle / 2;
 
     // ── Generation rings ──────────────────────────────────────────────────────
     for (int gen = maxGenerations; gen >= 1; gen--) {
       final innerR = _kCenterRadius + (gen - 1) * ringWidth;
       final outerR = _kCenterRadius + gen * ringWidth;
-      final count = 1 << gen; // 2^gen
+      final count = slotCountAt(gen);
+      if (count <= 0) continue;
+      final segSpan = sweep.angle / count;
 
       for (int slot = 0; slot < count; slot++) {
         final person = ancestorMap[(gen, slot)];
-
-        // Arc angles: fan spans from π (left) to 0 (right) through the top
-        // (counterclockwise = negative sweep in Flutter canvas).
-        // Slot 0 is leftmost (-π side), slot count-1 is rightmost (0 side).
-        final startAngle = math.pi - slot * (math.pi / count);
-        final sweepAngle = -(math.pi / count);
+        final segStart = startAngle + slot * segSpan;
 
         _drawSegment(
           canvas,
           innerR: innerR,
           outerR: outerR,
-          startAngle: startAngle,
-          sweepAngle: sweepAngle,
+          startAngle: segStart,
+          sweepAngle: segSpan,
           person: person,
           gen: gen,
         );
 
-        // Draw name label if the arc is wide enough.
         if (person != null && ringWidth > 30) {
           _drawLabel(
             canvas,
             person,
             innerR,
             outerR,
-            startAngle,
-            sweepAngle,
+            segStart,
+            segSpan,
             gen,
             ringWidth,
           );
@@ -386,13 +800,26 @@ class _FanPainter extends CustomPainter {
       center: _kCenter,
       radius: _kMaxOuterRadius,
     );
-    canvas.drawArc(outerRect, math.pi, -math.pi, false, borderPaint);
-    // Straight base line
-    canvas.drawLine(
-      _kCenter.translate(-_kMaxOuterRadius, 0),
-      _kCenter.translate(_kMaxOuterRadius, 0),
-      borderPaint,
-    );
+    canvas.drawArc(outerRect, startAngle, sweep.angle, false, borderPaint);
+    if (sweep != FanSweep.full) {
+      // Closing chord lines from the centre.
+      canvas.drawLine(
+        _kCenter,
+        _kCenter.translate(
+          _kMaxOuterRadius * math.cos(startAngle),
+          _kMaxOuterRadius * math.sin(startAngle),
+        ),
+        borderPaint,
+      );
+      canvas.drawLine(
+        _kCenter,
+        _kCenter.translate(
+          _kMaxOuterRadius * math.cos(startAngle + sweep.angle),
+          _kMaxOuterRadius * math.sin(startAngle + sweep.angle),
+        ),
+        borderPaint,
+      );
+    }
   }
 
   void _drawSegment(
@@ -434,19 +861,15 @@ class _FanPainter extends CustomPainter {
     final innerRect = Rect.fromCircle(center: _kCenter, radius: innerR);
     final outerRect = Rect.fromCircle(center: _kCenter, radius: outerR);
     final path = Path();
-    // Outer arc start point.
     path.moveTo(
       _kCenter.dx + outerR * math.cos(startAngle),
       _kCenter.dy + outerR * math.sin(startAngle),
     );
-    // Outer arc (from startAngle to startAngle + sweepAngle).
     path.arcTo(outerRect, startAngle, sweepAngle, false);
-    // Line from outer arc end to inner arc end.
     path.lineTo(
       _kCenter.dx + innerR * math.cos(startAngle + sweepAngle),
       _kCenter.dy + innerR * math.sin(startAngle + sweepAngle),
     );
-    // Inner arc (reverse direction).
     path.arcTo(innerRect, startAngle + sweepAngle, -sweepAngle, false);
     path.close();
     return path;
@@ -489,12 +912,12 @@ class _FanPainter extends CustomPainter {
     canvas.save();
     canvas.translate(textX, textY);
 
-    // Rotate text to read radially outward (perpendicular to the radius).
-    // Adjust so text is always right-side up in the upper semicircle.
+    // Rotate text so it reads radially outward, and flip when the angle
+    // would otherwise leave the text upside-down.
     double rotation = midAngle + math.pi / 2;
-    // If angle is between -π/2 and 0 (right half), flip by π so text reads
-    // left-to-right from the viewer's perspective.
-    if (midAngle > -math.pi / 2 && midAngle <= 0) {
+    final twoPiNorm = ((midAngle % (2 * math.pi)) + 2 * math.pi) %
+        (2 * math.pi);
+    if (twoPiNorm > math.pi / 2 && twoPiNorm < math.pi * 1.5) {
       rotation += math.pi;
     }
     canvas.rotate(rotation);
@@ -505,7 +928,6 @@ class _FanPainter extends CustomPainter {
   static String _shortName(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length == 1) return name;
-    // First name on line 1, last name on line 2 (truncated).
     final last = parts.last;
     return '${parts.first}\n${last.length > 8 ? '${last.substring(0, 7)}…' : last}';
   }
@@ -513,5 +935,7 @@ class _FanPainter extends CustomPainter {
   @override
   bool shouldRepaint(_FanPainter old) =>
       old.ancestorMap.length != ancestorMap.length ||
-      old.maxGenerations != maxGenerations;
+      old.maxGenerations != maxGenerations ||
+      old.sweep != sweep ||
+      old.direction != direction;
 }

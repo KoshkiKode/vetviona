@@ -1,12 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../services/sync_service.dart';
+import '../services/tree_pdf_service.dart';
 import '../tree_core/tree_preset.dart';
 import '../tree_core/tree_visibility_engine.dart';
 import '../utils/page_routes.dart';
@@ -48,6 +50,19 @@ const double _kEmptySlotOpacityMin = 0.08;
 /// breathing margin around them.  Mirrors the 40 px margin baked into
 /// `TreeLayout.canvasSize` for the person nodes themselves.
 const double _kSlotCanvasPadding = 40.0;
+
+/// When the visible person-node count is at or above this threshold, the
+/// interactive tree switches to viewport culling: only nodes whose layout
+/// rect intersects the current visible canvas window are mounted as
+/// `Positioned` widgets.  Below this threshold every node is mounted
+/// unconditionally — the overhead of mounting a few dozen widgets is
+/// negligible and avoiding culling keeps the simple-tree path identical.
+const int _kCullThreshold = 80;
+
+/// Extra margin (logical canvas px) added to the visible window when culling
+/// nodes, so that nodes just outside the viewport are still mounted (avoids
+/// pop-in when panning).
+const double _kCullMargin = 240.0;
 
 // Edge painter — supports bezier, orthogonal, and straight connector styles.
 class _EdgePainter extends CustomPainter {
@@ -526,6 +541,48 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   }
 
   void _resetView() => _txCtrl.value = Matrix4.identity();
+
+  // ── PDF print ────────────────────────────────────────────────────────────
+  /// Builds a vector PDF of the currently-displayed tree (using the same
+  /// computed [TreeLayout] that is on-screen) and hands it to the platform's
+  /// print / share sheet via the `printing` package.  Works for trees with
+  /// hundreds of people: the layout is drawn directly into PDF widgets, and
+  /// for canvases too wide for a single sheet [TreePdfService] tiles them
+  /// across a small grid of landscape A3 pages.
+  Future<void> _printTreePdf() async {
+    final layout = _lastLayout ?? _cachedLayout;
+    if (layout == null || layout.nodes.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tree is empty — nothing to print.')),
+      );
+      return;
+    }
+    final persons = context.read<TreeProvider>().persons;
+    final preset = _preset;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final bytes = await TreePdfService.buildTreePdf(
+        layout: layout,
+        persons: persons,
+        style: TreePdfStyle(
+          nodeWidth: preset.nodeWidth,
+          nodeHeight: preset.nodeHeight,
+          rowGap: preset.rowGap,
+          edgeStrokeWidth: preset.edgeStrokeWidth,
+          showCoupleKnot: preset.showCoupleKnot,
+        ),
+      );
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'family_tree',
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('PDF export failed: $e')),
+      );
+    }
+  }
 
   /// Scales and centres the view so all visible nodes fit in the viewport.
   void _fitView() {
@@ -1253,6 +1310,11 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
             onPressed: () => setState(() => _localShowSlots = !_localShowSlots),
           ),
           IconButton(
+            icon: const Icon(Icons.print_outlined),
+            tooltip: 'Print to PDF',
+            onPressed: _printTreePdf,
+          ),
+          IconButton(
             icon: const Icon(Icons.account_tree_outlined),
             tooltip: 'Pedigree Chart',
             onPressed: () => Navigator.push(
@@ -1343,108 +1405,163 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                 child: SizedBox(
                   width: canvasWidth,
                   height: canvasHeight,
-                  child: Stack(
-                    children: [
-                      // Edge lines — style driven by the active preset
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _EdgePainter(
-                            nodes: layout.nodes,
-                            edges: layout.edges,
-                            edgeColor: colorScheme.outline.withValues(
-                              alpha: 0.5,
+                  child: AnimatedBuilder(
+                    animation: _txCtrl,
+                    builder: (context, _) {
+                      // ── Viewport culling ──────────────────────────────────
+                      // For large trees, only mount nodes whose rect intersects
+                      // the currently-visible canvas window.  Mounting hundreds
+                      // of person-card widgets at once dominates frame time
+                      // even when most are off-screen, so culling them keeps
+                      // pan/zoom smooth on trees with hundreds of people.
+                      final bool cull =
+                          layout.nodes.length >= _kCullThreshold &&
+                          _viewportSize != Size.zero;
+                      Rect? visible;
+                      if (cull) {
+                        try {
+                          final inv = Matrix4.inverted(_txCtrl.value);
+                          visible = MatrixUtils.transformRect(
+                            inv,
+                            Rect.fromLTWH(
+                              0,
+                              0,
+                              _viewportSize.width,
+                              _viewportSize.height,
                             ),
-                            coupleColor: colorScheme.tertiary.withValues(
-                              alpha: 0.7,
-                            ),
-                            edgeStyle: _preset.edgeStyle,
-                            nodeWidth: _preset.nodeWidth,
-                            nodeHeight: _preset.nodeHeight,
-                            rowGap: _preset.rowGap,
-                            edgeStrokeWidth: _preset.edgeStrokeWidth,
-                            offsetX: offsetX,
-                            offsetY: offsetY,
-                          ),
-                        ),
-                      ),
+                          ).inflate(_kCullMargin);
+                        } catch (_) {
+                          // Non-invertible matrix (e.g. zero scale) — disable
+                          // culling for this frame.
+                          visible = null;
+                        }
+                      }
+                      bool nodeVisible(double left, double top) {
+                        if (visible == null) return true;
+                        final r = Rect.fromLTWH(
+                          left,
+                          top,
+                          _preset.nodeWidth,
+                          _preset.nodeHeight,
+                        );
+                        return r.overlaps(visible);
+                      }
 
-                      // Generation row labels (left rail) — hidden for compact layout
-                      if (_preset.showGenerationLabels)
-                        for (final row in layout.generationRows)
-                          Positioned(
-                            left: 0,
-                            top: (row.y + offsetY - _kGenLabelTopOffset).clamp(
-                              0.0,
-                              double.infinity,
-                            ),
-                            child: _GenLabel(
-                              generation: row.generation,
-                              colorScheme: colorScheme,
-                            ),
-                          ),
-
-                      // Person / couple-knot nodes
-                      for (final node in layout.nodes.values)
-                        Positioned(
-                          left: node.x + offsetX,
-                          top: node.y + offsetY,
-                          width: _preset.nodeWidth,
-                          height: _preset.nodeHeight,
-                          child: node.isCoupleKnot && _preset.showCoupleKnot
-                              ? _CoupleKnot(
-                                  node: node,
-                                  partnerships: visiblePartnerships,
-                                  colorScheme: colorScheme,
-                                )
-                              : node.isCoupleKnot
-                              ? const SizedBox.shrink()
-                              : _PersonNodeWidget(
-                                  person:
-                                      personMap[node.id] ??
-                                      Person(id: node.id, name: '?'),
-                                  colorScheme: colorScheme,
-                                  preset: _preset,
-                                  isHighlighted:
-                                      searchLower.isNotEmpty &&
-                                      (personMap[node.id]?.name
-                                              .toLowerCase()
-                                              .contains(searchLower) ??
-                                          false),
-                                  isSelected: _selectedPersonId == node.id,
-                                  hasHiddenAncestors:
-                                      _engine?.hasHiddenAncestors(node.id) ??
-                                      false,
-                                  hasHiddenDescendants:
-                                      _engine?.hasHiddenDescendants(node.id) ??
-                                      false,
-                                  onTap: () {
-                                    final p = personMap[node.id];
-                                    if (p == null) return;
-                                    setState(() => _selectedPersonId = node.id);
-                                    _showPersonSheet(
-                                      context,
-                                      p,
-                                      personMap,
-                                      partnerships,
-                                    );
-                                  },
+                      return Stack(
+                        children: [
+                          // Edge lines — style driven by the active preset
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _EdgePainter(
+                                nodes: layout.nodes,
+                                edges: layout.edges,
+                                edgeColor: colorScheme.outline.withValues(
+                                  alpha: 0.5,
                                 ),
-                        ),
-                      // Empty add-slot ghost cards (mom/dad/sibling/spouse/
-                      // son/daughter).  The canvas-expansion above guarantees
-                      // each slot has its own offset from the anchor — they
-                      // never collapse on top of the anchor person card.
-                      if (anchorId != null)
-                        ..._buildEmptyAddSlots(
-                          layout: layout,
-                          anchorId: anchorId,
-                          personMap: personMap,
-                          colorScheme: colorScheme,
-                          partnerships: partnerships,
-                          offsetX: offsetX,
-                          offsetY: offsetY,
-                        ),
-                    ],
+                                coupleColor: colorScheme.tertiary.withValues(
+                                  alpha: 0.7,
+                                ),
+                                edgeStyle: _preset.edgeStyle,
+                                nodeWidth: _preset.nodeWidth,
+                                nodeHeight: _preset.nodeHeight,
+                                rowGap: _preset.rowGap,
+                                edgeStrokeWidth: _preset.edgeStrokeWidth,
+                                offsetX: offsetX,
+                                offsetY: offsetY,
+                              ),
+                            ),
+                          ),
+
+                          // Generation row labels (left rail) — hidden for compact layout
+                          if (_preset.showGenerationLabels)
+                            for (final row in layout.generationRows)
+                              Positioned(
+                                left: 0,
+                                top: (row.y + offsetY - _kGenLabelTopOffset)
+                                    .clamp(0.0, double.infinity),
+                                child: _GenLabel(
+                                  generation: row.generation,
+                                  colorScheme: colorScheme,
+                                ),
+                              ),
+
+                          // Person / couple-knot nodes (viewport-culled for
+                          // large trees — see [_kCullThreshold]).
+                          for (final node in layout.nodes.values)
+                            if (nodeVisible(
+                              node.x + offsetX,
+                              node.y + offsetY,
+                            ))
+                              Positioned(
+                                left: node.x + offsetX,
+                                top: node.y + offsetY,
+                                width: _preset.nodeWidth,
+                                height: _preset.nodeHeight,
+                                child:
+                                    node.isCoupleKnot && _preset.showCoupleKnot
+                                    ? _CoupleKnot(
+                                        node: node,
+                                        partnerships: visiblePartnerships,
+                                        colorScheme: colorScheme,
+                                      )
+                                    : node.isCoupleKnot
+                                    ? const SizedBox.shrink()
+                                    : _PersonNodeWidget(
+                                        person:
+                                            personMap[node.id] ??
+                                            Person(id: node.id, name: '?'),
+                                        colorScheme: colorScheme,
+                                        preset: _preset,
+                                        isHighlighted:
+                                            searchLower.isNotEmpty &&
+                                            (personMap[node.id]?.name
+                                                    .toLowerCase()
+                                                    .contains(searchLower) ??
+                                                false),
+                                        isSelected:
+                                            _selectedPersonId == node.id,
+                                        hasHiddenAncestors:
+                                            _engine?.hasHiddenAncestors(
+                                              node.id,
+                                            ) ??
+                                            false,
+                                        hasHiddenDescendants:
+                                            _engine?.hasHiddenDescendants(
+                                              node.id,
+                                            ) ??
+                                            false,
+                                        onTap: () {
+                                          final p = personMap[node.id];
+                                          if (p == null) return;
+                                          setState(
+                                            () => _selectedPersonId = node.id,
+                                          );
+                                          _showPersonSheet(
+                                            context,
+                                            p,
+                                            personMap,
+                                            partnerships,
+                                          );
+                                        },
+                                      ),
+                              ),
+                          // Empty add-slot ghost cards (mom/dad/sibling/spouse/
+                          // son/daughter).  The canvas-expansion above guarantees
+                          // each slot has its own offset from the anchor — they
+                          // never collapse on top of the anchor person card.
+                          if (anchorId != null)
+                            ..._buildEmptyAddSlots(
+                              layout: layout,
+                              anchorId: anchorId,
+                              personMap: personMap,
+                              colorScheme: colorScheme,
+                              partnerships: partnerships,
+                              offsetX: offsetX,
+                              offsetY: offsetY,
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
