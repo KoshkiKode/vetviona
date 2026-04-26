@@ -1419,21 +1419,21 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
                           _viewportSize != Size.zero;
                       Rect? visible;
                       if (cull) {
-                        try {
-                          final inv = Matrix4.inverted(_txCtrl.value);
-                          visible = MatrixUtils.transformRect(
-                            inv,
-                            Rect.fromLTWH(
-                              0,
-                              0,
-                              _viewportSize.width,
-                              _viewportSize.height,
-                            ),
-                          ).inflate(_kCullMargin);
-                        } catch (_) {
-                          // Non-invertible matrix (e.g. zero scale) — disable
-                          // culling for this frame.
-                          visible = null;
+                        // MatrixUtils.inverseTransformRect handles
+                        // non-invertible matrices (e.g. zero scale) by
+                        // returning an empty rect — falling back to no
+                        // culling for that frame keeps pan/zoom robust.
+                        final raw = MatrixUtils.inverseTransformRect(
+                          _txCtrl.value,
+                          Rect.fromLTWH(
+                            0,
+                            0,
+                            _viewportSize.width,
+                            _viewportSize.height,
+                          ),
+                        );
+                        if (raw.isFinite && !raw.isEmpty) {
+                          visible = raw.inflate(_kCullMargin);
                         }
                       }
                       bool nodeVisible(double left, double top) {

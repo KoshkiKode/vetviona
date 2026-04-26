@@ -504,7 +504,7 @@ class _FanChartScreenState extends State<FanChartScreen> {
     // Lerp factor: 0.18 (gen 1) → ~0.7 (gen 8) toward white.
     final t = (0.18 + (gen - 1) * 0.075).clamp(0.0, 0.85);
     int mix(int channel) =>
-        (channel + (255 - channel) * t).round().clamp(0, 255).toInt();
+        (channel + (255 - channel) * t).round().clamp(0, 255);
     return PdfColor.fromInt(
       0xFF000000 | (mix(baseR) << 16) | (mix(baseG) << 8) | mix(baseB),
     );
@@ -931,9 +931,9 @@ class _FanPainter extends CustomPainter {
     // Rotate text so it reads radially outward, and flip when the angle
     // would otherwise leave the text upside-down.
     double rotation = midAngle + math.pi / 2;
-    final twoPiNorm = ((midAngle % (2 * math.pi)) + 2 * math.pi) %
+    final normalizedAngle = ((midAngle % (2 * math.pi)) + 2 * math.pi) %
         (2 * math.pi);
-    if (twoPiNorm > math.pi / 2 && twoPiNorm < math.pi * 1.5) {
+    if (normalizedAngle > math.pi / 2 && normalizedAngle < math.pi * 1.5) {
       rotation += math.pi;
     }
     canvas.rotate(rotation);
