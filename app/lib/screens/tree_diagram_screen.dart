@@ -1129,14 +1129,20 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       colGap: _preset.colGap,
       rowGap: _preset.rowGap,
     );
-    // Resolve the focal person for layout centering: prefer home person, fall
-    // back to the selected person, then the first visible person.
+    // Resolve the focal person for layout centering: prefer the user's
+    // currently selected/focused person so the tree recenters when focus
+    // changes, then fall back to the home person, and finally the first
+    // visible person.  This priority must match the ghost-slot [anchorId]
+    // resolution below — otherwise the layout stays centered on the home
+    // person while the empty add-slot ghost cards reposition around the
+    // newly focused person, producing inconsistent canvas offsets and
+    // slot placements.
     final focalId =
-        (provider.homePersonId != null &&
-            visibleIds.contains(provider.homePersonId))
-        ? provider.homePersonId
-        : (_selectedPersonId != null && visibleIds.contains(_selectedPersonId))
+        (_selectedPersonId != null && visibleIds.contains(_selectedPersonId))
         ? _selectedPersonId
+        : (provider.homePersonId != null &&
+              visibleIds.contains(provider.homePersonId))
+        ? provider.homePersonId
         : _stableDefaultPersonId(visiblePersons);
 
     // Only recompute the layout when the inputs actually changed.  This avoids
