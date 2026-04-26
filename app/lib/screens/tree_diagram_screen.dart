@@ -1003,6 +1003,28 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   /// translation so slots that would otherwise sit at negative coordinates
   /// (e.g. mom/dad above a root person, sibling to the left of the leftmost
   /// person) are visible instead of stacking on top of the anchor.
+  /// Returns true when [slotLeft]/[slotTop] (in raw layout coordinates, i.e.
+  /// before any offsetX/offsetY shift) would overlap a visible person node in
+  /// [layout].  Knot nodes are excluded because they are small circles that
+  /// should not block add-slot placement.
+  bool _slotOccupied(
+    double slotLeft,
+    double slotTop,
+    double nw,
+    double nh,
+    Map<String, TreeNodeInfo> nodes,
+    String anchorId,
+  ) {
+    final slotRect = Rect.fromLTWH(slotLeft, slotTop, nw, nh);
+    for (final node in nodes.values) {
+      if (node.isCoupleKnot) continue;
+      if (node.id == anchorId) continue; // anchor never blocks its own slots
+      final nodeRect = Rect.fromLTWH(node.x, node.y, nw, nh);
+      if (slotRect.overlaps(nodeRect)) return true;
+    }
+    return false;
+  }
+
   Rect? _collectEmptyAddSlotBounds({
     required TreeLayout layout,
     required String anchorId,
@@ -1030,6 +1052,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       for (final slot in relations) {
         final left = anchorNode.x + slot.horizontalMultiplier * baseDx * tier;
         final top = anchorNode.y + slot.verticalMultiplier * baseDy * tier;
+        // Skip slots that would land on top of an existing visible node.
+        if (_slotOccupied(left, top, nw, nh, layout.nodes, anchorId)) continue;
         if (left < minX) minX = left;
         if (top < minY) minY = top;
         if (left + nw > maxX) maxX = left + nw;
@@ -1065,14 +1089,21 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     for (int tier = 1; tier <= _effectiveEmptyTiers; tier++) {
       for (final slot in relations) {
         final relation = slot.relation;
-        // Raw positions — no clamping to canvasSize, because the host Stack
-        // is grown (and shifted via offsetX/offsetY) to fit slots that would
-        // otherwise sit at negative coordinates.  Without this, every slot
-        // collapsed onto the anchor and rendered on top of the person card.
-        final targetLeft =
-            anchorNode.x + slot.horizontalMultiplier * baseDx * tier + offsetX;
-        final targetTop =
-            anchorNode.y + slot.verticalMultiplier * baseDy * tier + offsetY;
+        // Raw (pre-offset) slot position — used for the collision check.
+        final rawLeft =
+            anchorNode.x + slot.horizontalMultiplier * baseDx * tier;
+        final rawTop =
+            anchorNode.y + slot.verticalMultiplier * baseDy * tier;
+
+        // Skip slots whose raw position overlaps an existing visible node so
+        // ghost cards never render on top of person cards already in the tree.
+        if (_slotOccupied(rawLeft, rawTop, nw, nh, layout.nodes, anchorId)) {
+          continue;
+        }
+
+        // Apply the canvas offset so slots at negative raw coords are visible.
+        final targetLeft = rawLeft + offsetX;
+        final targetTop = rawTop + offsetY;
         final opacity = _slotOpacityForTier(tier);
 
         slots.add(

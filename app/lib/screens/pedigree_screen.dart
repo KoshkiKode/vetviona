@@ -113,8 +113,10 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
       current = next;
     }
 
-    // Chart height: rightmost generation has 2^(maxGenerations-1) slots, each 80dp tall.
-    const slotHeight = 80.0;
+    // Chart height: rightmost generation has 2^(maxGenerations-1) slots.
+    // 100 dp per slot gives enough room for avatar + 2-line name + birth year
+    // + padding (~98 dp max) without any cell overflowing into its neighbour.
+    const slotHeight = 100.0;
     final rightmostCount = 1 << (_maxGenerations - 1);
     final chartHeight = slotHeight * rightmostCount;
 
@@ -189,15 +191,19 @@ class _PedigreeScreenState extends State<PedigreeScreen> {
                               children: [
                                 for (final person in generations[g])
                                   Expanded(
-                                    child: Center(
-                                      child: _PedigreeBox(
-                                        person: person,
-                                        onReCenter: person == null
-                                            ? null
-                                            : () => setState(() {
-                                                _focusedPerson = person;
-                                                _searchCtrl.text = person.name;
-                                              }),
+                                    // ClipRect ensures the box never visually
+                                    // overflows into an adjacent row's cell.
+                                    child: ClipRect(
+                                      child: Center(
+                                        child: _PedigreeBox(
+                                          person: person,
+                                          onReCenter: person == null
+                                              ? null
+                                              : () => setState(() {
+                                                  _focusedPerson = person;
+                                                  _searchCtrl.text = person.name;
+                                                }),
+                                        ),
                                       ),
                                     ),
                                   ),
