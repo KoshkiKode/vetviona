@@ -70,6 +70,8 @@ class _QuickAddPersonDialogState extends State<_QuickAddPersonDialog> {
   String? _gender;
   List<Person> _matches = [];
 
+  static const _maxSearchResults = 6;
+
   static const _genderOptions = ['Male', 'Female', 'Non-binary', 'Other'];
 
   @override
@@ -97,7 +99,7 @@ class _QuickAddPersonDialogState extends State<_QuickAddPersonDialog> {
           ? []
           : widget.existingPersons!
               .where((p) => p.name.toLowerCase().contains(query))
-              .take(6)
+              .take(_maxSearchResults)
               .toList();
     });
   }

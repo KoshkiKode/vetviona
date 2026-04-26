@@ -1023,6 +1023,8 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     required _TreeQuickRelation relation,
     String? visiblePartnerId,
   }) async {
+    // `?visiblePartnerId` is Dart 3 null-aware element syntax: the partner ID
+    // is only included in the list when it is non-null.
     final parentIds =
         (relation == _TreeQuickRelation.son ||
             relation == _TreeQuickRelation.daughter)
