@@ -1,7 +1,6 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -11,8 +10,7 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
 
-/// Generates a narrative-style "Family Book" PDF and saves it to the
-/// application documents directory.  Returns the file path.
+/// Generates a narrative-style "Family Book" PDF and returns the raw bytes.
 class PdfReportService {
   static const _pageFormat = PdfPageFormat.a4;
 
@@ -159,9 +157,8 @@ class PdfReportService {
     return buf.toString();
   }
 
-  /// Generates the PDF and saves it to the documents directory.
-  /// Returns the full file path.
-  static Future<String> generate({
+  /// Generates the PDF and returns the raw bytes.
+  static Future<Uint8List> generate({
     required List<Person> persons,
     required List<Partnership> partnerships,
     required List<LifeEvent> lifeEvents,
@@ -324,11 +321,6 @@ class PdfReportService {
       );
     }
 
-    final dir = await getApplicationDocumentsDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final file =
-        File('${dir.path}/vetviona_family_book_$timestamp.pdf');
-    await file.writeAsBytes(await pdf.save());
-    return file.path;
+    return pdf.save();
   }
 }
