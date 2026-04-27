@@ -290,6 +290,13 @@ class TreeLayout {
     }
 
     final sortedGenKeys = byGen.keys.toList()..sort();
+    // Map each generation index to a compact 0-based row rank so that
+    // non-consecutive generation numbers (which can arise when spouse
+    // alignment bumps a partner across multiple rows) never produce empty
+    // visual gaps between rendered rows.
+    final genRank = <int, int>{
+      for (int i = 0; i < sortedGenKeys.length; i++) sortedGenKeys[i]: i,
+    };
     for (final gen in sortedGenKeys) {
       final nodeIds = byGen[gen]!;
       // Sort so that person nodes come first, knot nodes last (they get
@@ -329,10 +336,11 @@ class TreeLayout {
         }
       }
       final step = config.nodeWidth + config.colGap;
+      final rowRank = genRank[gen]!;
       for (int i = 0; i < ordered.length; i++) {
         final node = nodes[ordered[i]]!;
         node.x = i * step;
-        node.y = gen * (config.nodeHeight + config.rowGap);
+        node.y = rowRank * (config.nodeHeight + config.rowGap);
       }
     }
 
@@ -387,11 +395,13 @@ class TreeLayout {
     canvasSize = Size(maxX + 40, maxY + 40);
 
     // ── Generation row labels (sorted ascending) ─────────────────────────────
+    // Use the same compact row rank used for y-coordinates so the label
+    // positions match the rendered rows even when generation indices are
+    // non-consecutive.
     generationRows.clear();
-    final genNums = byGen.keys.toList()..sort();
-    for (final g in genNums) {
+    for (int i = 0; i < sortedGenKeys.length; i++) {
       generationRows.add(
-        TreeGenRow(g, g * (config.nodeHeight + config.rowGap)),
+        TreeGenRow(sortedGenKeys[i], i * (config.nodeHeight + config.rowGap)),
       );
     }
   }
