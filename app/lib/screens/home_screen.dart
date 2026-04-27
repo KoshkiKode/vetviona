@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:printing/printing.dart';
+
 import '../config/app_config.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
@@ -1634,7 +1636,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (includeLivingData == null) return;
 
     try {
-      final path = await PdfReportService.generate(
+      final bytes = await PdfReportService.generate(
         persons: provider.persons,
         partnerships: provider.partnerships,
         lifeEvents: provider.lifeEvents,
@@ -1643,10 +1645,10 @@ class _HomeScreenState extends State<HomeScreen> {
         treeName: provider.currentTreeName,
         includeLivingData: includeLivingData,
       );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('PDF saved to: $path')));
-      }
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'family_book',
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
