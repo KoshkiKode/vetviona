@@ -304,6 +304,35 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
   String? _cachedFocalId;
   TreePreset? _cachedPreset;
 
+  /// XOR fingerprint of every visible person's parent/child IDs.
+  ///
+  /// When an existing visible person is re-linked (e.g. a new parent-child
+  /// edge is drawn between two already-visible people), [persons.length] and
+  /// [partnerships.length] stay the same, so those counters alone would miss
+  /// the update.  This fingerprint detects any structural change to the
+  /// relationship graph among the currently-visible nodes.
+  int _cachedRelFingerprint = 0;
+
+  /// Computes a lightweight fingerprint of the parent/child relationship
+  /// structure for the given list of visible persons.  The fingerprint changes
+  /// whenever any parentId or childId is added, removed, or replaced — even
+  /// when no persons are added or removed.
+  ///
+  /// Each person contributes its own sub-hash derived from its ID, the
+  /// ordered parentIds string, and the ordered childIds string.  Hashing the
+  /// joined strings (rather than XOR-ing individual element hashes) ensures
+  /// that a structural swap across two persons (e.g. A gains a parent while
+  /// B loses one) still produces a different fingerprint.
+  static int _relFingerprint(List<Person> visiblePersons) {
+    int fp = 0;
+    for (final p in visiblePersons) {
+      fp ^= p.id.hashCode;
+      fp ^= p.parentIds.join(',').hashCode;
+      fp ^= p.childIds.join(',').hashCode;
+    }
+    return fp;
+  }
+
   /// Returns true if [newIds] differs from the previously cached visible set.
   bool _visibleIdsChanged(Set<String> newIds) {
     final prev = _cachedVisibleIds;
@@ -1444,12 +1473,14 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
     // Only recompute the layout when the inputs actually changed.  This avoids
     // running the expensive BFS + 8-pass refinement on every SyncService ping
     // or other unrelated provider notification that rebuilds this widget.
+    final relFp = _relFingerprint(visiblePersons);
     if (_cachedLayout == null ||
         _visibleIdsChanged(visibleIds) ||
         _cachedPersonsLen != persons.length ||
         _cachedPartnershipsLen != partnerships.length ||
         _cachedFocalId != focalId ||
-        _cachedPreset != _preset) {
+        _cachedPreset != _preset ||
+        _cachedRelFingerprint != relFp) {
       final fresh = TreeLayout(
         visiblePersons,
         visiblePartnerships,
@@ -1463,6 +1494,7 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
       _cachedPartnershipsLen = partnerships.length;
       _cachedFocalId = focalId;
       _cachedPreset = _preset;
+      _cachedRelFingerprint = relFp;
       _lastLayout = fresh;
     }
     final layout = _cachedLayout!;

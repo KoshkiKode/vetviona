@@ -359,7 +359,9 @@ void main() {
 
   // ── Generation rows ──────────────────────────────────────────────────────────
   group('TreeLayout — generation rows', () {
-    test('row y values match expected formula', () {
+    test('row y values are evenly spaced (compact rank formula)', () {
+      // For consecutive generations the rank equals the generation index so
+      // the formula is identical to the old gen*(nodeH+rowGap) formula.
       final layout = TreeLayout([
         _person('GP', childIds: ['P']),
         _person('P', parentIds: ['GP'], childIds: ['C']),
@@ -367,9 +369,9 @@ void main() {
       ], []);
       layout.compute();
 
-      for (final row in layout.generationRows) {
-        final expectedY = row.generation * (kTreeNodeH + kTreeRowGap);
-        expect(row.y, closeTo(expectedY, 0.01));
+      for (int i = 0; i < layout.generationRows.length; i++) {
+        final expectedY = i * (kTreeNodeH + kTreeRowGap);
+        expect(layout.generationRows[i].y, closeTo(expectedY, 0.01));
       }
     });
 
@@ -385,6 +387,113 @@ void main() {
       for (int i = 1; i < gens.length; i++) {
         expect(gens[i], greaterThan(gens[i - 1]));
       }
+    });
+  });
+
+  // ── Non-consecutive generation normalisation ─────────────────────────────────
+  group('TreeLayout — non-consecutive generation normalisation', () {
+    // Scenario: A and B are spouses.  B has no parents in the visible set
+    // (gen 0 initially).  A is at gen 2 due to known ancestry.  After
+    // spouse-alignment B gets bumped to gen 2, creating a gap at gen 1.
+    // The layout engine must map gen 0 → row 0 and gen 2 → row 1 so the
+    // two rows are adjacent on screen with no empty vertical gap.
+    test('nodes with non-consecutive generation indices have consecutive y positions', () {
+      // Root (gen 0) → Parent (gen 1) → A (gen 2)
+      // B has no parents → initially gen 0, bumped to gen 2 by spouse
+      // alignment with A.
+      // So the visible nodes are at generations 0 (Root, Parent) … wait –
+      // let's build a minimal tree where a gap is guaranteed:
+      //
+      //  Root ──── Parent ──── A (gen 2)
+      //                         ↕ married
+      //                        B (gen 0 → bumped to gen 2)
+      //
+      // B's parent BG has no other connections, so BG stays at gen 0.
+      // After alignment A==B==gen 2.  BG stays at gen 0.
+      // There is no person at gen 1 in B's branch → gap at gen 1 for that
+      // family line, but the row map should still produce exactly 3 rows.
+      final layout = TreeLayout(
+        [
+          _person('Root', childIds: ['Parent']),
+          _person('Parent', parentIds: ['Root'], childIds: ['A']),
+          _person('A', parentIds: ['Parent']),
+          _person('B'),
+          _person('BG', childIds: ['B']),
+          // Note: B's parentIds are intentionally left blank so that the
+          // BG→B relationship is one-sided (BG has B in childIds, but B
+          // does not have BG in parentIds).  This means B is a root from
+          // the BFS perspective and stays at gen 0 until spouse-aligned.
+        ],
+        [_couple('pAB', 'A', 'B')],
+      );
+      layout.compute();
+
+      // Gather the unique y positions and sort them.
+      final ys = layout.nodes.values
+          .map((n) => n.y)
+          .toSet()
+          .toList()
+        ..sort();
+
+      // Every y step should equal exactly one row pitch (nodeH + rowGap).
+      final pitch = kTreeNodeH + kTreeRowGap;
+      for (int i = 1; i < ys.length; i++) {
+        expect(
+          ys[i] - ys[i - 1],
+          closeTo(pitch, 0.01),
+          reason: 'Gap between row $i and row ${i - 1} should equal one pitch',
+        );
+      }
+    });
+
+    test('generation row labels are placed at compact consecutive y values', () {
+      final layout = TreeLayout(
+        [
+          _person('R', childIds: ['P']),
+          _person('P', parentIds: ['R'], childIds: ['A']),
+          _person('A', parentIds: ['P']),
+          _person('B'),
+        ],
+        [_couple('pAB', 'A', 'B')],
+      );
+      layout.compute();
+
+      final pitch = kTreeNodeH + kTreeRowGap;
+      for (int i = 0; i < layout.generationRows.length; i++) {
+        expect(
+          layout.generationRows[i].y,
+          closeTo(i * pitch, 0.01),
+          reason: 'Generation row $i y should be i * pitch',
+        );
+      }
+    });
+
+    test('no two nodes in different rows share the same y coordinate after normalisation', () {
+      final layout = TreeLayout(
+        [
+          _person('R', childIds: ['P']),
+          _person('P', parentIds: ['R'], childIds: ['A']),
+          _person('A', parentIds: ['P']),
+          _person('B'),
+        ],
+        [_couple('pAB', 'A', 'B')],
+      );
+      layout.compute();
+
+      // Collect (generation → y) mapping and assert all nodes in the same
+      // generation share the same y, and different generations have different y.
+      final genToY = <int, double>{};
+      for (final node in layout.nodes.values) {
+        if (genToY.containsKey(node.generation)) {
+          expect(node.y, closeTo(genToY[node.generation]!, 0.01),
+              reason: 'All nodes in the same generation must share the same y');
+        } else {
+          genToY[node.generation] = node.y;
+        }
+      }
+      final uniqueYs = genToY.values.toSet();
+      expect(uniqueYs.length, genToY.length,
+          reason: 'Different generations must have different y values');
     });
   });
 
