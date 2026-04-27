@@ -357,6 +357,14 @@ class TreeLayout {
     // ── Refine layout ────────────────────────────────────────────────────────
     _refineLayout(byGen);
 
+    // ── Final settle: guarantee no two nodes in the same row overlap ─────────
+    // The iterative refinement loop ends with a couple-knot recentering pass
+    // (Pass C).  That last pass can nudge a knot into a neighbour node with
+    // no further push-apart to correct it.  This one-time sweep gives a hard
+    // guarantee that every node in every row is separated by at least one
+    // full node-width + column-gap from its left neighbour.
+    _finalSettlePass(byGen);
+
     // ── Centre on focal person ────────────────────────────────────────────────
     // When a focal person is given (home person in the interactive tree),
     // shift all nodes horizontally so that person sits at the midpoint of the
@@ -541,6 +549,30 @@ class TreeLayout {
       // Re-assign x positions based on the new sorted order.
       for (int i = 0; i < ordered.length; i++) {
         nodes[ordered[i]]!.x = i * step;
+      }
+    }
+  }
+
+  /// Post-refinement settle pass that gives a hard guarantee no two nodes in
+  /// the same generation row overlap.
+  ///
+  /// After the 8-iteration refinement loop, the final Pass C (couple-knot
+  /// recentering) can nudge a knot node into a neighbour without a subsequent
+  /// push-apart to fix it.  This single sweep sorts every row by x and pushes
+  /// each node right until it clears its left neighbour by at least
+  /// [config.nodeWidth] + [config.colGap] — making overlaps structurally
+  /// impossible rather than just probabilistically unlikely.
+  void _finalSettlePass(Map<int, List<String>> byGen) {
+    final step = config.nodeWidth + config.colGap;
+    for (final gen in byGen.keys) {
+      final rowNodes = (byGen[gen] ?? [])
+          .map((id) => nodes[id])
+          .whereType<TreeNodeInfo>()
+          .toList()
+        ..sort((a, b) => a.x.compareTo(b.x));
+      for (int i = 1; i < rowNodes.length; i++) {
+        final minX = rowNodes[i - 1].x + step;
+        if (rowNodes[i].x < minX) rowNodes[i].x = minX;
       }
     }
   }

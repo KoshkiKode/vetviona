@@ -1516,12 +1516,11 @@ class _TreeDiagramScreenState extends State<TreeDiagramScreen> {
         ? provider.homePersonId
         : _stableDefaultPersonId(visiblePersons);
 
-    // Ghost "Add…" slots are only rendered when the tree is centred on the
-    // real home person.  When the user has pressed "Focus" on a different
-    // person (_localFocusId != null) or has switched to "show all" mode the
-    // ghost cards are hidden — they would be confusing or misleading there.
-    final bool showGhosts =
-        _effectiveShowEmptySlots && _localFocusId == null && !_showingAll;
+    // Ghost "Add…" slots are shown whenever the slot toggle is on and the tree
+    // is not in "show all" mode.  They are available in focus mode too so the
+    // user can always add relatives directly from the diagram — hiding them in
+    // focus mode was the old behaviour and prevented adding people there.
+    final bool showGhosts = _effectiveShowEmptySlots && !_showingAll;
 
     return Scaffold(
       appBar: AppBar(

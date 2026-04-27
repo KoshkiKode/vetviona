@@ -94,6 +94,22 @@ class TreeVisibilityEngine {
     _addPartners(rootId, _visibleIds);
     _addAncestors(rootId, ancestorGens, _visibleIds);
     _addDescendants(rootId, descendantGens, _visibleIds);
+    // Include the full family context for each direct partner so that, when
+    // focusing on a person, their spouse's own ancestry and descendants are
+    // shown to the same depth as the focused person's family.
+    for (final part in partnerships) {
+      String? partnerId;
+      if (part.person1Id == rootId &&
+          _personMap.containsKey(part.person2Id)) {
+        partnerId = part.person2Id;
+      } else if (part.person2Id == rootId &&
+          _personMap.containsKey(part.person1Id)) {
+        partnerId = part.person1Id;
+      }
+      if (partnerId == null) continue;
+      _addAncestors(partnerId, ancestorGens, _visibleIds);
+      _addDescendants(partnerId, descendantGens, _visibleIds);
+    }
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
