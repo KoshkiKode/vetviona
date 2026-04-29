@@ -12,10 +12,9 @@
     Version="1.0.0"
     UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
     InstallerVersion="500"
-    Compressed="yes"
     Scope="perMachine">
 
-    <SummaryInformation Description="Vetviona — Private, local-first genealogy app by KoshkiKode" />
+    <SummaryInformation Comments="Vetviona — Private, local-first genealogy app by KoshkiKode" />
 
     <!-- ── Upgrade handling ─────────────────────────────────────────── -->
     <MajorUpgrade
@@ -96,7 +95,7 @@
   -->
   <Fragment>
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-      <Files Source="." Include="**" Exclude="*.wxs;*.msi" />
+      <Files Include="**" Exclude="*.wxs;*.msi" />
     </ComponentGroup>
   </Fragment>
 
