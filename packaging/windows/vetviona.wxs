@@ -96,7 +96,7 @@
   -->
   <Fragment>
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-      <Files Source="." Include="**" Exclude="*.wxs;*.msi" />
+      <Files Include="**" Exclude="*.wxs;*.msi" />
     </ComponentGroup>
   </Fragment>
 
