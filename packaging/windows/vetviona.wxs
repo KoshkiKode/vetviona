@@ -2,8 +2,7 @@
 <!--
   Vetviona Windows Installer
   WiX v5 / dotnet tool "wix" v5.0.2
-  Build (CI): wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
-           && wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
+  Build (CI): wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
 
@@ -28,12 +27,6 @@
 
     <!-- ── Feature tree ────────────────────────────────────────────── -->
     <Feature Id="ProductFeature" Title="Vetviona" Level="1">
-      <!--
-        AppFiles is generated at CI build time via:
-          wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
-        It includes the main executable, all DLLs, the Flutter data/ directory,
-        and any other files produced by flutter build windows.
-      -->
       <ComponentGroupRef Id="AppFiles" />
       <ComponentRef Id="ApplicationShortcut" />
       <ComponentRef Id="ApplicationShortcutDesktop" />
@@ -91,15 +84,20 @@
     </Component>
 
     <!-- ── Application files ─────────────────────────────────── -->
-    <!--
-      The AppFiles component group is generated at CI build time via the
-      "Harvest release directory" step (wix harvest dir ...). This ensures
-      all files produced by flutter build windows are included:
-        - vetviona.exe (main executable)
-        - flutter_windows.dll and all plugin DLLs
-        - sqlite3.dll (bundled by sqlite3_flutter_libs)
-        - data/ directory (Flutter framework, fonts, assets)
-    -->
 
   </Package>
+
+  <!-- ── Inline file harvest (WiX v5) ───────────────────────────────── -->
+  <!--
+    AppFiles is harvested inline at build time from the Release directory.
+    This includes the main executable, all DLLs, the Flutter data/ directory,
+    and any other files produced by flutter build windows.
+    *.wxs and *.msi are excluded as they are build artifacts, not application files.
+  -->
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Source="." Include="**" Exclude="*.wxs;*.msi" />
+    </ComponentGroup>
+  </Fragment>
+
 </Wix>
