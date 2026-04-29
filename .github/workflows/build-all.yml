@@ -215,8 +215,7 @@ jobs:
         working-directory: app/build/windows/x64/runner/Release
         run: |
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
-          wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
-          wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
+          wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-windows-msi
