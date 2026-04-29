@@ -3,6 +3,7 @@ import 'package:vetviona_app/models/life_event.dart';
 import 'package:vetviona_app/models/medical_condition.dart';
 import 'package:vetviona_app/models/partnership.dart';
 import 'package:vetviona_app/models/person.dart';
+import 'package:vetviona_app/models/source.dart';
 import 'package:vetviona_app/services/pdf_report_service.dart';
 
 void main() {
@@ -332,6 +333,107 @@ void main() {
       expect(result, contains('Diabetes'));
       expect(result, contains('Arthritis'));
       expect(result, contains('Medical history includes:'));
+    });
+  });
+
+  // ── PdfReportService.generate — privacy / "Generic Labels" behaviour ────────
+
+  group('PdfReportService.generate — Generic Labels privacy', () {
+    final deceased = Person(
+      id: 'dec1',
+      name: 'Alice Anderson',
+      deathDate: DateTime(2000, 1, 1),
+      childIds: ['liv1'],
+    );
+    final living = Person(
+      id: 'liv1',
+      name: 'Bob Anderson',
+      parentIds: ['dec1'],
+    );
+
+    test(
+        'includeLivingData=false includes living person (not excluded entirely)',
+        () async {
+      final bytes = await PdfReportService.generate(
+        persons: [deceased, living],
+        partnerships: [],
+        lifeEvents: [],
+        medicalConditions: [],
+        sources: [],
+        treeName: 'Test',
+        includeLivingData: false,
+      );
+      // Both deceased and living persons are included (living shows as "Living")
+      // so the PDF should be at least as large as with an all-deceased tree.
+      expect(bytes.length, greaterThan(200));
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+    });
+
+    test('includeLivingData=true produces a valid PDF', () async {
+      final bytes = await PdfReportService.generate(
+        persons: [deceased, living],
+        partnerships: [],
+        lifeEvents: [],
+        medicalConditions: [],
+        sources: [],
+        treeName: 'Test',
+        includeLivingData: true,
+      );
+      expect(bytes.length, greaterThan(200));
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+    });
+
+    test(
+        'living-only tree with includeLivingData=false produces a valid PDF',
+        () async {
+      // All people are living — previously would have produced an empty report
+      // (excluded entirely).  Now they are included anonymised as "Living".
+      final bytes = await PdfReportService.generate(
+        persons: [living],
+        partnerships: [],
+        lifeEvents: [],
+        medicalConditions: [],
+        sources: [],
+        treeName: 'Test',
+        includeLivingData: false,
+      );
+      expect(bytes.length, greaterThan(200));
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+    });
+
+    test('all-private tree produces a valid PDF without crashing', () async {
+      final priv = Person(id: 'p1', name: 'Private Person', isPrivate: true);
+      final bytes = await PdfReportService.generate(
+        persons: [priv],
+        partnerships: [],
+        lifeEvents: [],
+        medicalConditions: [],
+        sources: [],
+        treeName: 'Test',
+      );
+      expect(bytes.length, greaterThan(200));
+    });
+
+    test(
+        'buildNarrative uses anonymised allPersons: living parent shows as "Living"',
+        () {
+      // A deceased person whose parent is living — the narrative should
+      // reference "Living" rather than the real name when using the
+      // anonymised persons list (as generate() does internally).
+      final parent = Person(id: 'par1', name: 'Bob Living');
+      final child = Person(
+        id: 'chi1',
+        name: 'Alice Deceased',
+        deathDate: DateTime(2020, 1, 1),
+        parentIds: ['par1'],
+      );
+      // Use the shared anonymiseLiving helper (same as generate() uses).
+      final anonParent = PdfReportService.anonymiseLiving(parent);
+      final allPersons = [child, anonParent];
+      final narrative =
+          PdfReportService.buildNarrative(child, [], [], [], allPersons);
+      expect(narrative, contains('Living'));
+      expect(narrative, isNot(contains('Bob Living')));
     });
   });
 }

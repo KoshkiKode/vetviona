@@ -157,6 +157,18 @@ class PdfReportService {
     return buf.toString();
   }
 
+  /// Returns an anonymised placeholder for [person] that keeps only the
+  /// structural links (id, parentIds, childIds) and replaces the name with
+  /// `'Living'`.  All personal details are cleared so that narrative name
+  /// lookups resolve to `'Living'` rather than the person's real name.
+  // @visibleForTesting
+  static Person anonymiseLiving(Person person) => Person(
+        id: person.id,
+        name: 'Living',
+        parentIds: person.parentIds,
+        childIds: person.childIds,
+      );
+
   /// Generates the PDF and returns the raw bytes.
   static Future<Uint8List> generate({
     required List<Person> persons,
@@ -169,11 +181,33 @@ class PdfReportService {
   }) async {
     final pdf = pw.Document();
 
-    // Filter: exclude private persons; when not includeLivingData, only include
-    // deceased. Sort by birth year ascending.
-    final exportPersons = persons
+    // When not including full living data, replace living persons with
+    // anonymised placeholders so the family book still acknowledges their
+    // existence while protecting their personal details — consistent with the
+    // "Generic Labels" option described in the export dialog.
+    //
+    // The anonymised placeholder keeps only the structural links (id,
+    // parentIds, childIds) so that parent / child / partner name lookups in
+    // narratives resolve to "Living" rather than the person's real name.
+    final Set<String> livingIds;
+    final List<Person> narrativePersons;
+    if (includeLivingData) {
+      livingIds = const {};
+      narrativePersons = persons;
+    } else {
+      livingIds = {
+        for (final p in persons)
+          if (!p.isPrivate && p.deathDate == null) p.id,
+      };
+      narrativePersons = persons.map((p) {
+        if (!livingIds.contains(p.id)) return p;
+        return anonymiseLiving(p);
+      }).toList();
+    }
+
+    // Filter: exclude private persons. Sort by birth year ascending.
+    final exportPersons = narrativePersons
         .where((p) => !p.isPrivate)
-        .where((p) => includeLivingData || p.deathDate != null)
         .toList()
       ..sort((a, b) {
         final ay = a.birthDate?.year ?? 9999;
@@ -234,10 +268,8 @@ class PdfReportService {
           margin: const pw.EdgeInsets.all(40),
           build: (_) => pw.Center(
             child: pw.Text(
-              includeLivingData
-                  ? 'No people to include in this report.'
-                  : 'No deceased people to include.\n'
-                      'Enable "Include living data" to export living people.',
+              'No people to include in this report.\n'
+              'Check that there are people in the tree who are not marked as private.',
               textAlign: pw.TextAlign.center,
             ),
           ),
@@ -273,13 +305,18 @@ class PdfReportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: chunk.map((p) {
-                    final narrative = buildNarrative(
-                      p,
-                      partnerships,
-                      lifeEvents,
-                      medicalConditions,
-                      persons,
-                    );
+                    // Living persons get a brief privacy notice; deceased
+                    // persons get the full narrative.  Use narrativePersons
+                    // so that living relatives resolve to "Living" in name lookups.
+                    final narrative = livingIds.contains(p.id)
+                        ? 'Personal details withheld for privacy.'
+                        : buildNarrative(
+                            p,
+                            partnerships,
+                            lifeEvents,
+                            medicalConditions,
+                            narrativePersons,
+                          );
                     return pw.Padding(
                       padding:
                           const pw.EdgeInsets.only(bottom: 14),
