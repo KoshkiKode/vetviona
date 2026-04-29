@@ -200,7 +200,7 @@ jobs:
         working-directory: app
         run: flutter build windows --release --dart-define=PAID=true
       - name: Rename Windows executable
-        run: cp app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
+        run: mv app/build/windows/x64/runner/Release/vetviona_app.exe app/build/windows/x64/runner/Release/vetviona.exe
       - name: Install WiX
         run: dotnet tool install --global wix --version 5.0.2
       - name: Configure WiX extensions
@@ -480,7 +480,7 @@ jobs:
       contents: read
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           pattern: build-*
           path: all-artifacts
