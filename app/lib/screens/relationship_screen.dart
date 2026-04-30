@@ -208,31 +208,59 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
         provider.persons.where((p) => p.id == widget.person.id).firstOrNull;
     if (current == null) return;
 
+    // Exclude the current person and anyone already a parent.
+    final existingCandidates = provider.persons
+        .where((p) => p.id != current.id && !current.parentIds.contains(p.id))
+        .toList();
+
     final input = await showQuickAddPersonDialog(
       context,
       title: 'Add $label',
-      subtitle: 'Create a new $label and link to ${current.name}.',
+      subtitle: 'Create or pick an existing $label for ${current.name}.',
       confirmLabel: 'Add $label',
       initialGender: initialGender,
+      existingPersons: existingCandidates,
     );
     if (input == null) return;
 
     try {
-      final parent = Person(
-        id: '',
-        name: input.name,
-        gender: input.gender ?? initialGender,
-        childIds: [current.id],
-      );
-      await provider.addPerson(parent);
-      if (!current.parentIds.contains(parent.id)) {
-        current.parentIds.add(parent.id);
-        current.parentRelTypes[parent.id] = 'biological';
-        await provider.updatePerson(current);
+      if (input.isExisting) {
+        // Link an already-existing person as parent.
+        final existing = provider.persons
+            .where((p) => p.id == input.existingPersonId)
+            .firstOrNull;
+        if (existing == null) return;
+        if (!current.parentIds.contains(existing.id)) {
+          current.parentIds.add(existing.id);
+          current.parentRelTypes[existing.id] = 'biological';
+          await provider.updatePerson(current);
+        }
+        if (!existing.childIds.contains(current.id)) {
+          existing.childIds.add(current.id);
+          await provider.updatePerson(existing);
+        }
+        setState(() {
+          _parents.add(
+              _ParentEntry(parentId: existing.id, relType: 'biological'));
+        });
+      } else {
+        final parent = Person(
+          id: '',
+          name: input.name,
+          gender: input.gender ?? initialGender,
+          childIds: [current.id],
+        );
+        await provider.addPerson(parent);
+        if (!current.parentIds.contains(parent.id)) {
+          current.parentIds.add(parent.id);
+          current.parentRelTypes[parent.id] = 'biological';
+          await provider.updatePerson(current);
+        }
+        setState(() {
+          _parents
+              .add(_ParentEntry(parentId: parent.id, relType: 'biological'));
+        });
       }
-      setState(() {
-        _parents.add(_ParentEntry(parentId: parent.id, relType: 'biological'));
-      });
     } on StateError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -246,28 +274,52 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
         provider.persons.where((p) => p.id == widget.person.id).firstOrNull;
     if (current == null) return;
 
+    // Exclude the current person and anyone already a partner.
+    final existingPartnerIds = provider.partnerships
+        .where((p) =>
+            p.person1Id == current.id || p.person2Id == current.id)
+        .map((p) =>
+            p.person1Id == current.id ? p.person2Id : p.person1Id)
+        .toSet();
+    final existingCandidates = provider.persons
+        .where(
+            (p) => p.id != current.id && !existingPartnerIds.contains(p.id))
+        .toList();
+
     final input = await showQuickAddPersonDialog(
       context,
       title: 'Add Partner',
-      subtitle: 'Create and link a new partner for ${current.name}.',
+      subtitle: 'Create or pick an existing partner for ${current.name}.',
       confirmLabel: 'Add Partner',
+      existingPersons: existingCandidates,
     );
     if (input == null) return;
 
     try {
-      final partner = Person(
-        id: '',
-        name: input.name,
-        gender: input.gender,
-      );
-      await provider.addPerson(partner);
-      await provider.addPartnership(
-        Partnership(
+      if (input.isExisting) {
+        // Link an already-existing person as partner.
+        await provider.addPartnership(
+          Partnership(
+            id: '',
+            person1Id: current.id,
+            person2Id: input.existingPersonId!,
+          ),
+        );
+      } else {
+        final partner = Person(
           id: '',
-          person1Id: current.id,
-          person2Id: partner.id,
-        ),
-      );
+          name: input.name,
+          gender: input.gender,
+        );
+        await provider.addPerson(partner);
+        await provider.addPartnership(
+          Partnership(
+            id: '',
+            person1Id: current.id,
+            person2Id: partner.id,
+          ),
+        );
+      }
     } on StateError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -284,27 +336,86 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
         provider.persons.where((p) => p.id == widget.person.id).firstOrNull;
     if (current == null) return;
 
+    // Exclude the current person and anyone already a child.
+    final existingCandidates = provider.persons
+        .where((p) => p.id != current.id && !current.childIds.contains(p.id))
+        .toList();
+
     final input = await showQuickAddPersonDialog(
       context,
       title: 'Add $label',
-      subtitle: 'Create and link a new $label for ${current.name}.',
+      subtitle: 'Create or pick an existing $label for ${current.name}.',
       confirmLabel: 'Add $label',
       initialGender: initialGender,
+      existingPersons: existingCandidates,
     );
     if (input == null) return;
 
     try {
-      final child = Person(
-        id: '',
-        name: input.name,
-        gender: input.gender ?? initialGender,
-        parentIds: [current.id],
-        parentRelTypes: {current.id: 'biological'},
-      );
-      await provider.addPerson(child);
-      if (!current.childIds.contains(child.id)) {
-        current.childIds.add(child.id);
-        await provider.updatePerson(current);
+      // Find the current person's partner so the child is linked to both.
+      String? partnerId;
+      for (final pt in provider.partnerships) {
+        if (pt.person1Id == current.id) {
+          partnerId = pt.person2Id;
+          break;
+        }
+        if (pt.person2Id == current.id) {
+          partnerId = pt.person1Id;
+          break;
+        }
+      }
+
+      if (input.isExisting) {
+        // Link an already-existing person as child.
+        final existing = provider.persons
+            .where((p) => p.id == input.existingPersonId)
+            .firstOrNull;
+        if (existing == null) return;
+        if (!existing.parentIds.contains(current.id)) {
+          existing.parentIds.add(current.id);
+          existing.parentRelTypes[current.id] = 'biological';
+        }
+        if (partnerId != null && !existing.parentIds.contains(partnerId)) {
+          existing.parentIds.add(partnerId);
+          existing.parentRelTypes[partnerId] = 'biological';
+        }
+        await provider.updatePerson(existing);
+        if (!current.childIds.contains(existing.id)) {
+          current.childIds.add(existing.id);
+          await provider.updatePerson(current);
+        }
+        if (partnerId != null) {
+          final partner = provider.persons
+              .where((p) => p.id == partnerId)
+              .firstOrNull;
+          if (partner != null && !partner.childIds.contains(existing.id)) {
+            partner.childIds.add(existing.id);
+            await provider.updatePerson(partner);
+          }
+        }
+      } else {
+        final childParentIds = [current.id, ?partnerId];
+        final child = Person(
+          id: '',
+          name: input.name,
+          gender: input.gender ?? initialGender,
+          parentIds: childParentIds,
+          parentRelTypes: {for (final pid in childParentIds) pid: 'biological'},
+        );
+        await provider.addPerson(child);
+        if (!current.childIds.contains(child.id)) {
+          current.childIds.add(child.id);
+          await provider.updatePerson(current);
+        }
+        if (partnerId != null) {
+          final partner = provider.persons
+              .where((p) => p.id == partnerId)
+              .firstOrNull;
+          if (partner != null && !partner.childIds.contains(child.id)) {
+            partner.childIds.add(child.id);
+            await provider.updatePerson(partner);
+          }
+        }
       }
     } on StateError catch (e) {
       if (!mounted) return;
@@ -325,33 +436,71 @@ class _RelationshipScreenState extends State<RelationshipScreen> {
       return;
     }
 
+    // Exclude the current person and anyone who already shares the same parents.
+    final existingSiblingIds = <String>{};
+    for (final parentId in current.parentIds) {
+      final parent =
+          provider.persons.where((p) => p.id == parentId).firstOrNull;
+      if (parent != null) {
+        existingSiblingIds.addAll(parent.childIds);
+      }
+    }
+    final existingCandidates = provider.persons
+        .where(
+            (p) => p.id != current.id && !existingSiblingIds.contains(p.id))
+        .toList();
+
     final input = await showQuickAddPersonDialog(
       context,
       title: 'Add Sibling',
-      subtitle: 'Create a sibling that shares ${current.name}\'s parents.',
+      subtitle: 'Create or pick an existing sibling for ${current.name}.',
       confirmLabel: 'Add Sibling',
+      existingPersons: existingCandidates,
     );
     if (input == null) return;
 
     try {
-      final sibling = Person(
-        id: '',
-        name: input.name,
-        gender: input.gender,
-        parentIds: List<String>.from(current.parentIds),
-        parentRelTypes: {
-          for (final parentId in current.parentIds)
-            parentId: current.parentRelType(parentId),
-        },
-      );
-      await provider.addPerson(sibling);
+      if (input.isExisting) {
+        // Link an already-existing person as sibling (share parents).
+        final existing = provider.persons
+            .where((p) => p.id == input.existingPersonId)
+            .firstOrNull;
+        if (existing == null) return;
+        for (final parentId in current.parentIds) {
+          if (!existing.parentIds.contains(parentId)) {
+            existing.parentIds.add(parentId);
+            existing.parentRelTypes[parentId] =
+                current.parentRelType(parentId);
+          }
+          final parent = provider.persons
+              .where((p) => p.id == parentId)
+              .firstOrNull;
+          if (parent != null && !parent.childIds.contains(existing.id)) {
+            parent.childIds.add(existing.id);
+            await provider.updatePerson(parent);
+          }
+        }
+        await provider.updatePerson(existing);
+      } else {
+        final sibling = Person(
+          id: '',
+          name: input.name,
+          gender: input.gender,
+          parentIds: List<String>.from(current.parentIds),
+          parentRelTypes: {
+            for (final parentId in current.parentIds)
+              parentId: current.parentRelType(parentId),
+          },
+        );
+        await provider.addPerson(sibling);
 
-      for (final parentId in current.parentIds) {
-        final parent =
-            provider.persons.where((p) => p.id == parentId).firstOrNull;
-        if (parent == null || parent.childIds.contains(sibling.id)) continue;
-        parent.childIds.add(sibling.id);
-        await provider.updatePerson(parent);
+        for (final parentId in current.parentIds) {
+          final parent =
+              provider.persons.where((p) => p.id == parentId).firstOrNull;
+          if (parent == null || parent.childIds.contains(sibling.id)) continue;
+          parent.childIds.add(sibling.id);
+          await provider.updatePerson(parent);
+        }
       }
     } on StateError catch (e) {
       if (!mounted) return;

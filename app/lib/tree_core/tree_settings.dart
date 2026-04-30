@@ -32,8 +32,8 @@ class TreeViewSettings {
 
   TreeViewSettings({
     this.preset = TreePresetType.classic,
-    this.ancestorGenerations = 1,
-    this.descendantGenerations = 1,
+    this.ancestorGenerations = 2,
+    this.descendantGenerations = 2,
     this.showEmptyAddSlots = true,
     this.emptyAddSlotTiers = 1,
   });

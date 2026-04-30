@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import '../utils/page_routes.dart';
 import 'package:provider/provider.dart';
 
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../tree_core/tree_preset.dart';
-import 'person_detail_screen.dart';
+import '../widgets/person_action_sheet.dart';
 
 // ── Pedigree layout constants ─────────────────────────────────────────────────
 
@@ -415,10 +414,11 @@ class _PedigreeBox extends StatelessWidget {
         : colorScheme.onSurface;
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person)),
-      ),
+      onTap: () {
+        if (person != null) {
+          showPersonActionSheet(context, person: person!);
+        }
+      },
       onLongPress: onReCenter,
       child: Container(
         constraints: const BoxConstraints(minWidth: 100, maxWidth: 140),

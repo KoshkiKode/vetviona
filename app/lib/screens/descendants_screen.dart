@@ -8,8 +8,7 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../tree_core/tree_preset.dart';
-import '../utils/page_routes.dart';
-import 'person_detail_screen.dart';
+import '../widgets/person_action_sheet.dart';
 
 // ── Layout constants (fallback when no preset is provided) ────────────────────
 const double _kCardW = 160.0;
@@ -239,6 +238,9 @@ class _DescLayout {
     // ── Refine layout ────────────────────────────────────────────────────────
     _refineLayout(byGen);
 
+    // ── Final settle: guarantee no overlaps after knot recentering ─────────
+    _finalSettlePass(byGen);
+
     // ── Canvas bounds ────────────────────────────────────────────────────────
     double maxX = 0, maxY = 0;
     for (final n in nodes.values) {
@@ -262,8 +264,7 @@ class _DescLayout {
     final sortedGens = byGen.keys.toList()..sort();
     final step = cardW + colGap;
 
-    for (int iter = 0; iter < 3; iter++) {
-      // Pass A: bottom-up parent centering.
+    for (int iter = 0; iter < 8; iter++) {
       for (final gen in sortedGens.reversed) {
         for (final id in (byGen[gen] ?? [])) {
           if (nodes[id]!.isCoupleKnot) continue;
@@ -304,6 +305,23 @@ class _DescLayout {
         for (final n in nodes.values) {
           n.x -= minX;
         }
+      }
+    }
+  }
+
+  /// Post-refinement settle pass that guarantees no two nodes in the same
+  /// generation row overlap — mirrors TreeLayout._finalSettlePass.
+  void _finalSettlePass(Map<int, List<String>> byGen) {
+    final step = cardW + colGap;
+    for (final gen in byGen.keys) {
+      final rowNodes = (byGen[gen] ?? [])
+          .map((id) => nodes[id])
+          .whereType<_NodeInfo>()
+          .toList()
+        ..sort((a, b) => a.x.compareTo(b.x));
+      for (int i = 1; i < rowNodes.length; i++) {
+        final minX = rowNodes[i - 1].x + step;
+        if (rowNodes[i].x < minX) rowNodes[i].x = minX;
       }
     }
   }
@@ -683,13 +701,9 @@ class _DescendantsScreenState extends State<DescendantsScreen> {
                                   person: pm[node.id]!,
                                   isRoot: node.id == _rootPerson!.id,
                                   colorScheme: colorScheme,
-                                  onTap: () => Navigator.push(
+                                  onTap: () => showPersonActionSheet(
                                     context,
-                                    fadeSlideRoute(
-                                      builder: (_) => PersonDetailScreen(
-                                        person: pm[node.id]!,
-                                      ),
-                                    ),
+                                    person: pm[node.id]!,
                                   ),
                                 ),
                         ),

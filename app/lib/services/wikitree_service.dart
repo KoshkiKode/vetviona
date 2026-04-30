@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -34,6 +36,9 @@ class WikiTreeProfile {
   /// Full biography text as stored on WikiTree (may contain wiki markup).
   final String? bio;
 
+  /// URL of the primary profile photo on WikiTree, or `null` if none.
+  final String? photoUrl;
+
   /// WikiTree IDs of direct parent profiles.
   final List<String> parentWikiTreeIds;
 
@@ -56,6 +61,7 @@ class WikiTreeProfile {
     this.gender,
     this.occupation,
     this.bio,
+    this.photoUrl,
     this.parentWikiTreeIds = const [],
     this.childWikiTreeIds = const [],
     this.spouseWikiTreeIds = const [],
@@ -133,10 +139,35 @@ class WikiTreeProfile {
       gender: _nullIfEmpty(json['Gender'] as String?),
       occupation: _nullIfEmpty(json['Occupation'] as String?),
       bio: _nullIfEmpty(json['Bio'] as String?),
+      photoUrl: _extractPhotoUrl(json),
       parentWikiTreeIds: parents,
       childWikiTreeIds: children,
       spouseWikiTreeIds: spouses,
     );
+  }
+
+  /// Extracts the primary photo URL from the WikiTree API response.
+  /// WikiTree returns photo data in `PhotoData` as either a string URL or
+  /// a map with an `url` key.
+  static String? _extractPhotoUrl(Map<String, dynamic> json) {
+    final photoData = json['PhotoData'];
+    if (photoData is String && photoData.isNotEmpty) {
+      return photoData.startsWith('http') ? photoData : null;
+    }
+    if (photoData is Map) {
+      final url = photoData['url'] as String? ?? photoData['path'] as String?;
+      if (url != null && url.isNotEmpty) {
+        return url.startsWith('http')
+            ? url
+            : 'https://www.wikitree.com$url';
+      }
+    }
+    // Also check the legacy Photo field (just the filename).
+    final photo = json['Photo'] as String?;
+    if (photo != null && photo.isNotEmpty && photo != 'null') {
+      return 'https://www.wikitree.com/photo.php/thumb/${Uri.encodeComponent(photo)}';
+    }
+    return null;
   }
 
   /// Parses WikiTree date strings like `"1920-00-00"` (year only) or
@@ -330,7 +361,7 @@ class WikiTreeService extends ChangeNotifier {
               'Id,Name,FirstName,MiddleName,LastName,RealName,BirthDate,'
               'BirthDateDecade,BirthLocation,DeathDate,DeathDateDecade,'
               'DeathLocation,Gender,Father,Mother,Bio,Spouses,Children,'
-              'Occupation',
+              'Occupation,Photo,PhotoData',
         },
       ).timeout(const Duration(seconds: 15));
 
@@ -488,6 +519,51 @@ class WikiTreeService extends ChangeNotifier {
   }
 
   // ── Conversion helpers ────────────────────────────────────────────────────
+
+  /// Downloads an image from [url] and saves it to the app's documents
+  /// directory.  Returns the local file path on success, or `null` on failure.
+  ///
+  /// Used to import profile photos from WikiTree and Find A Grave so they
+  /// are available offline.
+  Future<String?> downloadPhoto(String url, String personId) async {
+    try {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {'User-Agent': _ua},
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        return null;
+      }
+      // Determine file extension from content-type or URL.
+      final contentType = response.headers['content-type'] ?? '';
+      String ext = 'jpg';
+      if (contentType.contains('png')) {
+        ext = 'png';
+      } else if (contentType.contains('gif')) {
+        ext = 'gif';
+      } else if (contentType.contains('webp')) {
+        ext = 'webp';
+      } else if (url.contains('.png')) {
+        ext = 'png';
+      }
+      final dir = await _getPhotoDir();
+      final fileName = '${personId}_wikitree_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
+      return file.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<Directory> _getPhotoDir() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final photoDir = Directory('${appDir.path}/photos');
+    if (!await photoDir.exists()) {
+      await photoDir.create(recursive: true);
+    }
+    return photoDir;
+  }
 
   /// Converts a [WikiTreeProfile] into a local [Person] record.
   ///

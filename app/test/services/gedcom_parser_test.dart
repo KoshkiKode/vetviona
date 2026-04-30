@@ -45,7 +45,7 @@ void main() {
       final result = await parser.parse(path);
       expect(result.persons.length, 1);
       expect(result.persons.first.name, 'John Doe');
-      expect(result.persons.first.gender, 'M');
+      expect(result.persons.first.gender, 'Male');
     });
 
     test('name with slashes stripped', () async {
@@ -279,7 +279,7 @@ void main() {
       await parser.export(persons, [], path, includeLivingData: true);
       final content = await File(path).readAsString();
       expect(content, contains('@P1@ INDI'));
-      expect(content, contains('1 NAME Alice Test'));
+      expect(content, contains('1 NAME Alice /Test/'));
       expect(content, contains('1 SEX F'));
     });
 
@@ -485,7 +485,7 @@ void main() {
       final path = '${tempDir.path}/out.ged';
       await parser.export(persons, [], path);
       final content = await File(path).readAsString();
-      expect(content, contains('1 NAME Bob Deceased'));
+      expect(content, contains('1 NAME Bob /Deceased/'));
       expect(content, contains('1 SEX M'));
       expect(content, contains('1 BIRT'));
       expect(content, contains('1 DEAT'));

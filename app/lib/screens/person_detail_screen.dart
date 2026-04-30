@@ -112,8 +112,12 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _birthCoord = widget.person?.birthCoord;
     _deathCoord = widget.person?.deathCoord;
     _burialCoord = widget.person?.burialCoord;
-    _isLiving =
-        widget.person == null || widget.person!.deathDate == null;
+    _isLiving = widget.person == null ||
+        (widget.person!.deathDate == null &&
+            widget.person!.deathPlace == null &&
+            widget.person!.burialDate == null &&
+            widget.person!.burialPlace == null &&
+            widget.person!.causeOfDeath == null);
     _isPrivate = widget.person?.isPrivate ?? false;
     _photoPaths = List<String>.from(widget.person?.photoPaths ?? []);
     _causeOfDeathController =
@@ -1007,6 +1011,16 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   Future<void> _savePerson() async {
     if (!_formKey.currentState!.validate()) return;
     HapticFeedback.mediumImpact();
+    final provider = context.read<TreeProvider>();
+    // When editing, read the latest relationship data from the provider
+    // instead of using the potentially stale widget.person copy.  This
+    // prevents overwriting parentIds/childIds that were modified elsewhere
+    // (e.g. via the Relationship screen or sync) while this form was open.
+    final live = widget.person != null
+        ? provider.persons
+            .where((p) => p.id == widget.person!.id)
+            .firstOrNull
+        : null;
     final person = Person(
       id: widget.person?.id ?? const Uuid().v4(),
       name: _nameController.text.trim(),
@@ -1022,10 +1036,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               : _deathPlaceController.text.trim()),
       gender: _gender,
       photoPaths: _photoPaths,
-      sourceIds: widget.person?.sourceIds ?? [],
-      parentIds: widget.person?.parentIds ?? [],
-      childIds: widget.person?.childIds ?? [],
-      parentRelTypes: widget.person?.parentRelTypes ?? {},
+      sourceIds: live?.sourceIds ?? widget.person?.sourceIds ?? [],
+      parentIds: live?.parentIds ?? widget.person?.parentIds ?? [],
+      childIds: live?.childIds ?? widget.person?.childIds ?? [],
+      parentRelTypes:
+          live?.parentRelTypes ?? widget.person?.parentRelTypes ?? {},
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
@@ -1061,8 +1076,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               ? null
               : _burialPostalCodeController.text.trim()),
       isPrivate: _isPrivate,
-      syncMedical: widget.person?.syncMedical ?? false,
-      preferredSourceIds: widget.person?.preferredSourceIds ?? {},
+      syncMedical: live?.syncMedical ?? widget.person?.syncMedical ?? false,
+      preferredSourceIds:
+          live?.preferredSourceIds ??
+          widget.person?.preferredSourceIds ??
+          {},
       causeOfDeath: _isLiving
           ? null
           : (_causeOfDeathController.text.trim().isEmpty
@@ -1089,7 +1107,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       findAGraveId: _findAGraveId,
       familySearchId: _familySearchId,
     );
-    final provider = context.read<TreeProvider>();
     if (widget.person == null) {
       try {
         await provider.addPerson(person);

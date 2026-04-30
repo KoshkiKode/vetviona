@@ -25,8 +25,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
-import '../utils/page_routes.dart';
-import 'person_detail_screen.dart';
+import '../widgets/person_action_sheet.dart';
 
 // ── Canvas constants ──────────────────────────────────────────────────────────
 const double _kCenterRadius = 46.0;
@@ -265,12 +264,7 @@ class _FanChartScreenState extends State<FanChartScreen> {
           .where((s) => s.gen == 0 && s.slot == 0)
           .firstOrNull;
       if (hit?.person != null) {
-        Navigator.push(
-          context,
-          fadeSlideRoute(
-            builder: (_) => PersonDetailScreen(person: hit!.person!),
-          ),
-        );
+        showPersonActionSheet(context, person: hit!.person!);
       }
       return;
     }
@@ -312,12 +306,7 @@ class _FanChartScreenState extends State<FanChartScreen> {
           })
           .firstOrNull;
       if (hit?.person != null) {
-        Navigator.push(
-          context,
-          fadeSlideRoute(
-            builder: (_) => PersonDetailScreen(person: hit!.person!),
-          ),
-        );
+        showPersonActionSheet(context, person: hit!.person!);
       }
     }
   }

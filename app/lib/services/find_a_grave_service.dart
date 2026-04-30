@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/source.dart';
@@ -19,6 +21,9 @@ class FindAGraveMemorial {
   final String? cemeteryName;
   final String memorialUrl;
 
+  /// URL of the primary memorial photo (headstone or portrait), or `null`.
+  final String? photoUrl;
+
   const FindAGraveMemorial({
     required this.memorialId,
     required this.memorialUrl,
@@ -29,6 +34,7 @@ class FindAGraveMemorial {
     this.deathPlace,
     this.burialPlace,
     this.cemeteryName,
+    this.photoUrl,
   });
 }
 
@@ -154,6 +160,7 @@ class FindAGraveService {
               deathPlace: _placeFromSchema(obj['deathPlace']),
               burialPlace: _placeFromSchema(obj['burialLocation']),
               cemeteryName: _str(obj['memberOf']?['name']),
+              photoUrl: _str(obj['image']),
             );
           }
         }
@@ -171,6 +178,13 @@ class FindAGraveService {
               caseSensitive: false)
           .firstMatch(html);
       final name = titleMatch?.group(1)?.split(' - ').first;
+
+      // Extract photo from og:image meta tag
+      final ogImageMatch = RegExp(
+              r'<meta\s+property="og:image"\s+content="([^"]+)"',
+              caseSensitive: false)
+          .firstMatch(html);
+      final photoUrl = ogImageMatch?.group(1);
 
       // Birth/death years from itemprop or data-* attributes
       final birthYearMatch =
@@ -202,6 +216,7 @@ class FindAGraveService {
         birthPlace: birthPlaceMatch?.group(1)?.trim(),
         deathPlace: deathPlaceMatch?.group(1)?.trim(),
         cemeteryName: cemeteryMatch?.group(1)?.trim(),
+        photoUrl: photoUrl,
       );
     } catch (_) {
       return null;
@@ -209,6 +224,41 @@ class FindAGraveService {
   }
 
   // ── Source builder ────────────────────────────────────────────────────────
+
+  /// Downloads a memorial photo and saves it locally.  Returns the local file
+  /// path on success, or `null` on failure (network error, bot-detection, etc.).
+  Future<String?> downloadPhoto(String photoUrl, String personId) async {
+    try {
+      final response = await _client.get(
+        Uri.parse(photoUrl),
+        headers: {
+          'User-Agent': _ua,
+          'Accept': 'image/*',
+        },
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        return null;
+      }
+      final contentType = response.headers['content-type'] ?? '';
+      String ext = 'jpg';
+      if (contentType.contains('png')) ext = 'png';
+      if (contentType.contains('gif')) ext = 'gif';
+      if (contentType.contains('webp')) ext = 'webp';
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final photoDir = Directory('${appDir.path}/photos');
+      if (!await photoDir.exists()) {
+        await photoDir.create(recursive: true);
+      }
+      final fileName =
+          '${personId}_findagrave_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final file = File('${photoDir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
+      return file.path;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Creates a [Source] record for a Find A Grave memorial.
   Source memorialToSource(FindAGraveMemorial memorial, String personId) {

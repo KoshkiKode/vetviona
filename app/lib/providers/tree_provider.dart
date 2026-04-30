@@ -673,6 +673,19 @@ class TreeProvider extends ChangeNotifier {
   }
 
   Future<void> updatePerson(Person person) async {
+    // Prevent self-referencing: a person cannot be their own parent or child.
+    person.parentIds.remove(person.id);
+    person.childIds.remove(person.id);
+    person.parentRelTypes.remove(person.id);
+    // Prevent direct circular references: if A is a parent of B, B cannot
+    // also be a parent of A.
+    for (final parentId in List<String>.from(person.parentIds)) {
+      final parent = persons.where((p) => p.id == parentId).firstOrNull;
+      if (parent != null && parent.parentIds.contains(person.id)) {
+        person.parentIds.remove(parentId);
+        person.parentRelTypes.remove(parentId);
+      }
+    }
     person.treeId ??= currentTreeId;
     person.updatedAt = DateTime.now().millisecondsSinceEpoch;
     final db = await _database;
@@ -715,6 +728,10 @@ class TreeProvider extends ChangeNotifier {
     }
     await crossRefBatch.commit(noResult: true);
     persons.removeWhere((p) => p.id == id);
+    // Clear home person if the deleted person was the focal point.
+    if (_homePersonId == id) {
+      await setHomePersonId(null);
+    }
     notifyListeners();
   }
 
@@ -760,6 +777,9 @@ class TreeProvider extends ChangeNotifier {
       final pIdx = persons.indexWhere((p) => p.id == personId);
       if (pIdx != -1) {
         persons[pIdx].sourceIds.remove(id);
+        // Also remove from preferredSourceIds if this source was the
+        // preferred evidence for any fact.
+        persons[pIdx].preferredSourceIds.removeWhere((_, v) => v == id);
         await db.update('persons', persons[pIdx].toMap(),
             where: 'id = ?', whereArgs: [persons[pIdx].id]);
       }
@@ -770,6 +790,15 @@ class TreeProvider extends ChangeNotifier {
 
   // ── Partnerships ───────────────────────────────────────────────────────────
   Future<void> addPartnership(Partnership partnership) async {
+    // Prevent self-partnerships.
+    if (partnership.person1Id == partnership.person2Id) return;
+    // Prevent duplicate partnerships between the same two people.
+    final isDuplicate = partnerships.any((p) =>
+        (p.person1Id == partnership.person1Id &&
+            p.person2Id == partnership.person2Id) ||
+        (p.person1Id == partnership.person2Id &&
+            p.person2Id == partnership.person1Id));
+    if (isDuplicate) return;
     partnership.id = partnership.id.isEmpty ? _uuid.v4() : partnership.id;
     partnership.treeId = currentTreeId;
     partnership.updatedAt = DateTime.now().millisecondsSinceEpoch;
@@ -1194,10 +1223,16 @@ class TreeProvider extends ChangeNotifier {
     final importedIds = <String>{for (final p in personsToImport) p.id};
 
     // ── Partnerships ─────────────────────────────────────────────────────────
-    for (final pt in result.partnerships) {
+    // Only import partnerships where both partners were successfully imported.
+    final validPartnerships = result.partnerships
+        .where((pt) =>
+            importedIds.contains(pt.person1Id) &&
+            importedIds.contains(pt.person2Id))
+        .toList();
+    for (final pt in validPartnerships) {
       pt.treeId = currentTreeId;
     }
-    await importPartnershipsBatch(result.partnerships);
+    await importPartnershipsBatch(validPartnerships);
 
     // ── Life Events ───────────────────────────────────────────────────────────
     final eventsToImport = result.lifeEvents
