@@ -1477,6 +1477,8 @@ const RATE_LIMITED_ROUTES = new Set([
 ]);
 
 // ── HTTP Server ───────────────────────────────────────────────────────────────
+const stripeCheckout = require('./lib/stripe_checkout');
+
 const server = http.createServer(async (req, res) => {
   if (!req.url) {
     return sendJson(res, 404, { ok: false, message: 'Not found.' });
@@ -1490,6 +1492,33 @@ const server = http.createServer(async (req, res) => {
       status: 'healthy',
       emailMode: EMAIL_DEV_MODE ? 'dev-console' : 'smtp',
     });
+  }
+
+  // ── Stripe webhook — must read raw body before JSON parsing ───────────────
+  if (req.method === 'POST' && url.pathname === '/stripe-webhook') {
+    let rawBody;
+    try {
+      rawBody = await parseRawBody(req, 64 * 1024);
+    } catch (e) {
+      return sendJson(res, 400, { ok: false, message: e.message });
+    }
+    const db = await readDb();
+    const result = await stripeCheckout.handleWebhook(req, rawBody, db, writeDb);
+    return sendJson(res, result.status, result.body);
+  }
+
+  // ── Download endpoint — GET with query params ─────────────────────────────
+  if (req.method === 'GET' && url.pathname.startsWith('/download/')) {
+    const platform = url.pathname.replace('/download/', '');
+    const email = url.searchParams.get('email') || '';
+    const db = await readDb();
+    const result = await stripeCheckout.handleDownload(platform, db, email);
+    if (result.status === 200 && result.body.url) {
+      // Redirect to the pre-signed S3 URL.
+      res.writeHead(302, { Location: result.body.url });
+      return res.end();
+    }
+    return sendJson(res, result.status, result.body);
   }
 
   // ── /v1/app/version — public, unauthenticated, idempotent ────────────────
