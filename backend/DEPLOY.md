@@ -119,20 +119,21 @@ MAX_DEVICES_PER_LICENSE=15
 
 ### Optional — S3-compatible object storage
 
-If you want off-box storage (e.g. Backblaze B2, MinIO, Cloudflare R2), the license server
-supports any S3-compatible endpoint. Add these to `.env`:
+If you want off-box storage for the license database, the license server supports any
+S3-compatible endpoint. Suitable providers include **Backblaze B2**, **Cloudflare R2**,
+or a self-hosted **MinIO** instance. Add these to `.env`:
 
 ```bash
-AWS_S3_BUCKET=my-vetviona-licenses
-AWS_S3_KEY=vetviona/license-db.json
-AWS_REGION=auto                          # use 'auto' for Cloudflare R2
-AWS_ENDPOINT_URL=https://...             # R2/B2/MinIO endpoint URL
-AWS_ACCESS_KEY_ID=<your-key>
-AWS_SECRET_ACCESS_KEY=<your-secret>
+S3_BUCKET=my-vetviona-licenses
+S3_KEY=vetviona/license-db.json
+S3_REGION=auto                          # use 'auto' for Cloudflare R2
+S3_ENDPOINT_URL=https://...             # R2/B2/MinIO endpoint URL
+S3_ACCESS_KEY_ID=<your-key>
+S3_SECRET_ACCESS_KEY=<your-secret>
 ```
 
-When `AWS_S3_BUCKET` is set, the local file path is ignored.
-`LICENSE_KEY_SECRET` **must** be set explicitly when using S3 (no local file to persist it).
+When `S3_BUCKET` is set, the local file path is ignored.
+`LICENSE_KEY_SECRET` **must** be set explicitly when using object storage (no local file to persist it).
 
 ---
 
@@ -242,7 +243,7 @@ SUBDOMAIN="license"
 API_KEY="YOUR_GODADDY_API_KEY"
 API_SECRET="YOUR_GODADDY_API_SECRET"
 
-CURRENT_IP=$(curl -sf https://checkip.amazonaws.com)
+CURRENT_IP=$(curl -sf https://api.ipify.org)
 GODADDY_IP=$(curl -sf "https://api.godaddy.com/v1/domains/${DOMAIN}/records/A/${SUBDOMAIN}" \
   -H "Authorization: sso-key ${API_KEY}:${API_SECRET}" | jq -r '.[0].data')
 
@@ -380,6 +381,7 @@ ss -tlnp | grep -E '80|443|8080'
 
 # Dynamic DNS — check if IP is updating
 tail -f /var/log/ddns-license.log
+curl https://api.ipify.org   # your current public IP
 
 # Database file permissions
 ls -la /var/lib/vetviona-license/license-db.json
