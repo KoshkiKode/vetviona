@@ -88,6 +88,10 @@ vetviona/
 │   └── pubspec.yaml
 ├── website/               # Static marketing site
 │   └── index.html
+├── backend/               # License verification server (Node.js)
+│   ├── license_server.js
+│   ├── README.md          # Backend overview
+│   └── DEPLOY.md          # Self-hosting guide (Debian + Docker + Caddy + GoDaddy)
 ├── packaging/
 │   ├── windows/           # WiX installer config (.wxs)
 │   ├── macos/             # Entitlements & notarization
@@ -172,10 +176,10 @@ flutter build linux  --release --dart-define=PAID=true
 For paid-tier verification, point the app at your backend:
 
 ```bash
---dart-define=LICENSE_BACKEND_URL=http://127.0.0.1:8080
+--dart-define=LICENSE_BACKEND_URL=https://license.koshkikode.com
 ```
 
-Backend setup: [`backend/README.md`](backend/README.md) · AWS deploy guide: [`backend/DEPLOY-AWS.md`](backend/DEPLOY-AWS.md)
+Backend setup: [`backend/README.md`](backend/README.md) · Self-hosting guide: [`backend/DEPLOY.md`](backend/DEPLOY.md)
 
 ### Package — Windows MSI (WiX)
 
