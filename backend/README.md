@@ -44,7 +44,7 @@ npm install @aws-sdk/client-s3
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `8080` | HTTP port |
-| `LICENSE_DB_PATH` | `backend/license-db.json` | Path to local JSON database. Ignored when `AWS_S3_BUCKET` is set. |
+| `LICENSE_DB_PATH` | `backend/license-db.json` (dev) / `/data/license-db.json` (Docker) | Path to local JSON database. Ignored when `S3_BUCKET` is set. |
 | `LICENSE_KEY_SECRET` | *(auto-generated and persisted in DB)* | HMAC secret for re-entry license codes. **Must be set explicitly in production** — changing it invalidates all users' codes. Generate: `openssl rand -hex 32` |
 | `ADMIN_SECRET` | *(printed at startup in dev mode)* | Protects the voucher-creation endpoint. Generate: `openssl rand -hex 24` |
 | `SMTP_HOST` | *(unset)* | SMTP server hostname. Unset = dev mode (tokens logged, not emailed). |
@@ -58,16 +58,17 @@ npm install @aws-sdk/client-s3
 ### Optional — S3-compatible object storage
 
 The local JSON file is fine for most self-hosted setups. If you want off-box durability
-(e.g. Backblaze B2, Cloudflare R2, MinIO, or any S3-compatible service), add:
+(e.g. Backblaze B2, Cloudflare R2, MinIO, or any S3-compatible service), install the SDK
+(`npm install @aws-sdk/client-s3`) and add:
 
 | Variable | Description |
 |---|---|
-| `AWS_S3_BUCKET` | Bucket name. Setting this enables S3 storage; local file is ignored. |
-| `AWS_S3_KEY` | Object key path. Default: `vetviona/license-db.json` |
-| `AWS_REGION` | Region or `auto` (Cloudflare R2) |
-| `AWS_ENDPOINT_URL` | Custom endpoint URL for non-AWS providers (R2, B2, MinIO) |
-| `AWS_ACCESS_KEY_ID` | Access key |
-| `AWS_SECRET_ACCESS_KEY` | Secret key |
+| `S3_BUCKET` | Bucket name. Setting this enables S3 storage; local file is ignored. |
+| `S3_KEY` | Object key path. Default: `vetviona/license-db.json` |
+| `S3_REGION` | Region or `auto` (Cloudflare R2) |
+| `S3_ENDPOINT_URL` | Custom endpoint URL for non-AWS providers (R2, B2, MinIO) |
+| `S3_ACCESS_KEY_ID` | Access key |
+| `S3_SECRET_ACCESS_KEY` | Secret key |
 
 `LICENSE_KEY_SECRET` **must** be set explicitly when using S3 — there is no local file
 to persist the auto-generated secret across restarts.
