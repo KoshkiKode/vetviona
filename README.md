@@ -27,8 +27,8 @@ Vetviona is a private, local-first genealogy app by [KoshkiKode](https://koshkik
 - 📍 **Historical Place Matching** — Date-aware place autocomplete that understands that borders, names, and jurisdictions change over time.
 - 🔄 **RootLoop™ Sync** — Proprietary two-tier sync layer (see below).
 - 📤 **GEDCOM Import & Export** — Industry-standard format for importing existing trees and exporting to any compatible app.
-- 🎨 **Custom Themes** — Personalise the app's color scheme; theme settings sync across your devices.
-- ⏱ **Life Timelines** — View an individual's key life events in a clean chronological timeline.
+- 🎨 **Custom Themes** — Personalise the app’s color scheme; theme settings sync across your devices.
+- ⏱ **Life Timelines** — View an individual’s key life events in a clean chronological timeline.
 - 🔍 **Relationship Finder** — Instantly discover how two people in your tree are related.
 - 🔒 **Encrypted Sync** — All device-to-device sync is zero-knowledge encrypted.
 
@@ -36,7 +36,7 @@ Vetviona is a private, local-first genealogy app by [KoshkiKode](https://koshkik
 
 ## RootLoop™
 
-**RootLoop™** is Vetviona's proprietary sync layer. Devices exchange encrypted family-tree data directly — no external server required.
+**RootLoop™** is Vetviona’s proprietary sync layer. Devices exchange encrypted family-tree data directly — no external server required.
 
 ### RootLoop™ Auto
 Full WiFi sync that runs automatically whenever your devices join the same home network. Like a client-server pair that just works — no setup needed.
@@ -62,7 +62,7 @@ On-demand sync you trigger inside the app, over Bluetooth or any local connectio
 | **Mobile Free** | Free, always | Android & iOS | — | 100 per tree | RootLoop™ Manual only |
 | **Mobile Paid (Apple)** | One-time purchase | iOS | `apple` | Unlimited | RootLoop™ Auto + Manual |
 | **Mobile Paid (Android)** | One-time purchase | Android | `android` | Unlimited | RootLoop™ Auto + Manual |
-| **Desktop Pro** | One-time purchase | Windows · macOS · Linux | `desktop` | Unlimited | Both tiers; respects connected device's tier |
+| **Desktop Pro** | One-time purchase | Windows · macOS · Linux | `desktop` | Unlimited | Both tiers; respects connected device’s tier |
 
 No subscriptions. No recurring fees. Desktop Pro unlocks GEDCOM import/export, WiFi auto-sync (RootLoop™ Auto), multiple family trees, and unlimited people.
 
@@ -91,7 +91,8 @@ vetviona/
 ├── backend/               # License verification server (Node.js)
 │   ├── license_server.js
 │   ├── README.md          # Backend overview
-│   └── DEPLOY.md          # Self-hosting guide (Debian + Docker + Caddy + GoDaddy)
+│   └── DEPLOY.md          # Self-hosting guide (app-level config)
+├── SERVER_SETUP.md        # Full Debian server setup (OS → Docker → Caddy → GoDaddy DNS)
 ├── packaging/
 │   ├── windows/           # WiX installer config (.wxs)
 │   ├── macos/             # Entitlements & notarization
@@ -176,10 +177,14 @@ flutter build linux  --release --dart-define=PAID=true
 For paid-tier verification, point the app at your backend:
 
 ```bash
---dart-define=LICENSE_BACKEND_URL=https://license.koshkikode.com
+--dart-define=LICENSE_BACKEND_URL=https://vetviona.koshkikode.com
 ```
 
-Backend setup: [`backend/README.md`](backend/README.md) · Self-hosting guide: [`backend/DEPLOY.md`](backend/DEPLOY.md)
+| Doc | What it covers |
+|-----|----------------|
+| [`backend/README.md`](backend/README.md) | Backend overview and quick start |
+| [`backend/DEPLOY.md`](backend/DEPLOY.md) | App-level self-hosting config (Node.js, MinIO, Caddy, systemd) |
+| [`SERVER_SETUP.md`](SERVER_SETUP.md) | Full from-scratch Debian server setup (OS → Docker → Caddy → GoDaddy DDNS) |
 
 ### Package — Windows MSI (WiX)
 
