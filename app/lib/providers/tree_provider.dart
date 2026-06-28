@@ -14,6 +14,8 @@ import '../config/app_config.dart';
 import '../models/device.dart';
 import '../models/life_event.dart';
 import '../models/medical_condition.dart';
+import '../models/memory.dart';
+import '../models/record_hint.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/research_task.dart';
@@ -38,6 +40,67 @@ class _Pbkdf2Args {
   final String salt;
   final int iterations;
   const _Pbkdf2Args(this.password, this.salt, this.iterations);
+
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
 }
 
 /// Derives a 32-byte key from [args.password] and [args.salt] using
@@ -65,10 +128,193 @@ String _runPbkdf2(_Pbkdf2Args args) {
     u = Uint8List.fromList(Hmac(sha256, pwBytes).convert(u).bytes);
     for (int j = 0; j < hashLen; j++) {
       t[j] ^= u[j];
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
 
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+
   return t.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
 }
 
 class TreeProvider extends ChangeNotifier {
@@ -79,6 +325,8 @@ class TreeProvider extends ChangeNotifier {
   List<LifeEvent> lifeEvents = [];
   List<MedicalCondition> medicalConditions = [];
   List<ResearchTask> researchTasks = [];
+  List<Memory> memories = [];
+  List<RecordHint> recordHints = [];
 
   // ── Live-change stream ─────────────────────────────────────────────────────
 
@@ -113,8 +361,130 @@ class TreeProvider extends ChangeNotifier {
         'medicalConditions': medicalConditions,
         'researchTasks': researchTasks,
       });
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Full tree records — each entry holds both the UUID and display name.
   List<Map<String, String>> trees = [];
@@ -172,7 +542,68 @@ class TreeProvider extends ChangeNotifier {
     if (_db != null) return _db!;
     _db = await _initDb();
     return _db!;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   static bool _ffiInitialized = false;
 
@@ -187,7 +618,68 @@ class TreeProvider extends ChangeNotifier {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
       _ffiInitialized = true;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     final dir = await getApplicationDocumentsDirectory();
     final path = p.join(dir.path, _dbName);
@@ -328,6 +820,38 @@ class TreeProvider extends ChangeNotifier {
             treeId TEXT
           )
         ''');
+        
+        await db.execute('''
+          CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            text TEXT NOT NULL,
+            date TEXT,
+            place TEXT,
+            mediaUri TEXT,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE record_hints (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            sourceApi TEXT NOT NULL,
+            title TEXT NOT NULL,
+            collectionTitle TEXT,
+            date TEXT,
+            place TEXT,
+            recordUrl TEXT,
+            imageUrl TEXT,
+            isPending INTEGER NOT NULL DEFAULT 1,
+            relevanceScore REAL,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+
         await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
         // ── Indexes ──────────────────────────────────────────────────────────
         await db.execute(
@@ -348,13 +872,78 @@ class TreeProvider extends ChangeNotifier {
             'CREATE INDEX idx_tasks_treeId ON research_tasks(treeId)');
         await db.execute(
             'CREATE INDEX idx_tasks_personId ON research_tasks(personId)');
+
+        await db.execute('CREATE INDEX idx_memories_personId ON memories(personId)');
+        await db.execute('CREATE INDEX idx_hints_personId ON record_hints(personId)');
+
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute(
             "ALTER TABLE devices ADD COLUMN tier TEXT NOT NULL DEFAULT 'mobileFree'",
           );
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 3) {
           // Add new persons columns (old spouseId / marriageDate / marriagePlace
           // columns are kept in place — SQLite cannot drop them — but are no
@@ -399,8 +988,130 @@ class TreeProvider extends ChangeNotifier {
               'endPlace': null,
               'treeId': row['treeId'],
             });
-          }
-        }
+          
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 4) {
           await db.execute(
             'ALTER TABLE persons ADD COLUMN occupation TEXT',
@@ -428,7 +1139,68 @@ class TreeProvider extends ChangeNotifier {
               treeId TEXT
             )
           ''');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 5) {
           await db.execute('ALTER TABLE persons ADD COLUMN birthCoord TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN deathCoord TEXT');
@@ -436,7 +1208,68 @@ class TreeProvider extends ChangeNotifier {
           await db.execute('ALTER TABLE persons ADD COLUMN birthPostalCode TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN deathPostalCode TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN burialPostalCode TEXT');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 6) {
           await db.execute(
               'ALTER TABLE persons ADD COLUMN isPrivate INTEGER NOT NULL DEFAULT 0');
@@ -465,7 +1298,68 @@ class TreeProvider extends ChangeNotifier {
               treeId TEXT
             )
           ''');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 7) {
           await db.execute('ALTER TABLE persons ADD COLUMN causeOfDeath TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN bloodType TEXT');
@@ -492,7 +1386,68 @@ class TreeProvider extends ChangeNotifier {
               'ALTER TABLE partnerships ADD COLUMN sourceIds TEXT');
           await db.execute(
               'ALTER TABLE partnerships ADD COLUMN witnesses TEXT');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 8) {
           // Add updatedAt timestamp column to all synced tables.
           // Existing rows get NULL (treated as 0 during merge).
@@ -504,26 +1459,331 @@ class TreeProvider extends ChangeNotifier {
               'ALTER TABLE sources ADD COLUMN updatedAt INTEGER');
           await db.execute(
               'ALTER TABLE life_events ADD COLUMN updatedAt INTEGER');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 9) {
           await db.execute(
               'ALTER TABLE persons ADD COLUMN syncMedical INTEGER NOT NULL DEFAULT 0');
           await db.execute(
               'ALTER TABLE medical_conditions ADD COLUMN updatedAt INTEGER');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 10) {
           // External ID columns: WikiTree profile ID and Find A Grave memorial ID.
           await db.execute('ALTER TABLE persons ADD COLUMN wikitreeId TEXT');
           await db.execute('ALTER TABLE persons ADD COLUMN findAGraveId TEXT');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 11) {
           // External ID column: FamilySearch person ID.
           await db.execute('ALTER TABLE persons ADD COLUMN familySearchId TEXT');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 12) {
           // Human-readable short ID, e.g. JD-007.
           await db.execute('ALTER TABLE persons ADD COLUMN shortId TEXT');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         if (oldVersion < 13) {
           // Performance indexes on the columns used in every WHERE / JOIN.
           await db.execute(
@@ -544,10 +1804,132 @@ class TreeProvider extends ChangeNotifier {
               'CREATE INDEX IF NOT EXISTS idx_tasks_treeId ON research_tasks(treeId)');
           await db.execute(
               'CREATE INDEX IF NOT EXISTS idx_tasks_personId ON research_tasks(personId)');
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       },
     );
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Load ───────────────────────────────────────────────────────────────────
   Future<void> loadPersons() async {
@@ -555,7 +1937,68 @@ class TreeProvider extends ChangeNotifier {
       loadingMessage = message;
       loadingProgress = progress;
       notifyListeners();
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     step('Opening database…', 0.0);
     final db = await _database;
@@ -569,11 +2012,165 @@ class TreeProvider extends ChangeNotifier {
             })
         .toList();
     if (trees.isEmpty) {
-      await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
+      
+        await db.execute('''
+          CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            text TEXT NOT NULL,
+            date TEXT,
+            place TEXT,
+            mediaUri TEXT,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE record_hints (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            sourceApi TEXT NOT NULL,
+            title TEXT NOT NULL,
+            collectionTitle TEXT,
+            date TEXT,
+            place TEXT,
+            recordUrl TEXT,
+            imageUrl TEXT,
+            isPending INTEGER NOT NULL DEFAULT 1,
+            relevanceScore REAL,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+
+        await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
       trees = [
-        {'id': 'default', 'name': 'My Family Tree'}
+        {'id': 'default', 'name': 'My Family Tree'
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       ];
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     step('Loading people…', 0.15);
     final personMaps = await db.query(
@@ -620,6 +2217,20 @@ class TreeProvider extends ChangeNotifier {
     );
     researchTasks = taskMaps.map(ResearchTask.fromMap).toList();
 
+    
+    step('Loading memories & hints...', 0.88);
+    final memoryMaps = await db.rawQuery(
+      'SELECT m.* FROM memories m INNER JOIN persons p ON m.personId = p.id WHERE p.treeId = ?',
+      [currentTreeId],
+    );
+    memories = memoryMaps.map(Memory.fromMap).toList();
+
+    final hintMaps = await db.rawQuery(
+      'SELECT h.* FROM record_hints h INNER JOIN persons p ON h.personId = p.id WHERE p.treeId = ?',
+      [currentTreeId],
+    );
+    recordHints = hintMaps.map(RecordHint.fromMap).toList();
+
     step('Loading devices…', 0.92);
     final deviceMaps = await db.query('devices');
     pairedDevices = deviceMaps.map(Device.fromMap).toList();
@@ -635,20 +2246,203 @@ class TreeProvider extends ChangeNotifier {
     if (_localDeviceId.isEmpty) {
       _localDeviceId = _uuid.v4();
       await prefs.setString('localDeviceId', _localDeviceId);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     loadingMessage = 'Ready';
     loadingProgress = 1.0;
     isLoaded = true;
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Persons ────────────────────────────────────────────────────────────────
   bool get isAtPersonLimit {
     final limit = personLimit;
     if (limit == null) return false;
     return persons.length >= limit;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> addPerson(Person person) async {
     if (isAtPersonLimit) {
@@ -656,21 +2450,204 @@ class TreeProvider extends ChangeNotifier {
         'Free tier limit reached: this tree already has $freeMobilePersonLimit people. '
         'Upgrade to Mobile Paid or Desktop Pro to add more.',
       );
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     person.id = person.id.isEmpty ? _uuid.v4() : person.id;
     person.treeId = currentTreeId;
     person.updatedAt = DateTime.now().millisecondsSinceEpoch;
     // Auto-assign a human-readable short ID if the person doesn't have one yet.
     if (person.shortId == null || person.shortId!.isEmpty) {
       person.shortId = PersonIdService.instance.generate(person.name, persons);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     final db = await _database;
     await db.insert('persons', person.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
     persons.add(person);
     _emitDelta(persons: [person.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> updatePerson(Person person) async {
     person.treeId ??= currentTreeId;
@@ -682,7 +2659,68 @@ class TreeProvider extends ChangeNotifier {
     if (idx != -1) persons[idx] = person;
     _emitDelta(persons: [person.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> deletePerson(String id) async {
     final db = await _database;
@@ -711,12 +2749,195 @@ class TreeProvider extends ChangeNotifier {
         p.parentRelTypes.remove(id);
         crossRefBatch.update('persons', p.toMap(),
             where: 'id = ?', whereArgs: [p.id]);
-      }
-    }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await crossRefBatch.commit(noResult: true);
     persons.removeWhere((p) => p.id == id);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Sources ────────────────────────────────────────────────────────────────
   Future<void> addSource(Source source) async {
@@ -733,11 +2954,194 @@ class TreeProvider extends ChangeNotifier {
         persons[idx].sourceIds.add(source.id);
         await db.update('persons', persons[idx].toMap(),
             where: 'id = ?', whereArgs: [persons[idx].id]);
-      }
-    }
-    _emitDelta(sources: [source.toMap()]);
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
     notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    _emitDelta(sources: [source.toMap()]);
+    notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> updateSource(Source source) async {
     source.treeId ??= currentTreeId;
@@ -749,7 +3153,68 @@ class TreeProvider extends ChangeNotifier {
     if (idx != -1) sources[idx] = source;
     _emitDelta(sources: [source.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> deleteSource(String id) async {
     final db = await _database;
@@ -762,11 +3227,194 @@ class TreeProvider extends ChangeNotifier {
         persons[pIdx].sourceIds.remove(id);
         await db.update('persons', persons[pIdx].toMap(),
             where: 'id = ?', whereArgs: [persons[pIdx].id]);
-      }
-    }
-    sources.removeWhere((s) => s.id == id);
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
     notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    sources.removeWhere((s) => s.id == id);
+    notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Partnerships ───────────────────────────────────────────────────────────
   Future<void> addPartnership(Partnership partnership) async {
@@ -779,7 +3427,68 @@ class TreeProvider extends ChangeNotifier {
     partnerships.add(partnership);
     _emitDelta(partnerships: [partnership.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> updatePartnership(Partnership partnership) async {
     partnership.treeId ??= currentTreeId;
@@ -791,14 +3500,136 @@ class TreeProvider extends ChangeNotifier {
     if (idx != -1) partnerships[idx] = partnership;
     _emitDelta(partnerships: [partnership.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> deletePartnership(String id) async {
     final db = await _database;
     await db.delete('partnerships', where: 'id = ?', whereArgs: [id]);
     partnerships.removeWhere((p) => p.id == id);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Returns all partnerships that include [personId] as either partner.
   List<Partnership> partnershipsFor(String personId) => partnerships
@@ -831,7 +3662,68 @@ class TreeProvider extends ChangeNotifier {
     lifeEvents.add(event);
     _emitDelta(lifeEvents: [event.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> updateLifeEvent(LifeEvent event) async {
     event.treeId ??= currentTreeId;
@@ -843,14 +3735,136 @@ class TreeProvider extends ChangeNotifier {
     if (idx != -1) lifeEvents[idx] = event;
     _emitDelta(lifeEvents: [event.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> deleteLifeEvent(String id) async {
     final db = await _database;
     await db.delete('life_events', where: 'id = ?', whereArgs: [id]);
     lifeEvents.removeWhere((e) => e.id == id);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Returns all life events for the given [personId].
   List<LifeEvent> lifeEventsFor(String personId) =>
@@ -871,7 +3885,68 @@ class TreeProvider extends ChangeNotifier {
     // Always emit; SyncService filters per-peer using syncMedical / consent.
     _emitDelta(medicalConditions: [condition.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> updateMedicalCondition(MedicalCondition condition) async {
     condition.treeId ??= currentTreeId;
@@ -885,14 +3960,136 @@ class TreeProvider extends ChangeNotifier {
     // Always emit; SyncService filters per-peer using syncMedical / consent.
     _emitDelta(medicalConditions: [condition.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> deleteMedicalCondition(String id) async {
     final db = await _database;
     await db.delete('medical_conditions', where: 'id = ?', whereArgs: [id]);
     medicalConditions.removeWhere((mc) => mc.id == id);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Returns all medical conditions recorded for [personId].
   List<MedicalCondition> medicalConditionsFor(String personId) =>
@@ -908,7 +4105,68 @@ class TreeProvider extends ChangeNotifier {
     researchTasks.add(task);
     _emitDelta(researchTasks: [task.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> updateResearchTask(ResearchTask task) async {
     task.treeId ??= currentTreeId;
@@ -919,14 +4177,136 @@ class TreeProvider extends ChangeNotifier {
     if (idx != -1) researchTasks[idx] = task;
     _emitDelta(researchTasks: [task.toMap()]);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> deleteResearchTask(String id) async {
     final db = await _database;
     await db.delete('research_tasks', where: 'id = ?', whereArgs: [id]);
     researchTasks.removeWhere((t) => t.id == id);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Returns all research tasks linked to [personId].
   List<ResearchTask> researchTasksFor(String personId) =>
@@ -940,7 +4320,68 @@ class TreeProvider extends ChangeNotifier {
     trees.add({'id': id, 'name': name});
     notifyListeners();
     return id;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> renameTree(String treeId, String newName) async {
     final db = await _database;
@@ -949,12 +4390,134 @@ class TreeProvider extends ChangeNotifier {
     final idx = trees.indexWhere((t) => t['id'] == treeId);
     if (idx != -1) trees[idx] = {'id': treeId, 'name': newName};
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> switchTree(String treeId) async {
     currentTreeId = treeId;
     await loadPersons();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> deleteTree(String treeId) async {
     if (treeId == 'default') return;
@@ -975,7 +4538,68 @@ class TreeProvider extends ChangeNotifier {
       await db.delete('medical_conditions',
           where: 'personId IN ($placeholders)', whereArgs: personIds);
       medicalConditions.removeWhere((mc) => personIds.contains(mc.personId));
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await db.delete('trees', where: 'id = ?', whereArgs: [treeId]);
     await db.delete('persons', where: 'treeId = ?', whereArgs: [treeId]);
     await db.delete('partnerships',
@@ -986,9 +4610,131 @@ class TreeProvider extends ChangeNotifier {
     trees.removeWhere((t) => t['id'] == treeId);
     if (currentTreeId == treeId) {
       currentTreeId = 'default';
-    }
-    await loadPersons();
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    await loadPersons();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Auth ───────────────────────────────────────────────────────────────────
 
@@ -1012,7 +4758,68 @@ class TreeProvider extends ChangeNotifier {
     final entry = _loginFailures[username];
     if (entry == null || entry.count < _maxLoginFailures) return false;
     return DateTime.now().difference(entry.since) < _lockoutDuration;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Records a failed login attempt for [username].
   void _recordFailure(String username) {
@@ -1024,13 +4831,196 @@ class TreeProvider extends ChangeNotifier {
     } else {
       _loginFailures[username] =
           (count: existing.count + 1, since: existing.since);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Clears the failure counter for [username] after a successful login.
   void _clearFailures(String username) {
     _loginFailures.remove(username);
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Legacy SHA-256 password hash — kept only for migration of old accounts.
   ///
@@ -1038,7 +5028,68 @@ class TreeProvider extends ChangeNotifier {
   static String _hashPassword(String password, String salt) {
     final bytes = utf8.encode('$salt:$password');
     return sha256.convert(bytes).toString();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Registers [username] with [password].
   ///
@@ -1055,7 +5106,68 @@ class TreeProvider extends ChangeNotifier {
     _currentUser = username;
     notifyListeners();
     return true;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Logs in [username] with [password].
   ///
@@ -1096,7 +5208,68 @@ class TreeProvider extends ChangeNotifier {
             _runPbkdf2, _Pbkdf2Args(password, newSalt, _kPbkdf2Iterations));
         await prefs.setString(
             'user_$username', 'pbkdf2:$newSalt:$_kPbkdf2Iterations:$newHash');
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     } else {
       // ── Legacy plaintext — migrate to PBKDF2 on success ──────────────────
       valid = stored == password;
@@ -1106,23 +5279,328 @@ class TreeProvider extends ChangeNotifier {
             _runPbkdf2, _Pbkdf2Args(password, salt, _kPbkdf2Iterations));
         await prefs.setString(
             'user_$username', 'pbkdf2:$salt:$_kPbkdf2Iterations:$hash');
-      }
-    }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     if (valid) {
       _clearFailures(username);
       _currentUser = username;
       notifyListeners();
       return true;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     _recordFailure(username);
     return false;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   void logout() {
     _currentUser = null;
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Settings ───────────────────────────────────────────────────────────────
   Future<void> setDateFormat(String format) async {
@@ -1130,14 +5608,136 @@ class TreeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('dateFormat', format);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> setColonizationLevel(int level) async {
     colonizationLevel = level;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('colonizationLevel', level);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> setHomePersonId(String? id) async {
     _homePersonId = id?.isEmpty ?? true ? null : id;
@@ -1146,9 +5746,131 @@ class TreeProvider extends ChangeNotifier {
       await prefs.remove('homePersonId');
     } else {
       await prefs.setString('homePersonId', _homePersonId!);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
     notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Search ─────────────────────────────────────────────────────────────────
   List<Person> searchPersons(String query) {
@@ -1159,7 +5881,68 @@ class TreeProvider extends ChangeNotifier {
           (p.deathPlace?.toLowerCase().contains(q) ?? false) ||
           (p.notes?.toLowerCase().contains(q) ?? false);
     }).toList();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── GEDCOM ─────────────────────────────────────────────────────────────────
   Future<void> importGEDCOM(String path) async {
@@ -1178,16 +5961,199 @@ class TreeProvider extends ChangeNotifier {
         'reached after importing ${persons.length} people. '
         'Upgrade to add more.',
       );
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     List<Person> personsToImport = result.persons;
     bool hitLimit = false;
     if (availableSlots != null && result.persons.length > availableSlots) {
       personsToImport = result.persons.sublist(0, availableSlots);
       hitLimit = true;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     for (final p in personsToImport) {
       p.treeId = currentTreeId;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await importPersonsBatch(personsToImport);
 
     // O(1) lookup of successfully imported person IDs.
@@ -1196,7 +6162,68 @@ class TreeProvider extends ChangeNotifier {
     // ── Partnerships ─────────────────────────────────────────────────────────
     for (final pt in result.partnerships) {
       pt.treeId = currentTreeId;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await importPartnershipsBatch(result.partnerships);
 
     // ── Life Events ───────────────────────────────────────────────────────────
@@ -1219,7 +6246,68 @@ class TreeProvider extends ChangeNotifier {
         result.sources.where((s) => importedIds.contains(s.personId)).toList();
     for (final s in sourcesToImport) {
       s.treeId = currentTreeId;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await importSourcesBatch(sourcesToImport);
 
     if (hitLimit) {
@@ -1230,8 +6318,130 @@ class TreeProvider extends ChangeNotifier {
         'reached after importing ${persons.length} people. '
         'Upgrade to add more.',
       );
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> exportGEDCOM(String path,
       {bool includeLivingData = false}) async {
@@ -1251,7 +6461,68 @@ class TreeProvider extends ChangeNotifier {
         lifeEvents: lifeEvents
             .where((e) => publicPersonIds.contains(e.personId))
             .toList());
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Relationship BFS ───────────────────────────────────────────────────────
   List<String> findRelationshipPath(String fromId, String toId) {
@@ -1281,10 +6552,193 @@ class TreeProvider extends ChangeNotifier {
         if (neighborId == toId) return newPath;
         visited.add(neighborId);
         queue.add(newPath);
-      }
-    }
-    return [];
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    return [];
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Devices ────────────────────────────────────────────────────────────────
   Future<void> addDevice(Device device) async {
@@ -1293,14 +6747,136 @@ class TreeProvider extends ChangeNotifier {
         conflictAlgorithm: ConflictAlgorithm.replace);
     pairedDevices.add(device);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   Future<void> removeDevice(String id) async {
     final db = await _database;
     await db.delete('devices', where: 'id = ?', whereArgs: [id]);
     pairedDevices.removeWhere((d) => d.id == id);
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Updates an existing device record.  Used by [SyncService] to record the
   /// remote device's real UUID after the first successful pairing sync.
@@ -1312,7 +6888,68 @@ class TreeProvider extends ChangeNotifier {
     final idx = pairedDevices.indexWhere((d) => d.id == oldId);
     if (idx != -1) pairedDevices[idx] = updated;
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Sync ───────────────────────────────────────────────────────────────────
 
@@ -1359,7 +6996,68 @@ class TreeProvider extends ChangeNotifier {
           .map((mc) => mc.toMap())
           .toList(),
     };
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Merges incoming tree data from a peer using a **last-modified-wins**
   /// strategy: for each incoming record the local and incoming [updatedAt]
@@ -1465,7 +7163,68 @@ class TreeProvider extends ChangeNotifier {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = person.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       // Sanitise all string fields before writing to the local database so
       // that a crafted peer payload cannot persist control characters or
       // excessively long strings.
@@ -1494,15 +7253,198 @@ class TreeProvider extends ChangeNotifier {
         ..treeId = currentTreeId;
       acceptedPersonMaps.add(person.toMap());
       if (isNew) added++;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (acceptedPersonMaps.isNotEmpty) {
       final batch = db.batch();
       for (final m in acceptedPersonMaps) {
         batch.insert('persons', m,
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     // ── Partnerships ──────────────────────────────────────────────────────────
     for (final partnership in inPartnerships) {
@@ -1511,20 +7453,264 @@ class TreeProvider extends ChangeNotifier {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = partnership.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       partnership
         ..notes = InputSanitizer.mediumField(partnership.notes)
         ..treeId = currentTreeId;
       acceptedPartnershipMaps.add(partnership.toMap());
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (acceptedPartnershipMaps.isNotEmpty) {
       final batch = db.batch();
       for (final m in acceptedPartnershipMaps) {
         batch.insert('partnerships', m,
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     // ── Sources ───────────────────────────────────────────────────────────────
     for (final source in inSources) {
@@ -1533,7 +7719,68 @@ class TreeProvider extends ChangeNotifier {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = source.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       source
         ..title = InputSanitizer.sanitizeRequired(
             source.title, maxLength: InputSanitizer.maxShortField)
@@ -1544,15 +7791,198 @@ class TreeProvider extends ChangeNotifier {
         ..volumePage = InputSanitizer.shortField(source.volumePage)
         ..treeId ??= currentTreeId;
       acceptedSourceMaps.add(source.toMap());
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (acceptedSourceMaps.isNotEmpty) {
       final batch = db.batch();
       for (final m in acceptedSourceMaps) {
         batch.insert('sources', m,
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     // ── Life Events ───────────────────────────────────────────────────────────
     for (final event in inLifeEvents) {
@@ -1561,7 +7991,68 @@ class TreeProvider extends ChangeNotifier {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = event.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       event
         ..title = InputSanitizer.sanitizeRequired(
             event.title, maxLength: InputSanitizer.maxShortField)
@@ -1569,15 +8060,198 @@ class TreeProvider extends ChangeNotifier {
         ..notes = InputSanitizer.mediumField(event.notes)
         ..treeId = currentTreeId;
       acceptedLifeEventMaps.add(event.toMap());
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (acceptedLifeEventMaps.isNotEmpty) {
       final batch = db.batch();
       for (final m in acceptedLifeEventMaps) {
         batch.insert('life_events', m,
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     // ── Medical Conditions ────────────────────────────────────────────────────
     for (final mc in inMedicalConditions) {
@@ -1586,18 +8260,262 @@ class TreeProvider extends ChangeNotifier {
         final localTs = existing.updatedAt ?? 0;
         final incomingTs = mc.updatedAt ?? 0;
         if (localTs > 0 && incomingTs <= localTs) continue;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       mc.treeId ??= currentTreeId;
       acceptedMedCondMaps.add(mc.toMap());
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (acceptedMedCondMaps.isNotEmpty) {
       final batch = db.batch();
       for (final m in acceptedMedCondMaps) {
         batch.insert('medical_conditions', m,
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     // ── Research Tasks ─────────────────────────────────────────────────────────
     for (final task in inResearchTasks) {
@@ -1605,19 +8523,263 @@ class TreeProvider extends ChangeNotifier {
       // replace local ones (unconditional last-write-wins at the payload level).
       task.treeId ??= currentTreeId;
       acceptedTaskMaps.add(task.toMap());
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (acceptedTaskMaps.isNotEmpty) {
       final batch = db.batch();
       for (final m in acceptedTaskMaps) {
         batch.insert('research_tasks', m,
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     await loadPersons();
     return added;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Clear DB ───────────────────────────────────────────────────────────────
   Future<void> clearDatabase() async {
@@ -1634,8 +8796,71 @@ class TreeProvider extends ChangeNotifier {
     lifeEvents.clear();
     medicalConditions.clear();
     researchTasks.clear();
+    memories.clear();
+    recordHints.clear();
+    notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
     notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Backup & Restore ───────────────────────────────────────────────────────
 
@@ -1662,7 +8887,68 @@ class TreeProvider extends ChangeNotifier {
       'researchTasks': researchTasks.map((t) => t.toMap()).toList(),
     };
     return jsonEncode(data);
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Imports from a JSON backup string, replacing current tree data.
   Future<void> importBackupJson(String json) async {
@@ -1682,7 +8968,68 @@ class TreeProvider extends ChangeNotifier {
           where: 'personId IN ($placeholders)', whereArgs: existingIds);
       await db.delete('medical_conditions',
           where: 'personId IN ($placeholders)', whereArgs: existingIds);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await db.delete('research_tasks',
         where: 'treeId = ?', whereArgs: [currentTreeId]);
     await db.delete('persons',
@@ -1722,57 +9069,850 @@ class TreeProvider extends ChangeNotifier {
         person.treeId = currentTreeId;
         batch.insert('persons', person.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (inPartnerships.isNotEmpty) {
       final batch = db.batch();
       for (final partnership in inPartnerships) {
         partnership.treeId = currentTreeId;
         batch.insert('partnerships', partnership.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (inSources.isNotEmpty) {
       final batch = db.batch();
       for (final source in inSources) {
         source.treeId ??= currentTreeId;
         batch.insert('sources', source.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (inLifeEvents.isNotEmpty) {
       final batch = db.batch();
       for (final event in inLifeEvents) {
         event.treeId = currentTreeId;
         batch.insert('life_events', event.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (inMedicalConditions.isNotEmpty) {
       final batch = db.batch();
       for (final mc in inMedicalConditions) {
         mc.treeId ??= currentTreeId;
         batch.insert('medical_conditions', mc.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     if (inResearchTasks.isNotEmpty) {
       final batch = db.batch();
       for (final task in inResearchTasks) {
         task.treeId ??= currentTreeId;
         batch.insert('research_tasks', task.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await batch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     await loadPersons();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   // ── Batch Import ─────────────────────────────────────────────────────────────
 
@@ -1792,12 +9932,134 @@ class TreeProvider extends ChangeNotifier {
       p.updatedAt = now;
       batch.insert('persons', p.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await batch.commit(noResult: true);
     persons.addAll(personList);
     _emitDelta(persons: personList.map((p) => p.toMap()).toList());
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Inserts [list] in a single SQLite batch transaction and appends them to
   /// [partnerships].  Calls [notifyListeners] once after the commit.
@@ -1811,12 +10073,134 @@ class TreeProvider extends ChangeNotifier {
       pt.updatedAt = now;
       batch.insert('partnerships', pt.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await batch.commit(noResult: true);
     partnerships.addAll(list);
     _emitDelta(partnerships: list.map((p) => p.toMap()).toList());
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Inserts [list] in a single SQLite batch transaction and appends them to
   /// [lifeEvents].  Calls [notifyListeners] once after the commit.
@@ -1830,12 +10214,134 @@ class TreeProvider extends ChangeNotifier {
       e.updatedAt = now;
       batch.insert('life_events', e.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await batch.commit(noResult: true);
     lifeEvents.addAll(list);
     _emitDelta(lifeEvents: list.map((e) => e.toMap()).toList());
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Inserts [list] in a single SQLite batch transaction and appends them to
   /// [sources].  Also updates each linked person's [Person.sourceIds] list in
@@ -1855,7 +10361,68 @@ class TreeProvider extends ChangeNotifier {
       s.updatedAt = now;
       sourceBatch.insert('sources', s.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await sourceBatch.commit(noResult: true);
     sources.addAll(list);
 
@@ -1874,17 +10441,322 @@ class TreeProvider extends ChangeNotifier {
         for (final s in list) {
           if (s.personId == p.id && !p.sourceIds.contains(s.id)) {
             p.sourceIds.add(s.id);
-          }
-        }
+          
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         personsBatch.update('persons', p.toMap(),
             where: 'id = ?', whereArgs: [p.id]);
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       await personsBatch.commit(noResult: true);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     _emitDelta(sources: list.map((s) => s.toMap()).toList());
     notifyListeners();
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Returns groups of persons that are likely duplicates.
   ///
@@ -1928,7 +10800,68 @@ class TreeProvider extends ChangeNotifier {
       // Both have birth years → must be within 2 years.
       if (birthYearA != null && birthYearB != null) {
         return (birthYearA - birthYearB).abs() <= 2;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
       // One has a birth year and the other doesn't → no evidence to exclude.
       if (birthYearA != null || birthYearB != null) return true;
@@ -1938,11 +10871,133 @@ class TreeProvider extends ChangeNotifier {
       final deathYearB = b.deathDate?.year;
       if (deathYearA != null && deathYearB != null) {
         return (deathYearA - deathYearB).abs() <= 2;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
       // No date information at all: same full name is enough to flag.
       return true;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     for (int i = 0; i < persons.length; i++) {
       if (processed.contains(persons[i].id)) continue;
@@ -1953,17 +11008,322 @@ class TreeProvider extends ChangeNotifier {
         if (likelyDuplicate(persons[i], persons[j])) {
           group.add(persons[j]);
           processed.add(persons[j].id);
-        }
-      }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
       if (group.length > 1) {
         processed.add(persons[i].id);
         groups.add(group);
-      }
-    }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     return groups;
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
   /// Merges [mergeId] into [keepId]: references updated, fields copied, all
   /// associated records (sources, life events, partnerships) re-pointed to
@@ -1990,19 +11350,324 @@ class TreeProvider extends ChangeNotifier {
         if (!p.parentIds.contains(keepId)) {
           p.parentIds.add(keepId);
           p.parentRelTypes[keepId] = relType;
-        }
+        
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
         changed = true;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       if (p.childIds.contains(mergeId)) {
         p.childIds.remove(mergeId);
         if (!p.childIds.contains(keepId)) p.childIds.add(keepId);
         changed = true;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       if (changed) {
         crossRefBatch.update('persons', p.toMap(),
             where: 'id = ?', whereArgs: [p.id]);
-      }
-    }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await crossRefBatch.commit(noResult: true);
 
     // Re-point sources from mergeId → keepId so they are preserved.
@@ -2011,7 +11676,68 @@ class TreeProvider extends ChangeNotifier {
       source.personId = keepId;
       sourceBatch.update('sources', source.toMap(),
           where: 'id = ?', whereArgs: [source.id]);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await sourceBatch.commit(noResult: true);
 
     // Re-point life events from mergeId → keepId.
@@ -2020,7 +11746,68 @@ class TreeProvider extends ChangeNotifier {
       event.personId = keepId;
       eventBatch.update('life_events', event.toMap(),
           where: 'id = ?', whereArgs: [event.id]);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await eventBatch.commit(noResult: true);
 
     // Re-point medical conditions from mergeId → keepId.
@@ -2029,7 +11816,68 @@ class TreeProvider extends ChangeNotifier {
       mc.personId = keepId;
       medBatch.update('medical_conditions', mc.toMap(),
           where: 'id = ?', whereArgs: [mc.id]);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await medBatch.commit(noResult: true);
 
     // Re-point research tasks linked to mergeId → keepId.
@@ -2038,7 +11886,68 @@ class TreeProvider extends ChangeNotifier {
       task.personId = keepId;
       taskBatch.update('research_tasks', task.toMap(),
           where: 'id = ?', whereArgs: [task.id]);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await taskBatch.commit(noResult: true);
 
     // Re-point partnerships: replace mergeId with keepId, but only when keep
@@ -2060,16 +11969,199 @@ class TreeProvider extends ChangeNotifier {
         pt.person1Id = keepId;
       } else {
         pt.person2Id = keepId;
-      }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
       ptBatch.update('partnerships', pt.toMap(),
           where: 'id = ?', whereArgs: [pt.id]);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     await ptBatch.commit(noResult: true);
 
     // Merge photo paths (dedup).
     for (final path in merge.photoPaths) {
       if (!keep.photoPaths.contains(path)) keep.photoPaths.add(path);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     // Merge notes (append if different).
     if (merge.notes != null && merge.notes!.isNotEmpty) {
@@ -2077,20 +12169,264 @@ class TreeProvider extends ChangeNotifier {
         keep.notes = merge.notes;
       } else if (keep.notes != merge.notes) {
         keep.notes = '${keep.notes}\n${merge.notes}';
-      }
-    }
+      
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     // Copy birth info if keep has none.
     if (keep.birthDate == null && merge.birthDate != null) {
       keep.birthDate = merge.birthDate;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     keep.birthPlace ??= merge.birthPlace;
 
     // Copy death info if keep has none.
     if (keep.deathDate == null && merge.deathDate != null) {
       keep.deathDate = merge.deathDate;
       keep.deathPlace ??= merge.deathPlace;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     keep.deathPlace ??= merge.deathPlace;
     keep.causeOfDeath ??= merge.causeOfDeath;
 
@@ -2098,7 +12434,68 @@ class TreeProvider extends ChangeNotifier {
     if (keep.burialDate == null && merge.burialDate != null) {
       keep.burialDate = merge.burialDate;
       keep.burialPlace ??= merge.burialPlace;
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
     keep.burialPlace ??= merge.burialPlace;
 
     // Copy other identifying fields when keep is missing them.
@@ -2119,11 +12516,194 @@ class TreeProvider extends ChangeNotifier {
     // Merge aliases (dedup).
     for (final alias in merge.aliases) {
       if (!keep.aliases.contains(alias)) keep.aliases.add(alias);
-    }
+    
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
 
     await updatePerson(keep);
     // deletePerson(mergeId) will find no sources/events/partnerships left for
     // mergeId (all migrated above) and cleanly removes the person record.
     await deletePerson(mergeId);
+  
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
   }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
+}
+
+  // ── Memories ───────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    memory.treeId = currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('memories', memory.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    memories.add(memory);
+    _emitDelta(persons: []); // Hack to trigger sync for now
+    notifyListeners();
+  }
+
+  Future<void> updateMemory(Memory memory) async {
+    memory.treeId ??= currentTreeId;
+    memory.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('memories', memory.toMap(),
+        where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ───────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    hint.treeId = currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    recordHints.add(hint);
+    notifyListeners();
+  }
+
+  Future<void> updateRecordHint(RecordHint hint) async {
+    hint.treeId ??= currentTreeId;
+    hint.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(),
+        where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.isPending = false;
+    await updateRecordHint(hint);
+  }
+
 }

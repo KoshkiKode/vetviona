@@ -417,7 +417,7 @@ class _PedigreeBox extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person)),
+        fadeSlideRoute(builder: (_) => PersonDetailScreen(person: person!)),
       ),
       onLongPress: onReCenter,
       child: Container(

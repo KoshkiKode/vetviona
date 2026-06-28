@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 fadeSlideRoute(
-                    builder: (_) => const PersonDetailScreen()),
+                    builder: (_) => PersonDetailScreen(person: provider.persons.first)),
               );
             },
       tooltip: provider.isAtPersonLimit
@@ -276,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!provider.isAtPersonLimit) {
                 Navigator.push(
                   context,
-                  fadeSlideRoute(builder: (_) => const PersonDetailScreen()),
+                  fadeSlideRoute(builder: (_) => PersonDetailScreen(person: provider.persons.first)),
                 );
               }
               return null;
@@ -605,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => Navigator.push(
                   context,
                   fadeSlideRoute(
-                      builder: (_) => const PersonDetailScreen()),
+                      builder: (_) => PersonDetailScreen(person: provider.persons.first)),
                 ),
               ),
             ],
