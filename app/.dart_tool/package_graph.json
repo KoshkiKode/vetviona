@@ -1706,6 +1706,14 @@
       "name": "simple_sparse_list",
       "version": "0.1.4",
       "dependencies": []
+    },
+    {
+      "name": "equatable",
+      "version": "2.0.8",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
     }
   ],
   "configVersion": 1

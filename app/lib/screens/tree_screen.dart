@@ -83,7 +83,7 @@ class _TreeScreenState extends State<TreeScreen> {
             onPressed: () => Navigator.push(
               context,
               fadeSlideRoute(
-                  builder: (_) => const PersonDetailScreen()),
+                  builder: (_) => PersonDetailScreen(person: context.read<TreeProvider>().persons.firstWhere((p) => p.id == node.personId))),
             ),
           ),
         ],
@@ -132,7 +132,7 @@ class _TreeScreenState extends State<TreeScreen> {
                       onPressed: () => Navigator.push(
                         context,
                         fadeSlideRoute(
-                            builder: (_) => const PersonDetailScreen()),
+                            builder: (_) => PersonDetailScreen(person: context.read<TreeProvider>().persons.firstWhere((p) => p.id == node.personId))),
                       ),
                     ),
                   ],
