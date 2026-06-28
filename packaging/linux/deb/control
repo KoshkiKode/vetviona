@@ -1,0 +1,9 @@
+Package: vetviona
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Dylan Moore (KoshkiKode LLC) <support@koshkikode.com>
+Description: Vetviona — Private, local-first genealogy desktop application
+ Vetviona is a full-featured, private, offline-first ancestry and family tree management software.
+ Designed for cross-platform desktop native environments.

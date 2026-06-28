@@ -1,0 +1,350 @@
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:46:37 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:47:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:49:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:52:5 • undefined_identifier
+  error • The method '_emitDelta' isn't defined for the type '_Pbkdf2Args' • lib/providers/tree_provider.dart:53:5 • undefined_method
+  error • The method 'notifyListeners' isn't defined for the type '_Pbkdf2Args' • lib/providers/tree_provider.dart:54:5 • undefined_method
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:58:23 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:60:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:63:17 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:64:20 • undefined_identifier
+  error • The method 'notifyListeners' isn't defined for the type '_Pbkdf2Args' • lib/providers/tree_provider.dart:65:5 • undefined_method
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:69:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:71:5 • undefined_identifier
+  error • The method 'notifyListeners' isn't defined for the type '_Pbkdf2Args' • lib/providers/tree_provider.dart:72:5 • undefined_method
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:77:33 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:78:19 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:80:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:83:5 • undefined_identifier
+  error • The method 'notifyListeners' isn't defined for the type '_Pbkdf2Args' • lib/providers/tree_provider.dart:84:5 • undefined_method
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:88:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:90:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:93:17 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:94:20 • undefined_identifier
+  error • The method 'notifyListeners' isn't defined for the type '_Pbkdf2Args' • lib/providers/tree_provider.dart:95:5 • undefined_method
+  error • The method 'addSource' isn't defined for the type '_Pbkdf2Args' • lib/providers/tree_provider.dart:99:11 • undefined_method
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:100:10 • assignment_to_final_no_setter
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:134:37 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:135:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:137:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:140:5 • undefined_identifier
+  error • The function '_emitDelta' isn't defined • lib/providers/tree_provider.dart:141:5 • undefined_function
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:142:5 • undefined_function
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:146:23 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:148:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:151:17 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:152:20 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:153:5 • undefined_function
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:157:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:159:5 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:160:5 • undefined_function
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:165:33 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:166:19 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:168:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:171:5 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:172:5 • undefined_function
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:176:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:178:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:181:17 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:182:20 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:183:5 • undefined_function
+  error • The function 'addSource' isn't defined • lib/providers/tree_provider.dart:187:11 • undefined_function
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:188:10 • assignment_to_final_no_setter
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:196:37 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:197:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:199:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:202:5 • undefined_identifier
+  error • The function '_emitDelta' isn't defined • lib/providers/tree_provider.dart:203:5 • undefined_function
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:204:5 • undefined_function
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:208:23 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:210:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:213:17 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:214:20 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:215:5 • undefined_function
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:219:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:221:5 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:222:5 • undefined_function
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:227:33 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:228:19 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:230:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:233:5 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:234:5 • undefined_function
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:238:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:240:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:243:17 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:244:20 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:245:5 • undefined_function
+  error • The function 'addSource' isn't defined • lib/providers/tree_provider.dart:249:11 • undefined_function
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:250:10 • assignment_to_final_no_setter
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:260:37 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:261:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:263:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:266:5 • undefined_identifier
+  error • The function '_emitDelta' isn't defined • lib/providers/tree_provider.dart:267:5 • undefined_function
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:268:5 • undefined_function
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:272:23 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:274:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:277:17 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:278:20 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:279:5 • undefined_function
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:283:22 • undefined_identifier
+  error • Undefined name 'memories' • lib/providers/tree_provider.dart:285:5 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:286:5 • undefined_function
+  error • Undefined name '_uuid' • lib/providers/tree_provider.dart:291:33 • undefined_identifier
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:292:19 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:294:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:297:5 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:298:5 • undefined_function
+  error • Undefined name 'currentTreeId' • lib/providers/tree_provider.dart:302:21 • undefined_identifier
+  error • Undefined name '_database' • lib/providers/tree_provider.dart:304:22 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:307:17 • undefined_identifier
+  error • Undefined name 'recordHints' • lib/providers/tree_provider.dart:308:20 • undefined_identifier
+  error • The function 'notifyListeners' isn't defined • lib/providers/tree_provider.dart:309:5 • undefined_function
+  error • The function 'addSource' isn't defined • lib/providers/tree_provider.dart:313:11 • undefined_function
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:314:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:421:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:483:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:602:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:678:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:942:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1048:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1110:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1199:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1268:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1358:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1446:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1519:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1586:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1652:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1717:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1782:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1864:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1928:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:1997:10 • assignment_to_final_no_setter
+  error • Expected to find ',' • lib/providers/tree_provider.dart:2051:3 • expected_token
+  error • Function expressions can't be named • lib/providers/tree_provider.dart:2051:16 • named_function_expression
+  error • Expressions can't be used in a map literal • lib/providers/tree_provider.dart:2051:25 • expression_in_map
+  error • Expected to find ',' • lib/providers/tree_provider.dart:2063:3 • expected_token
+  error • Function expressions can't be named • lib/providers/tree_provider.dart:2063:16 • named_function_expression
+  error • Expressions can't be used in a map literal • lib/providers/tree_provider.dart:2063:28 • expression_in_map
+  error • Expected to find ',' • lib/providers/tree_provider.dart:2074:3 • expected_token
+  error • Function expressions can't be named • lib/providers/tree_provider.dart:2074:16 • named_function_expression
+  error • Expressions can't be used in a map literal • lib/providers/tree_provider.dart:2074:28 • expression_in_map
+  error • Expected to find ',' • lib/providers/tree_provider.dart:2082:3 • expected_token
+  error • Function expressions can't be named • lib/providers/tree_provider.dart:2082:16 • named_function_expression
+  error • Expressions can't be used in a map literal • lib/providers/tree_provider.dart:2082:29 • expression_in_map
+  error • Expected to find ',' • lib/providers/tree_provider.dart:2093:3 • expected_token
+  error • Function expressions can't be named • lib/providers/tree_provider.dart:2093:16 • named_function_expression
+  error • Expressions can't be used in a map literal • lib/providers/tree_provider.dart:2093:32 • expression_in_map
+  error • Expected to find ',' • lib/providers/tree_provider.dart:2104:3 • expected_token
+  error • Function expressions can't be named • lib/providers/tree_provider.dart:2104:16 • named_function_expression
+  error • Expressions can't be used in a map literal • lib/providers/tree_provider.dart:2104:33 • expression_in_map
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2106:10 • assignment_to_final_no_setter
+  error • Local variable 'updateRecordHint' can't be referenced before it is declared • lib/providers/tree_provider.dart:2107:11 • referenced_before_declaration
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2169:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2306:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2373:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2441:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2510:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2578:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2646:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2719:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2809:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2871:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:2936:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3014:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3076:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3140:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3213:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3287:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3349:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3413:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3487:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3560:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3628:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3722:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3795:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3863:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:3945:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4020:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4088:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4165:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4237:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4305:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4380:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4450:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4516:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4598:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4670:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4733:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4818:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4891:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:4953:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5019:10 • assignment_to_final_no_setter
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5035:21 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5037:22 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5040:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5041:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5042:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5046:23 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5048:22 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5051:17 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5052:20 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5053:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5057:22 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5059:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5060:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5066:19 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5068:22 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5071:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5072:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5076:21 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5078:22 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5081:17 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5082:20 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5083:5 • instance_member_access_from_static
+  error • Instance members can't be accessed from a static method • lib/providers/tree_provider.dart:5087:11 • instance_member_access_from_static
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5088:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5166:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5268:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5339:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5401:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5469:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5533:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5599:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5668:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5736:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5806:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5869:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:5941:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6021:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6088:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6152:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6222:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6306:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6378:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6440:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6521:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6612:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6674:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6737:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6807:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6875:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:6948:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7056:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7223:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7313:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7380:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7443:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7513:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7579:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7646:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7709:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7779:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7851:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7918:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:7981:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8051:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8120:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8187:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8250:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8320:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8384:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8451:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8514:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8583:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8650:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8713:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8778:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8859:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:8947:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9028:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9129:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9192:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9260:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9323:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9391:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9454:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9522:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9585:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9653:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9716:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9784:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9847:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9911:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:9992:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10058:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10133:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10199:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10274:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10340:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10421:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10501:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10563:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10627:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10690:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10755:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10860:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10931:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:10996:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11068:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11130:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11196:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11258:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11322:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11410:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11473:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11539:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11604:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11666:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11736:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11806:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11876:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:11946:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12029:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12093:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12160:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12229:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12291:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12357:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12425:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12494:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12576:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12643:10 • assignment_to_final_no_setter
+  error • There isn't a setter named 'isPending' in class 'RecordHint' • lib/providers/tree_provider.dart:12705:10 • assignment_to_final_no_setter
+  error • 2 positional arguments expected by 'mergePersons', but 0 found • lib/screens/duplicate_merge_screen.dart:164:9 • not_enough_positional_arguments
+  error • The named parameter 'keepId' isn't defined • lib/screens/duplicate_merge_screen.dart:164:9 • undefined_named_parameter
+  error • The named parameter 'removeId' isn't defined • lib/screens/duplicate_merge_screen.dart:165:9 • undefined_named_parameter
+  error • The getter 'heritages' isn't defined for the type 'TreeProvider' • lib/screens/heritage_screen.dart:28:32 • undefined_getter
+  error • The method 'addHeritage' isn't defined for the type 'TreeProvider' • lib/screens/heritage_screen.dart:79:42 • undefined_method
+  error • The method 'updateHeritage' isn't defined for the type 'TreeProvider' • lib/screens/heritage_screen.dart:92:42 • undefined_method
+  error • The method 'deleteHeritage' isn't defined for the type 'TreeProvider' • lib/screens/heritage_screen.dart:119:22 • undefined_method
+  error • The getter 'marriageDate' isn't defined for the type 'Partnership' • lib/screens/on_this_day_screen.dart:151:23 • undefined_getter
+  error • The getter 'marriageDate' isn't defined for the type 'Partnership' • lib/screens/on_this_day_screen.dart:152:23 • undefined_getter
+  error • The getter 'marriageDate' isn't defined for the type 'Partnership' • lib/screens/on_this_day_screen.dart:153:23 • undefined_getter
+  error • The getter 'marriageDate' isn't defined for the type 'Partnership' • lib/screens/on_this_day_screen.dart:157:62 • undefined_getter
+  error • The getter 'marriageDate' isn't defined for the type 'Partnership' • lib/screens/on_this_day_screen.dart:162:31 • undefined_getter
+  error • The argument type 'double' can't be assigned to the parameter type 'int'.  • lib/screens/on_this_day_screen.dart:163:23 • argument_type_not_assignable
+  error • The getter 'marriagePlace' isn't defined for the type 'Partnership' • lib/screens/on_this_day_screen.dart:164:32 • undefined_getter
+  error • 2 positional arguments expected by 'addSourceFromHint', but 1 found • lib/screens/record_hints_screen.dart:222:42 • not_enough_positional_arguments
+  error • The named parameter '_fsRecord' isn't defined • lib/screens/record_search_screen.dart:315:17 • undefined_named_parameter
+  error • The named parameter '_caResult' isn't defined • lib/screens/record_search_screen.dart:342:17 • undefined_named_parameter
+  error • The named parameter '_naraResult' isn't defined • lib/screens/record_search_screen.dart:369:17 • undefined_named_parameter
+  error • The named parameter '_oaRecord' isn't defined • lib/screens/record_search_screen.dart:398:17 • undefined_named_parameter
+  error • The getter '_fsRecord' isn't defined for the type '_SearchResult' • lib/screens/record_search_screen.dart:415:34 • undefined_getter
+  error • The getter '_caResult' isn't defined for the type '_SearchResult' • lib/screens/record_search_screen.dart:419:34 • undefined_getter
+  error • The getter '_naraResult' isn't defined for the type '_SearchResult' • lib/screens/record_search_screen.dart:423:34 • undefined_getter
+  error • The getter '_oaRecord' isn't defined for the type '_SearchResult' • lib/screens/record_search_screen.dart:427:34 • undefined_getter
+  error • Expected an initializer • lib/screens/record_search_screen.dart:470:7 • missing_initializer
+  error • '' isn't a field in the enclosing class • lib/screens/record_search_screen.dart:474:1 • initializer_for_non_existent_field
+  error • A function body must be provided • lib/screens/record_search_screen.dart:474:1 • missing_function_body
+  error • Const constructors can't have a body • lib/screens/record_search_screen.dart:474:1 • const_constructor_with_body
+  error • Invalid constant value • lib/screens/record_search_screen.dart:474:1 • invalid_constant
+  error • The named parameter 'person' is required, but there's no corresponding argument • lib/screens/sources_page.dart:75:54 • missing_required_argument
+  error • The argument type 'String?' can't be assigned to the parameter type 'String'.  • lib/screens/sources_page.dart:98:60 • argument_type_not_assignable
+  error • Undefined name 'node' • lib/screens/tree_screen.dart:86:125 • undefined_identifier
+  error • Undefined name 'node' • lib/screens/tree_screen.dart:135:135 • undefined_identifier
+  error • 1 positional argument expected by 'searchPerson', but 0 found • lib/services/record_hints_service.dart:91:11 • not_enough_positional_arguments
+  error • The named parameter 'givenName' isn't defined • lib/services/record_hints_service.dart:91:11 • undefined_named_parameter
+  error • The named parameter 'surname' isn't defined • lib/services/record_hints_service.dart:92:11 • undefined_named_parameter
+  error • The named parameter 'digitalObjectUrl' isn't defined • lib/services/record_hints_service.dart:186:11 • undefined_named_parameter

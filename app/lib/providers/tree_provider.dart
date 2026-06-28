@@ -14,6 +14,9 @@ import '../config/app_config.dart';
 import '../models/device.dart';
 import '../models/life_event.dart';
 import '../models/medical_condition.dart';
+import '../models/heritage.dart';
+import '../models/memory.dart';
+import '../models/record_hint.dart';
 import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/research_task.dart';
@@ -79,6 +82,9 @@ class TreeProvider extends ChangeNotifier {
   List<LifeEvent> lifeEvents = [];
   List<MedicalCondition> medicalConditions = [];
   List<ResearchTask> researchTasks = [];
+  List<Heritage> heritages = [];
+  List<Memory> memories = [];
+  List<RecordHint> recordHints = [];
 
   // ── Live-change stream ─────────────────────────────────────────────────────
 
@@ -328,6 +334,52 @@ class TreeProvider extends ChangeNotifier {
             treeId TEXT
           )
         ''');
+        
+        await db.execute('''
+          CREATE TABLE heritages (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            region TEXT NOT NULL,
+            percentage REAL,
+            dnaService TEXT,
+            dnaResultsUrl TEXT,
+            notes TEXT,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            text TEXT NOT NULL,
+            date TEXT,
+            place TEXT,
+            mediaUri TEXT,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE record_hints (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            apiSource TEXT NOT NULL,
+            externalRecordId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            summary TEXT,
+            recordUrl TEXT NOT NULL,
+            imageUrl TEXT,
+            confidence REAL NOT NULL,
+            status TEXT NOT NULL,
+            treeId TEXT,
+            discoveredAt INTEGER,
+            resolvedAt INTEGER,
+            updatedAt INTEGER
+          )
+        ''');
+
         await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
         // ── Indexes ──────────────────────────────────────────────────────────
         await db.execute(
@@ -569,7 +621,53 @@ class TreeProvider extends ChangeNotifier {
             })
         .toList();
     if (trees.isEmpty) {
-      await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
+      
+        await db.execute('''
+          CREATE TABLE heritages (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            region TEXT NOT NULL,
+            percentage REAL,
+            dnaService TEXT,
+            dnaResultsUrl TEXT,
+            notes TEXT,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            text TEXT NOT NULL,
+            date TEXT,
+            place TEXT,
+            mediaUri TEXT,
+            treeId TEXT,
+            updatedAt INTEGER
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE record_hints (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            apiSource TEXT NOT NULL,
+            externalRecordId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            summary TEXT,
+            recordUrl TEXT NOT NULL,
+            imageUrl TEXT,
+            confidence REAL NOT NULL,
+            status TEXT NOT NULL,
+            treeId TEXT,
+            discoveredAt INTEGER,
+            resolvedAt INTEGER,
+            updatedAt INTEGER
+          )
+        ''');
+
+        await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
       trees = [
         {'id': 'default', 'name': 'My Family Tree'}
       ];
@@ -619,6 +717,14 @@ class TreeProvider extends ChangeNotifier {
       whereArgs: [currentTreeId],
     );
     researchTasks = taskMaps.map(ResearchTask.fromMap).toList();
+
+    
+    final heritageMaps = await db.rawQuery('SELECT * FROM heritages');
+    heritages = heritageMaps.map(Heritage.fromMap).toList();
+    final memoryMaps = await db.rawQuery('SELECT * FROM memories');
+    memories = memoryMaps.map(Memory.fromMap).toList();
+    final hintMaps = await db.rawQuery('SELECT * FROM record_hints');
+    recordHints = hintMaps.map(RecordHint.fromMap).toList();
 
     step('Loading devices…', 0.92);
     final deviceMaps = await db.query('devices');
@@ -1634,6 +1740,9 @@ class TreeProvider extends ChangeNotifier {
     lifeEvents.clear();
     medicalConditions.clear();
     researchTasks.clear();
+    heritages.clear();
+    memories.clear();
+    recordHints.clear();
     notifyListeners();
   }
 
@@ -2126,4 +2235,70 @@ class TreeProvider extends ChangeNotifier {
     // mergeId (all migrated above) and cleanly removes the person record.
     await deletePerson(mergeId);
   }
+
+  // ── Heritage ─────────────────────────────────────────────────────────────
+  Future<void> addHeritage(Heritage heritage) async {
+    heritage.id = heritage.id.isEmpty ? _uuid.v4() : heritage.id;
+    final db = await _database;
+    await db.insert('heritages', heritage.toMap());
+    heritages.add(heritage);
+    notifyListeners();
+  }
+  Future<void> updateHeritage(Heritage heritage) async {
+    final db = await _database;
+    await db.update('heritages', heritage.toMap(), where: 'id = ?', whereArgs: [heritage.id]);
+    final idx = heritages.indexWhere((h) => h.id == heritage.id);
+    if (idx != -1) heritages[idx] = heritage;
+    notifyListeners();
+  }
+  Future<void> deleteHeritage(String id) async {
+    final db = await _database;
+    await db.delete('heritages', where: 'id = ?', whereArgs: [id]);
+    heritages.removeWhere((h) => h.id == id);
+    notifyListeners();
+  }
+
+  // ── Memories ─────────────────────────────────────────────────────────────
+  Future<void> addMemory(Memory memory) async {
+    memory.id = memory.id.isEmpty ? _uuid.v4() : memory.id;
+    final db = await _database;
+    await db.insert('memories', memory.toMap());
+    memories.add(memory);
+    notifyListeners();
+  }
+  Future<void> updateMemory(Memory memory) async {
+    final db = await _database;
+    await db.update('memories', memory.toMap(), where: 'id = ?', whereArgs: [memory.id]);
+    final idx = memories.indexWhere((m) => m.id == memory.id);
+    if (idx != -1) memories[idx] = memory;
+    notifyListeners();
+  }
+  Future<void> deleteMemory(String id) async {
+    final db = await _database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+    memories.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
+  // ── Record Hints ─────────────────────────────────────────────────────────────
+  Future<void> addRecordHint(RecordHint hint) async {
+    hint.id = hint.id.isEmpty ? _uuid.v4() : hint.id;
+    final db = await _database;
+    await db.insert('record_hints', hint.toMap());
+    recordHints.add(hint);
+    notifyListeners();
+  }
+  Future<void> updateRecordHint(RecordHint hint) async {
+    final db = await _database;
+    await db.update('record_hints', hint.toMap(), where: 'id = ?', whereArgs: [hint.id]);
+    final idx = recordHints.indexWhere((h) => h.id == hint.id);
+    if (idx != -1) recordHints[idx] = hint;
+    notifyListeners();
+  }
+  Future<void> addSourceFromHint(RecordHint hint, Source source) async {
+    await addSource(source);
+    hint.status = 'accepted';
+    await updateRecordHint(hint);
+  }
+
 }

@@ -20,9 +20,14 @@ import '../services/purchase_service.dart';
 import '../utils/page_routes.dart';
 import '../utils/platform_utils.dart';
 import 'calendar_screen.dart';
-import 'wikitree_screen.dart';
 import 'conflict_resolver_screen.dart';
+import 'duplicate_merge_screen.dart';
 import 'family_timeline_screen.dart';
+import 'heritage_screen.dart';
+import 'on_this_day_screen.dart';
+import 'record_hints_screen.dart';
+import 'wall_chart_screen.dart';
+import 'wikitree_screen.dart';
 import 'gedcom_import_screen.dart';
 import 'login_screen.dart';
 import 'medical_history_screen.dart';
@@ -795,6 +800,67 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 fadeSlideRoute(
                     builder: (_) => const StatisticsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.today_outlined),
+            title: const Text('On This Day'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                fadeSlideRoute(builder: (_) => const OnThisDayScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.hub_outlined),
+            title: const Text('DNA & Heritage'),
+            onTap: () {
+              Navigator.pop(context);
+              if (provider.persons.isNotEmpty) {
+                Navigator.push(
+                  context,
+                  fadeSlideRoute(builder: (_) => HeritageScreen(person: provider.persons.first)),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please add a person first.')),
+                );
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_copy_outlined),
+            title: const Text('Duplicate Detection'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                fadeSlideRoute(builder: (_) => const DuplicateMergeScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.map_outlined),
+            title: const Text('Wall Charts'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                fadeSlideRoute(builder: (_) => const WallChartScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.find_in_page_outlined),
+            title: const Text('Record Hints'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                fadeSlideRoute(builder: (_) => const RecordHintsScreen()),
               );
             },
           ),
