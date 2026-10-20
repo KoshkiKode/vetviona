@@ -6,7 +6,7 @@ This guide covers everything you need to run the Vetviona license backend on you
 
 ## Requirements
 
-- **Node.js 18+** (LTS recommended)
+- **Node.js 20+** (22 LTS recommended; required by nodemailer 10)
 - A publicly reachable host (any Linux VPS, bare metal, or home server with port forwarding)
 - A reverse proxy with TLS (nginx or Caddy recommended)
 - Optional: SMTP credentials for transactional email
@@ -34,7 +34,7 @@ In dev mode (no `S3_BUCKET`, no `SMTP_HOST` set):
 
 ```bash
 cd backend
-npm install nodemailer@^7.0.11   # real email delivery
+npm install nodemailer@^10.1.7   # real email delivery
 npm install @aws-sdk/client-s3   # S3-compatible object storage
 ```
 
