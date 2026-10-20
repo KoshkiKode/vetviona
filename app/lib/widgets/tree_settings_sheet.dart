@@ -61,11 +61,12 @@ class _TreeSettingsSheetState extends State<TreeSettingsSheet> {
       maxChildSize: 0.95,
       expand: false,
       builder: (ctx, scrollCtrl) {
-        return Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
+        // Material (not a decorated Container) so the SwitchListTile inks
+        // paint on a real Material ancestor and stay visible.
+        return Material(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          clipBehavior: Clip.antiAlias,
           child: CustomScrollView(
             controller: scrollCtrl,
             slivers: [
