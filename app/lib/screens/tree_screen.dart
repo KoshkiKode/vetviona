@@ -80,11 +80,7 @@ class _TreeScreenState extends State<TreeScreen> {
           IconButton(
             icon: const Icon(Icons.person_add),
             tooltip: 'Add Person',
-            onPressed: () => Navigator.push(
-              context,
-              fadeSlideRoute(
-                  builder: (_) => PersonDetailScreen(person: context.read<TreeProvider>().persons.firstWhere((p) => p.id == node.personId))),
-            ),
+            onPressed: _quickAddPerson,
           ),
         ],
       ),
@@ -129,11 +125,7 @@ class _TreeScreenState extends State<TreeScreen> {
                     FilledButton.icon(
                       icon: const Icon(Icons.person_add),
                       label: const Text('Add First Person'),
-                      onPressed: () => Navigator.push(
-                        context,
-                        fadeSlideRoute(
-                            builder: (_) => PersonDetailScreen(person: context.read<TreeProvider>().persons.firstWhere((p) => p.id == node.personId))),
-                      ),
+                      onPressed: _quickAddPerson,
                     ),
                   ],
                 ),
