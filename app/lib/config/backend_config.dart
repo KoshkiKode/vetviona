@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Centralised configuration for the Vetviona AWS-hosted backend.
+/// Centralised configuration for the KoshkiKode-hosted Vetviona backend.
 ///
 /// All HTTP-talking services in the app (license verification, account/sync,
 /// optional cloud tree backup, app-version checks) read their base URL from
@@ -22,12 +22,13 @@ import 'package:flutter/foundation.dart';
 class BackendConfig {
   BackendConfig._();
 
-  /// Production AWS endpoint that ships with release builds of every
+  /// Production endpoint that ships with release builds of every
   /// platform (Android · iOS · Windows · macOS · Linux).
   ///
-  /// This is intentionally a stable HTTPS hostname (Route 53 → ACM cert →
-  /// API Gateway / ALB → Lambda or Fargate task — see
-  /// `backend/DEPLOY-AWS.md`).
+  /// This is intentionally a stable HTTPS hostname on the GoDaddy-managed
+  /// koshkikode.com domain. Hosting runs on KoshkiKode infrastructure — the
+  /// AWS deployment was retired Oct 2026; self-hosted per SERVER_SETUP.md
+  /// today, Google Cloud planned. See `backend/DEPLOY.md`.
   static const String productionBaseUrl =
       'https://license.koshkikode.com';
 

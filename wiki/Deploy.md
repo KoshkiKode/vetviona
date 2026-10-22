@@ -125,6 +125,7 @@ The backend uses the `@aws-sdk/client-s3` package, which speaks standard S3 prot
 
 | Provider | Notes |
 |----------|-------|
+| **Google Cloud Storage** | KoshkiKode's canonical choice — S3 interoperability via HMAC keys; set `S3_ENDPOINT=https://storage.googleapis.com` and `S3_REGION=auto` |
 | **MinIO** | Self-hosted, completely free, runs on your own VPS or LAN |
 | **Backblaze B2** | Cheap hosted option ($0.006/GB/mo), S3-compatible API |
 | **Cloudflare R2** | Zero egress fees, S3-compatible, generous free tier |

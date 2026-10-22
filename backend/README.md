@@ -54,6 +54,7 @@ In production the license database must live in durable object storage — local
 
 | Provider | `S3_ENDPOINT` example |
 |----------|-----------------------|
+| **Google Cloud Storage** (KoshkiKode default) | `https://storage.googleapis.com` (with `S3_REGION=auto`) |
 | MinIO (self-hosted) | `http://localhost:9000` |
 | Backblaze B2 | `https://s3.us-west-004.backblazeb2.com` |
 | Cloudflare R2 | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |

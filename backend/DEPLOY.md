@@ -64,7 +64,7 @@ Copy `.env.example` to `.env` and fill in your values, or export them directly.
 
 ### 3. Set up object storage (production)
 
-The license database must live in durable object storage in production — local disk is lost on redeploys. The backend speaks standard S3 protocol and works with any compatible provider.
+The license database must live in durable object storage in production — local disk is lost on redeploys. The backend speaks standard S3 protocol and works with any compatible provider. KoshkiKode's canonical provider is **Google Cloud Storage** (enable S3 interoperability on the bucket and use an HMAC key pair; set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_REGION=auto`). KoshkiKode no longer uses AWS.
 
 #### MinIO (self-hosted, free)
 

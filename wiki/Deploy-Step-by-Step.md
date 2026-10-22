@@ -1,4 +1,15 @@
-# Step-by-Step Deployment Guide
+# Step-by-Step Deployment Guide (RETIRED — AWS)
+
+> **This guide is retired (Oct 2026).** KoshkiKode's AWS account was fully shut
+> down and deleted — nothing here can be executed as written. It is kept for
+> historical reference only.
+>
+> Current deployment paths:
+> - **Self-hosted:** [`SERVER_SETUP.md`](../SERVER_SETUP.md) (Debian + Docker +
+>   Caddy + GoDaddy DDNS) — no cloud account needed.
+> - **Planned managed platform:** Google Cloud (Cloud Run + Cloud Storage with
+>   S3 interoperability for the license DB). A Google Cloud version of this
+>   guide has not been written yet.
 
 This guide walks you through a **complete first-time production deployment** of Vetviona from a fresh AWS account.
 By the end you will have:
