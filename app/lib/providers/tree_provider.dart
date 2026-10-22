@@ -390,6 +390,22 @@ class TreeProvider extends ChangeNotifier {
           )
         ''');
 
+        // DNA kits were added in schema v14 via onUpgrade only, so a fresh
+        // install at version 14 never got the table (the test database exposed
+        // "no such table: dna_kits"). Create it here too for a clean install.
+        await db.execute('''
+          CREATE TABLE dna_kits (
+            id TEXT PRIMARY KEY,
+            personId TEXT NOT NULL,
+            testType TEXT NOT NULL,
+            testingCompany TEXT NOT NULL,
+            kitNumber TEXT,
+            haplogroup TEXT,
+            dateTested TEXT,
+            notes TEXT
+          )
+        ''');
+
         await db.insert('trees', {'id': 'default', 'name': 'My Family Tree'});
         // ── Indexes ──────────────────────────────────────────────────────────
         await db.execute(
