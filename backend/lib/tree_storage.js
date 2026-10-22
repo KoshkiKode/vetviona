@@ -7,7 +7,7 @@
 // encrypts each tree chunk before upload; the server has no way to read
 // trees and cannot decrypt them even with full database access.
 //
-// Storage layout (when AWS_S3_BUCKET is set):
+// Storage layout (when S3_BUCKET is set — any S3-compatible provider; KoshkiKode uses Google Cloud Storage):
 //
 //   s3://<bucket>/<prefix>/users/<accountId>/trees/<treeId>/manifest.json
 //   s3://<bucket>/<prefix>/users/<accountId>/trees/<treeId>/chunks/<chunkId>.bin

@@ -31,3 +31,17 @@ jobs:
       - name: Run unit tests
         working-directory: app
         run: flutter test --reporter=expanded
+
+  backend-test:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
