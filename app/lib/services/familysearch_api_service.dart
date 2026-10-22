@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/source.dart';
@@ -434,7 +433,6 @@ class FamilySearchApiService extends ChangeNotifier {
     final persons = gedcomx['persons'] as List<dynamic>? ?? [];
     String? personName;
     String? gender;
-    String? age;
     final fields = <String, String>{};
 
     if (persons.isNotEmpty) {
@@ -513,8 +511,6 @@ class FamilySearchApiService extends ChangeNotifier {
         // Check if this person is the child
         final p1Display =
             (rel['person1'] as Map<String, dynamic>?)?['display'] as Map?;
-        final p2Display =
-            (rel['person2'] as Map<String, dynamic>?)?['display'] as Map?;
         if (p1Display != null) {
           final g = p1Display['gender'] as String? ?? '';
           if (g.toLowerCase() == 'male') {

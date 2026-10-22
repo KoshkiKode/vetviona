@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 import '../config/app_config.dart';
 import '../models/device.dart';
 import '../models/life_event.dart';
+import '../models/dna_kit.dart';
 import '../models/medical_condition.dart';
 import '../models/heritage.dart';
 import '../models/memory.dart';
@@ -85,6 +86,7 @@ class TreeProvider extends ChangeNotifier {
   List<Heritage> heritages = [];
   List<Memory> memories = [];
   List<RecordHint> recordHints = [];
+  List<DnaKit> dnaKits = [];
 
   // ── Live-change stream ─────────────────────────────────────────────────────
 
@@ -109,6 +111,7 @@ class TreeProvider extends ChangeNotifier {
     List<Map<String, dynamic>> lifeEvents = const [],
     List<Map<String, dynamic>> medicalConditions = const [],
     List<Map<String, dynamic>> researchTasks = const [],
+    List<Map<String, dynamic>> dnaKits = const [],
   }) {
     if (_liveChangeController.hasListener) {
       _liveChangeController.add({
@@ -118,6 +121,7 @@ class TreeProvider extends ChangeNotifier {
         'lifeEvents': lifeEvents,
         'medicalConditions': medicalConditions,
         'researchTasks': researchTasks,
+        'dnaKits': dnaKits,
       });
     }
   }
@@ -165,6 +169,10 @@ class TreeProvider extends ChangeNotifier {
   /// Fractional progress 0.0 → 1.0 during [loadPersons].
   double loadingProgress = 0.0;
 
+  /// Holds the last fatal error message, if any.
+  String? loadError;
+  bool get hasError => loadError != null;
+
   Database? _db;
   static const _uuid = Uuid();
   static const _dbName = 'vetviona.db';
@@ -199,7 +207,7 @@ class TreeProvider extends ChangeNotifier {
     final path = p.join(dir.path, _dbName);
     return openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -241,6 +249,8 @@ class TreeProvider extends ChangeNotifier {
             bloodType TEXT,
             eyeColour TEXT,
             hairColour TEXT,
+            yHaplogroup TEXT,
+            mtHaplogroup TEXT,
             height TEXT,
             religion TEXT,
             education TEXT,
@@ -597,6 +607,22 @@ class TreeProvider extends ChangeNotifier {
           await db.execute(
               'CREATE INDEX IF NOT EXISTS idx_tasks_personId ON research_tasks(personId)');
         }
+        if (oldVersion < 14) {
+          await db.execute('ALTER TABLE persons ADD COLUMN yHaplogroup TEXT');
+          await db.execute('ALTER TABLE persons ADD COLUMN mtHaplogroup TEXT');
+          await db.execute('''
+            CREATE TABLE dna_kits (
+              id TEXT PRIMARY KEY,
+              personId TEXT NOT NULL,
+              testType TEXT NOT NULL,
+              testingCompany TEXT NOT NULL,
+              kitNumber TEXT,
+              haplogroup TEXT,
+              dateTested TEXT,
+              notes TEXT
+            )
+          ''');
+        }
       },
     );
   }
@@ -609,7 +635,8 @@ class TreeProvider extends ChangeNotifier {
       notifyListeners();
     }
 
-    step('Opening database…', 0.0);
+    try {
+      step('Opening database…', 0.0);
     final db = await _database;
 
     step('Loading family trees…', 0.05);
@@ -725,6 +752,9 @@ class TreeProvider extends ChangeNotifier {
     memories = memoryMaps.map(Memory.fromMap).toList();
     final hintMaps = await db.rawQuery('SELECT * FROM record_hints');
     recordHints = hintMaps.map(RecordHint.fromMap).toList();
+    
+    final dnaKitMaps = await db.rawQuery('SELECT * FROM dna_kits');
+    dnaKits = dnaKitMaps.map(DnaKit.fromMap).toList();
 
     step('Loading devices…', 0.92);
     final deviceMaps = await db.query('devices');
@@ -743,11 +773,16 @@ class TreeProvider extends ChangeNotifier {
       await prefs.setString('localDeviceId', _localDeviceId);
     }
 
-    loadingMessage = 'Ready';
-    loadingProgress = 1.0;
+    step('Complete', 1.0);
+    isLoaded = true;
+    loadError = null;
+    notifyListeners();
+  } catch (e) {
+    loadError = 'Failed to load tree data: $e';
     isLoaded = true;
     notifyListeners();
   }
+}
 
   // ── Persons ────────────────────────────────────────────────────────────────
   bool get isAtPersonLimit {
@@ -961,6 +996,37 @@ class TreeProvider extends ChangeNotifier {
   /// Returns all life events for the given [personId].
   List<LifeEvent> lifeEventsFor(String personId) =>
       lifeEvents.where((e) => e.personId == personId).toList();
+
+  // ── DNA Kits ───────────────────────────────────────────────────────────────
+  Future<void> addDnaKit(DnaKit kit) async {
+    final db = await _database;
+    await db.insert('dna_kits', kit.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    dnaKits.add(kit);
+    _emitDelta(dnaKits: [kit.toMap()]);
+    notifyListeners();
+  }
+
+  Future<void> updateDnaKit(DnaKit kit) async {
+    final db = await _database;
+    await db.update('dna_kits', kit.toMap(),
+        where: 'id = ?', whereArgs: [kit.id]);
+    final idx = dnaKits.indexWhere((k) => k.id == kit.id);
+    if (idx != -1) dnaKits[idx] = kit;
+    _emitDelta(dnaKits: [kit.toMap()]);
+    notifyListeners();
+  }
+
+  Future<void> deleteDnaKit(String id) async {
+    final db = await _database;
+    await db.delete('dna_kits', where: 'id = ?', whereArgs: [id]);
+    dnaKits.removeWhere((k) => k.id == id);
+    notifyListeners();
+  }
+
+  /// Returns all DNA kits for the given [personId].
+  List<DnaKit> dnaKitsFor(String personId) =>
+      dnaKits.where((k) => k.personId == personId).toList();
 
   // ── Medical Conditions ─────────────────────────────────────────────────────
   Future<void> addMedicalCondition(MedicalCondition condition) async {
@@ -1464,6 +1530,10 @@ class TreeProvider extends ChangeNotifier {
           .where((mc) => syncMedicalIds.contains(mc.personId))
           .map((mc) => mc.toMap())
           .toList(),
+      'dnaKits': dnaKits
+          .where((k) => publicPersonIds.contains(k.personId))
+          .map((k) => k.toMap())
+          .toList(),
     };
   }
 
@@ -1524,6 +1594,11 @@ class TreeProvider extends ChangeNotifier {
                 [])
             .map(ResearchTask.fromMap)
             .toList();
+    final inDnaKits =
+        ((data['dnaKits'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+                [])
+            .map(DnaKit.fromMap)
+            .toList();
 
     int added = 0;
 
@@ -1548,6 +1623,7 @@ class TreeProvider extends ChangeNotifier {
     final acceptedLifeEventMaps = <Map<String, dynamic>>[];
     final acceptedMedCondMaps = <Map<String, dynamic>>[];
     final acceptedTaskMaps = <Map<String, dynamic>>[];
+    final acceptedDnaKitMaps = <Map<String, dynamic>>[];
 
     // ── Persons ──────────────────────────────────────────────────────────────
     for (final person in inPersons) {
@@ -1721,6 +1797,21 @@ class TreeProvider extends ChangeNotifier {
       await batch.commit(noResult: true);
     }
 
+    // ── DNA Kits ─────────────────────────────────────────────────────────────
+    for (final kit in inDnaKits) {
+      // Unconditional last-write-wins at payload level for DNA kits right now
+      // (similar to research tasks) since they lack an updatedAt field.
+      acceptedDnaKitMaps.add(kit.toMap());
+    }
+    if (acceptedDnaKitMaps.isNotEmpty) {
+      final batch = db.batch();
+      for (final m in acceptedDnaKitMaps) {
+        batch.insert('dna_kits', m,
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
+    }
+
     await loadPersons();
     return added;
   }
@@ -1734,6 +1825,10 @@ class TreeProvider extends ChangeNotifier {
     await db.delete('life_events');
     await db.delete('medical_conditions');
     await db.delete('research_tasks');
+    await db.delete('heritages');
+    await db.delete('memories');
+    await db.delete('record_hints');
+    await db.delete('dna_kits');
     persons.clear();
     sources.clear();
     partnerships.clear();
@@ -1743,6 +1838,7 @@ class TreeProvider extends ChangeNotifier {
     heritages.clear();
     memories.clear();
     recordHints.clear();
+    dnaKits.clear();
     notifyListeners();
   }
 

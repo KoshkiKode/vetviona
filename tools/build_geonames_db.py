@@ -44,7 +44,7 @@ try:
 except ImportError:
     sys.exit("pycountry is required: pip install pycountry")
 
-GEONAMES_DUMP_URL = "https://download.geonames.org/export/dump/allCountries.zip"
+GEONAMES_DUMP_URL = "https://download.geonames.org/export/dump/cities15000.zip"
 ADMIN1_URL = "https://download.geonames.org/export/dump/admin1CodesASCII.txt"
 ADMIN2_URL = "https://download.geonames.org/export/dump/admin2Codes.txt"
 
@@ -81,6 +81,7 @@ def build_country_info():
 
 
 def download_text(url, label):
+    import requests
     print(f"  Downloading {label}…", end=" ", flush=True)
     r = requests.get(url, timeout=120)
     r.raise_for_status()
@@ -147,9 +148,9 @@ def build_db(all_countries_zip_bytes, admin1_map, admin2_map, country_info):
     inserted = 0
     skipped = 0
 
-    print("  Parsing allCountries.txt…", end=" ", flush=True)
+    print("  Parsing cities15000.txt…", end=" ", flush=True)
     with zipfile.ZipFile(io.BytesIO(all_countries_zip_bytes)) as zf:
-        with zf.open("allCountries.txt") as fh:
+        with zf.open("cities15000.txt") as fh:
             reader = csv.reader(io.TextIOWrapper(fh, encoding="utf-8"), delimiter="\t")
             for row in reader:
                 if len(row) < 19:

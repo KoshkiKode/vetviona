@@ -88,7 +88,7 @@ class RecordHintsService {
     try {
       if (WikiTreeService.instance.isLoggedIn) {
         final wtResults = await WikiTreeService.instance.searchPerson(
-          '${firstName ?? ''} ${lastName ?? ''}'.trim(),
+          '$firstName ${lastName ?? ''}'.trim(),
           birthYear: birthYear != null ? int.tryParse(birthYear) : null,
         );
 

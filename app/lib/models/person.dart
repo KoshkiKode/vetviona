@@ -60,6 +60,12 @@ class Person {
   /// Hair colour, free text (e.g. "auburn", "grey").
   String? hairColour;
 
+  /// Y-DNA Haplogroup (paternal line), e.g. "R-M269".
+  String? yHaplogroup;
+
+  /// mtDNA Haplogroup (maternal line), e.g. "H1a".
+  String? mtHaplogroup;
+
   /// Height as free text (e.g. "178 cm", "5 ft 10 in").
   String? height;
 
@@ -159,6 +165,8 @@ class Person {
     this.bloodType,
     this.eyeColour,
     this.hairColour,
+    this.yHaplogroup,
+    this.mtHaplogroup,
     this.height,
     this.religion,
     this.education,
@@ -237,6 +245,8 @@ class Person {
       'bloodType': bloodType,
       'eyeColour': eyeColour,
       'hairColour': hairColour,
+      'yHaplogroup': yHaplogroup,
+      'mtHaplogroup': mtHaplogroup,
       'height': height,
       'religion': religion,
       'education': education,
@@ -321,6 +331,8 @@ class Person {
       bloodType: map['bloodType'] as String?,
       eyeColour: map['eyeColour'] as String?,
       hairColour: map['hairColour'] as String?,
+      yHaplogroup: map['yHaplogroup'] as String?,
+      mtHaplogroup: map['mtHaplogroup'] as String?,
       height: map['height'] as String?,
       religion: map['religion'] as String?,
       education: map['education'] as String?,

@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/heritage.dart';
 import '../models/person.dart';
+import '../models/dna_kit.dart';
 import '../providers/tree_provider.dart';
 
 /// Heritage / ethnicity / DNA screen.
@@ -29,7 +30,6 @@ class _HeritageScreenState extends State<HeritageScreen> {
         .where((h) => h.personId == widget.person.id)
         .toList()
       ..sort((a, b) => (b.percentage ?? 0).compareTo(a.percentage ?? 0));
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -60,6 +60,30 @@ class _HeritageScreenState extends State<HeritageScreen> {
                       onEdit: () => _editHeritage(context, h),
                       onDelete: () => _deleteHeritage(context, provider, h),
                     )),
+                const SizedBox(height: 32),
+
+                // ── Haplogroups ──────────────────────────────────────────
+                Text('Haplogroups',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                _HaplogroupsSection(person: widget.person),
+                const SizedBox(height: 32),
+
+                // ── DNA Kits ─────────────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('DNA Kits',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    TextButton.icon(
+                      onPressed: () => _addDnaKit(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Kit'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _DnaKitsSection(personId: widget.person.id),
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -106,18 +130,177 @@ class _HeritageScreenState extends State<HeritageScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error),
+          TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
-    if (confirm == true) {
+    if (confirm == true && context.mounted) {
       await provider.deleteHeritage(heritage.id);
     }
+  }
+
+  Future<void> _addDnaKit(BuildContext context) async {
+    final result = await showDialog<DnaKit>(
+      context: context,
+      builder: (_) => _DnaKitDialog(personId: widget.person.id),
+    );
+    if (result != null && context.mounted) {
+      await context.read<TreeProvider>().addDnaKit(result);
+    }
+  }
+}
+
+class _HaplogroupsSection extends StatelessWidget {
+  final Person person;
+  const _HaplogroupsSection({required this.person});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ListTile(
+          title: const Text('Y-DNA Haplogroup (Paternal)'),
+          subtitle: Text(person.yHaplogroup ?? 'Unknown'),
+          trailing: IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => _editHaplogroup(context, true),
+          ),
+        ),
+        ListTile(
+          title: const Text('mtDNA Haplogroup (Maternal)'),
+          subtitle: Text(person.mtHaplogroup ?? 'Unknown'),
+          trailing: IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => _editHaplogroup(context, false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _editHaplogroup(BuildContext context, bool isY) async {
+    final ctrl = TextEditingController(text: isY ? person.yHaplogroup : person.mtHaplogroup);
+    final val = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Edit ${isY ? 'Y-DNA' : 'mtDNA'} Haplogroup'),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(
+            hintText: isY ? 'e.g. R-M269' : 'e.g. H1a',
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save')),
+        ],
+      ),
+    );
+
+    if (val != null && context.mounted) {
+      if (isY) {
+        person.yHaplogroup = val.isEmpty ? null : val.trim();
+      } else {
+        person.mtHaplogroup = val.isEmpty ? null : val.trim();
+      }
+      person.updatedAt = DateTime.now().millisecondsSinceEpoch;
+      // This directly triggers sync and db update
+      context.read<TreeProvider>().updatePerson(person);
+    }
+  }
+}
+
+class _DnaKitsSection extends StatelessWidget {
+  final String personId;
+  const _DnaKitsSection({required this.personId});
+
+  @override
+  Widget build(BuildContext context) {
+    final kits = context.watch<TreeProvider>().dnaKitsFor(personId);
+    if (kits.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text('No DNA kits added yet.'),
+      );
+    }
+    return Column(
+      children: kits.map((k) {
+        return Card(
+          child: ListTile(
+            leading: const Icon(Icons.biotech),
+            title: Text('${k.testingCompany} (${k.testType.name.toUpperCase()})'),
+            subtitle: Text('Kit: ${k.kitNumber ?? 'Unknown'} • Tested: ${k.dateTested?.year ?? 'Unknown'}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => context.read<TreeProvider>().deleteDnaKit(k.id),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _DnaKitDialog extends StatefulWidget {
+  final String personId;
+  const _DnaKitDialog({required this.personId});
+
+  @override
+  State<_DnaKitDialog> createState() => _DnaKitDialogState();
+}
+
+class _DnaKitDialogState extends State<_DnaKitDialog> {
+  DnaTestType _testType = DnaTestType.autosomal;
+  String _testingCompany = 'AncestryDNA';
+  final _kitNumberCtrl = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add DNA Kit'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<DnaTestType>(
+            initialValue: _testType,
+            decoration: const InputDecoration(labelText: 'Test Type'),
+            items: DnaTestType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.name.toUpperCase()))).toList(),
+            onChanged: (v) => setState(() => _testType = v!),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: _testingCompany,
+            decoration: const InputDecoration(labelText: 'Testing Company'),
+            items: Heritage.dnaServices.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+            onChanged: (v) => setState(() => _testingCompany = v!),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _kitNumberCtrl,
+            decoration: const InputDecoration(labelText: 'Kit Number (Optional)'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            final kit = DnaKit(
+              personId: widget.personId,
+              testType: _testType,
+              testingCompany: _testingCompany,
+              kitNumber: _kitNumberCtrl.text.trim().isEmpty ? null : _kitNumberCtrl.text.trim(),
+            );
+            Navigator.pop(context, kit);
+          },
+          child: const Text('Add Kit'),
+        ),
+      ],
+    );
   }
 }
 
@@ -417,7 +600,7 @@ class _HeritageDialogState extends State<_HeritageDialog> {
           children: [
             // Region picker
             DropdownButtonFormField<String>(
-              value: Heritage.commonRegions.contains(_region)
+              initialValue: Heritage.commonRegions.contains(_region)
                   ? _region
                   : Heritage.commonRegions.first,
               decoration: const InputDecoration(
@@ -448,7 +631,7 @@ class _HeritageDialogState extends State<_HeritageDialog> {
 
             // DNA service
             DropdownButtonFormField<String>(
-              value: _dnaService,
+              initialValue: _dnaService,
               decoration: const InputDecoration(
                 labelText: 'DNA Service',
                 border: OutlineInputBorder(),

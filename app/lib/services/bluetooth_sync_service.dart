@@ -86,6 +86,8 @@ class BleSyncPeer {
 class BluetoothSyncService extends ChangeNotifier {
   // ── State ───────────────────────────────────────────────────────────────────
 
+  bool _isDisposed = false;
+
   bool _isScanning = false;
   bool get isScanning => _isScanning;
 
@@ -254,8 +256,15 @@ class BluetoothSyncService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     unawaited(stopAll());
     super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
   }
 
   // ── Internals ────────────────────────────────────────────────────────────────

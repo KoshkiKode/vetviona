@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-import '../models/person.dart';
-import '../models/source.dart';
 import '../providers/tree_provider.dart';
+import '../models/person.dart';
 import '../utils/page_routes.dart';
 import 'record_search_screen.dart';
 import 'source_detail_screen.dart';
@@ -144,8 +141,8 @@ class SourcesPage extends StatelessWidget {
           FloatingActionButton.small(
             heroTag: 'add_manual',
             onPressed: () => _addManualSource(context),
-            child: const Icon(Icons.add),
             tooltip: 'Add Manual Source',
+            child: const Icon(Icons.add),
           ),
           const SizedBox(height: 8),
           FloatingActionButton.extended(

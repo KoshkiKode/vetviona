@@ -4,6 +4,22 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access to scan QR codes and barcodes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires access to the photo library to pick images for profiles.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>This app requires Bluetooth to sync offline family trees securely with other devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>This app requires Bluetooth peripheral access to sync offline family trees securely with other devices.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>This app requires NFC access to sync family trees securely.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app requires local network access to discover nearby devices for syncing.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_vetviona._tcp</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

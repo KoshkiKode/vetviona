@@ -151,6 +151,8 @@ class SyncService extends ChangeNotifier {
 
   // ── Internals ───────────────────────────────────────────────────────────────
 
+  http.Client client = http.Client();
+
   HttpServer? _httpServer;
   int _serverPort = 0;
   int get serverPort => _serverPort;
@@ -572,7 +574,7 @@ class SyncService extends ChangeNotifier {
       final encrypted = encrypt(ourData, sharedSecret);
       final url = Uri(scheme: 'http', host: host, port: port, path: '/sync');
 
-      final response = await http
+      final response = await client
           .post(
             url,
             headers: {'content-type': 'text/plain'},
@@ -603,6 +605,9 @@ class SyncService extends ChangeNotifier {
               }
             }
             await tp.importFromSync(theirData);
+          } else {
+            _setStatus(SyncStatus.error, 'Decryption failed (wrong secret or corrupt data)');
+            return false;
           }
         }
         _setStatus(SyncStatus.success, 'Sync complete ✓');
@@ -825,7 +830,7 @@ class SyncService extends ChangeNotifier {
       );
       final url =
           Uri(scheme: 'http', host: host, port: port, path: '/medical/request');
-      final resp = await http
+      final resp = await client
           .post(url,
               headers: {'content-type': 'text/plain'}, body: step1Payload)
           .timeout(const Duration(seconds: 25)); // > peer's 15 s UI timeout
@@ -855,7 +860,7 @@ class SyncService extends ChangeNotifier {
       );
       final url =
           Uri(scheme: 'http', host: host, port: port, path: '/medical/confirm');
-      final resp = await http
+      final resp = await client
           .post(url,
               headers: {'content-type': 'text/plain'}, body: step3Payload)
           .timeout(const Duration(seconds: 40));
@@ -1030,7 +1035,7 @@ class SyncService extends ChangeNotifier {
         final encrypted = encrypt(peerDelta, peer.sharedSecret);
         final url = Uri(
             scheme: 'http', host: peer.host, port: peer.port, path: '/push');
-        await http
+        await client
             .post(
               url,
               headers: {'content-type': 'text/plain'},

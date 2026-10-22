@@ -1,16 +1,16 @@
-import 'dart:math' as math;
+// ignore_for_file: deprecated_member_use
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-
-
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../providers/tree_provider.dart';
 import '../models/person.dart';
-import '../models/partnership.dart';
 import 'tree_layout.dart';
 import 'fan_chart_screen.dart'; 
 
@@ -30,7 +30,6 @@ class _WallChartScreenState extends State<WallChartScreen> {
   
   _ChartStyle _style = _ChartStyle.modern;
   _ChartOrientation _orientation = _ChartOrientation.vertical;
-  bool _showPhotos = true;
   bool _showDates = true;
   bool _showPlaces = true;
 
@@ -58,8 +57,6 @@ class _WallChartScreenState extends State<WallChartScreen> {
     }
 
     final provider = context.watch<TreeProvider>();
-    final colorScheme = Theme.of(context).colorScheme;
-
     // Cache layout to avoid recomputing on every frame/zoom
     if (_cachedLayout == null ||
         _cachedPersonsLen != provider.persons.length ||
@@ -100,6 +97,11 @@ class _WallChartScreenState extends State<WallChartScreen> {
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'Export as PDF',
             onPressed: () => _exportToPdf(provider, layout, isHorizontal),
+          ),
+          IconButton(
+            icon: const Icon(Icons.code),
+            tooltip: 'Export as SVG (Poster)',
+            onPressed: () => _exportToSvg(provider, layout, isHorizontal),
           ),
           IconButton(
             icon: const Icon(Icons.print),
@@ -272,7 +274,6 @@ class _WallChartScreenState extends State<WallChartScreen> {
           borderRadius: BorderRadius.circular(8),
         );
       case _ChartStyle.modern:
-      default:
         return BoxDecoration(
           color: Theme.of(context).cardColor,
           border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5), width: 2),
@@ -297,7 +298,6 @@ class _WallChartScreenState extends State<WallChartScreen> {
       case _ChartStyle.minimalist:
         return Colors.black87;
       case _ChartStyle.modern:
-      default:
         return Theme.of(context).colorScheme.onSurface;
     }
   }
@@ -311,7 +311,6 @@ class _WallChartScreenState extends State<WallChartScreen> {
       case _ChartStyle.minimalist:
         return Colors.black26;
       case _ChartStyle.modern:
-      default:
         return Theme.of(context).colorScheme.outline;
     }
   }
@@ -473,6 +472,164 @@ class _WallChartScreenState extends State<WallChartScreen> {
     );
 
     return pdf.save();
+  }
+
+  Future<void> _exportToSvg(TreeProvider provider, TreeLayout layout, bool isHorizontal) async {
+    final svgString = _generateSvgDocument(provider, layout, isHorizontal);
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/family_tree_chart.svg');
+    await file.writeAsString(svgString);
+    await Share.shareXFiles([XFile(file.path)], text: 'Family Tree Chart (SVG)');
+  }
+
+  String _generateSvgDocument(TreeProvider provider, TreeLayout layout, bool isHorizontal) {
+    final canvasWidth = isHorizontal ? layout.canvasSize.height : layout.canvasSize.width;
+    final canvasHeight = isHorizontal ? layout.canvasSize.width : layout.canvasSize.height;
+    final paddedWidth = canvasWidth + 200;
+    final paddedHeight = canvasHeight + 200;
+
+    String bgColorHex;
+    String borderColorHex;
+    String textColorHex;
+    String edgeColorHex;
+
+    switch (_style) {
+      case _ChartStyle.parchment:
+        bgColorHex = '#FDF7E7';
+        borderColorHex = '#8B5A2B';
+        textColorHex = '#3E2723';
+        edgeColorHex = '#8B5A2B';
+        break;
+      case _ChartStyle.blueprint:
+        bgColorHex = '#234B6E';
+        borderColorHex = '#FFFFFF';
+        textColorHex = '#FFFFFF';
+        edgeColorHex = '#FFFFFF';
+        break;
+      case _ChartStyle.minimalist:
+        bgColorHex = '#FFFFFF';
+        borderColorHex = '#E0E0E0';
+        textColorHex = '#000000';
+        edgeColorHex = '#CCCCCC';
+        break;
+      default:
+        bgColorHex = '#FFFFFF';
+        borderColorHex = '#000000';
+        textColorHex = '#000000';
+        edgeColorHex = '#000000';
+        break;
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="no"?>');
+    buffer.writeln('<svg width="$paddedWidth" height="$paddedHeight" viewBox="0 0 $paddedWidth $paddedHeight" xmlns="http://www.w3.org/2000/svg">');
+    
+    // Background for blueprint/parchment etc if we want the whole poster colored.
+    if (_style == _ChartStyle.blueprint) {
+      buffer.writeln('  <rect width="100%" height="100%" fill="#1A3B5C" />');
+    } else if (_style == _ChartStyle.parchment) {
+      buffer.writeln('  <rect width="100%" height="100%" fill="#F5DEB3" />');
+    } else {
+      buffer.writeln('  <rect width="100%" height="100%" fill="#FFFFFF" />');
+    }
+
+    // Add a group with margin offset
+    buffer.writeln('  <g transform="translate(100, 100)">');
+
+    // Edges
+    final nw = layout.config.nodeWidth;
+    final nh = layout.config.nodeHeight;
+
+    for (final edge in layout.edges) {
+      final fromInfo = layout.nodes[edge.from];
+      final toInfo = layout.nodes[edge.to];
+      if (fromInfo == null || toInfo == null) continue;
+
+      double x1, y1, x2, y2;
+      
+      if (!isHorizontal) {
+        if (edge.isCouple) {
+          x1 = fromInfo.x + nw;
+          y1 = fromInfo.y + nh / 2;
+          x2 = toInfo.x;
+          y2 = toInfo.y + nh / 2;
+          buffer.writeln('    <line x1="$x1" y1="$y1" x2="$x2" y2="$y2" stroke="$edgeColorHex" stroke-width="2" />');
+        } else {
+          x1 = fromInfo.x + nw / 2;
+          y1 = fromInfo.y + nh;
+          x2 = toInfo.x + nw / 2;
+          y2 = toInfo.y;
+          final midY = (y1 + y2) / 2;
+          buffer.writeln('    <path d="M $x1 $y1 L $x1 $midY L $x2 $midY L $x2 $y2" fill="none" stroke="$edgeColorHex" stroke-width="2" />');
+        }
+      } else {
+        if (edge.isCouple) {
+          x1 = fromInfo.y + nw / 2;
+          y1 = fromInfo.x + nh;
+          x2 = toInfo.y + nw / 2;
+          y2 = toInfo.x;
+          buffer.writeln('    <line x1="$x1" y1="$y1" x2="$x2" y2="$y2" stroke="$edgeColorHex" stroke-width="2" />');
+        } else {
+          x1 = fromInfo.y + nw;
+          y1 = fromInfo.x + nh / 2;
+          x2 = toInfo.y;
+          y2 = toInfo.x + nh / 2;
+          final midX = (x1 + x2) / 2;
+          buffer.writeln('    <path d="M $x1 $y1 L $midX $y1 L $midX $y2 L $x2 $y2" fill="none" stroke="$edgeColorHex" stroke-width="2" />');
+        }
+      }
+    }
+
+    // Nodes
+    String escapeXml(String text) {
+      return text.replaceAll('&', '&amp;')
+                 .replaceAll('<', '&lt;')
+                 .replaceAll('>', '&gt;')
+                 .replaceAll('"', '&quot;')
+                 .replaceAll("'", '&apos;');
+    }
+
+    for (final nodeInfo in layout.nodes.values) {
+      if (nodeInfo.isCoupleKnot) continue;
+      final person = provider.persons.where((p) => p.id == nodeInfo.id).firstOrNull;
+      if (person == null) continue;
+
+      final top = isHorizontal ? nodeInfo.x : nodeInfo.y;
+      final left = isHorizontal ? nodeInfo.y : nodeInfo.x;
+
+      buffer.writeln('    <g transform="translate($left, $top)">');
+      buffer.writeln('      <rect width="$nw" height="$nh" fill="$bgColorHex" stroke="$borderColorHex" stroke-width="2" rx="8" />');
+      
+      final textCenterX = nw / 2;
+      double textStartY = nh / 2;
+      
+      final lines = <String>[];
+      lines.add(person.name);
+      if (_showDates && (person.birthDate != null || person.deathDate != null)) {
+        lines.add('${person.birthDate ?? '?'} - ${person.deathDate ?? '?'}');
+      }
+      if (_showPlaces && (person.birthPlace != null)) {
+        lines.add(person.birthPlace!);
+      }
+
+      // Quick logic to center text vertically based on line count
+      final lineHeight = 16.0;
+      textStartY -= (lines.length - 1) * lineHeight / 2;
+
+      for (int i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        final y = textStartY + (i * lineHeight);
+        final fontSize = i == 0 ? "14" : "10";
+        final fontWeight = i == 0 ? "bold" : "normal";
+        buffer.writeln('      <text x="$textCenterX" y="$y" font-family="sans-serif" font-size="$fontSize" font-weight="$fontWeight" fill="$textColorHex" text-anchor="middle" dominant-baseline="middle">${escapeXml(line)}</text>');
+      }
+      
+      buffer.writeln('    </g>');
+    }
+
+    buffer.writeln('  </g>');
+    buffer.writeln('</svg>');
+    return buffer.toString();
   }
 
   void _drawPdfEdges(dynamic canvas, TreeLayout layout, bool isHorizontal) {

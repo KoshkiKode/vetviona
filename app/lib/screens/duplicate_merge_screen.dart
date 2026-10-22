@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -355,7 +356,7 @@ class _MergeDialogState extends State<_MergeDialog> {
             const Text('Which record should be kept as the primary?'),
             const SizedBox(height: 12),
 
-            RadioListTile<String>(
+            RadioListTile<String>.adaptive(
               value: widget.pair.person1.id,
               groupValue: _keepId,
               title: Text(widget.pair.person1.name),
@@ -365,7 +366,7 @@ class _MergeDialogState extends State<_MergeDialog> {
               ),
               onChanged: (v) => setState(() => _keepId = v!),
             ),
-            RadioListTile<String>(
+            RadioListTile<String>.adaptive(
               value: widget.pair.person2.id,
               groupValue: _keepId,
               title: Text(widget.pair.person2.name),

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
-
 import '../providers/tree_provider.dart';
 import '../services/completeness_service.dart';
 import 'duplicate_merge_screen.dart';

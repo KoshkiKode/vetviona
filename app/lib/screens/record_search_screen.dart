@@ -8,6 +8,7 @@ import '../services/chronicling_america_service.dart';
 import '../services/familysearch_api_service.dart';
 import '../services/nara_catalog_service.dart';
 import '../services/open_archives_service.dart';
+import '../widgets/place_autocomplete_field.dart';
 
 /// Multi-API historical record search screen.
 ///
@@ -101,13 +102,10 @@ class _RecordSearchScreenState extends State<RecordSearchScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: TextField(
+                      child: PlaceAutocompleteField(
                         controller: _birthPlaceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Birth Place',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
+                        labelText: 'Birth Place',
+                        eventDate: DateTime.tryParse(_birthYearController.text),
                       ),
                     ),
                   ],
@@ -128,13 +126,10 @@ class _RecordSearchScreenState extends State<RecordSearchScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: TextField(
+                      child: PlaceAutocompleteField(
                         controller: _deathPlaceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Death Place',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
+                        labelText: 'Death Place',
+                        eventDate: DateTime.tryParse(_deathYearController.text),
                       ),
                     ),
                   ],
@@ -145,7 +140,7 @@ class _RecordSearchScreenState extends State<RecordSearchScreen> {
                     // API selector
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedApi,
+                        initialValue: _selectedApi,
                         decoration: const InputDecoration(
                           labelText: 'Search In',
                           border: OutlineInputBorder(),
@@ -410,19 +405,19 @@ class _RecordSearchScreenState extends State<RecordSearchScreen> {
     final provider = context.read<TreeProvider>();
 
     // Create appropriate Source based on the API source
-    if (false) {
+    if (result.source == 'FamilySearch') {
       final source = FamilySearchApiService.instance
           .recordToSource(result._fsRecord!, widget.person!.id);
       await provider.addSource(source);
-    } else if (false) {
+    } else if (result.source == 'Chronicling America') {
       final source = ChroniclingAmericaService.instance
           .resultToSource(result._caResult!, widget.person!.id);
       await provider.addSource(source);
-    } else if (false) {
+    } else if (result.source == 'National Archives') {
       final source = NaraCatalogService.instance
           .resultToSource(result._naraResult!, widget.person!.id);
       await provider.addSource(source);
-    } else if (false) {
+    } else if (result.source == 'Open Archives') {
       final source = OpenArchivesService.instance
           .recordToSource(result._oaRecord!, widget.person!.id);
       await provider.addSource(source);

@@ -6,6 +6,7 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
 import '../utils/platform_utils.dart';
+import '../widgets/place_autocomplete_field.dart';
 import '../widgets/quick_add_person_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -857,11 +858,10 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
                   _startDate != null ? () => setState(() => _startDate = null) : null,
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            PlaceAutocompleteField(
               controller: _startPlaceCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Start Place (optional)'),
-              textCapitalization: TextCapitalization.words,
+              labelText: 'Start Place (optional)',
+              eventDate: _startDate,
             ),
 
             // End date & place — shown for ended statuses or if endDate set
@@ -875,11 +875,10 @@ class _PartnershipSheetState extends State<_PartnershipSheet> {
                     _endDate != null ? () => setState(() => _endDate = null) : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              PlaceAutocompleteField(
                 controller: _endPlaceCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'End Place (optional)'),
-                textCapitalization: TextCapitalization.words,
+                labelText: 'End Place (optional)',
+                eventDate: _endDate,
               ),
             ],
 

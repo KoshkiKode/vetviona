@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/memory.dart';
 import '../models/person.dart';
 import '../providers/tree_provider.dart';
+import '../widgets/place_autocomplete_field.dart';
 
 /// Memories screen for a person (Phase 4).
 ///
@@ -286,12 +287,10 @@ class _MemoryDialogState extends State<_MemoryDialog> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: TextField(
+                  child: PlaceAutocompleteField(
                     controller: _placeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Location (optional)',
-                      border: OutlineInputBorder(),
-                    ),
+                    labelText: 'Location (optional)',
+                    eventDate: DateTime.tryParse(_dateController.text.split(' ').last), // roughly parse year if typed
                   ),
                 ),
               ],
