@@ -212,7 +212,8 @@ async function handleWebhook(req, rawBody, db, writeDbFn) {
  * GET /download/:platform
  *
  * Generates a pre-signed S3 URL for a paid user to download the app binary.
- * Requires a valid license on the authenticated account.
+ * Requires a valid license on the authenticated account. The HTTP route
+ * authenticates the caller with a verified bearer session first.
  *
  * Query params:
  *   ?email=user@example.com&token=<session-token>

@@ -63,7 +63,9 @@ The license verification backend is a separate Node.js service in the `backend/`
 
 See [`backend/DEPLOY.md`](./backend/DEPLOY.md) for setup instructions.
 
-For local development without a real license server, the app includes a dev bypass — check the app's feature flag constants.
+For local development without a real license server, use the explicit
+`--dart-define=BETA=true` flag. Do not enable beta mode in release builds or
+use it to validate production licensing behavior.
 
 ---
 
@@ -71,7 +73,12 @@ For local development without a real license server, the app includes a dev bypa
 
 ```bash
 # All Flutter unit and widget tests
+cd app
 flutter test
+
+# Backend tests
+cd ../backend
+npm test
 
 # A specific test file
 flutter test test/some_test.dart
@@ -117,7 +124,8 @@ docs: expand RootLoop sync troubleshooting section
 
 1. Fork the repo and create your branch from `main`.
 2. Make your changes with tests where applicable.
-3. Run `dart format . && flutter analyze && flutter test` — all must pass.
+3. Run `cd app && dart format . && flutter analyze && flutter test`, then
+   `cd ../backend && npm test` — all must pass.
 4. Open a PR against `main` and fill in the PR template.
 5. Link the relevant issue in the PR description.
 

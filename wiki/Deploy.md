@@ -70,7 +70,7 @@ The license backend is a Node.js HTTP server that handles account registration, 
 
 ### Requirements
 
-- Node.js 18+ (LTS recommended)
+- Node.js 20+ (LTS recommended; matches `backend/package.json`)
 - Network-accessible host (any Linux VPS, bare metal, or home server)
 - Optional: SMTP server for transactional email
 - **Production: S3-compatible object storage** for durable, encrypted license database storage

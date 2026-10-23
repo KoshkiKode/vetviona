@@ -5,6 +5,8 @@
 Vetviona is a private, local-first genealogy app by [KoshkiKode](https://koshkikode.com). Build interactive family trees, attach sources, sync across devices — all without a server you need to maintain.
 
 > 🌿 **Website:** [vetviona.koshkikode.com](https://vetviona.koshkikode.com)
+>
+> **Project status and roadmap:** [`PROJECT_STATUS.md`](PROJECT_STATUS.md)
 
 ---
 
@@ -184,6 +186,15 @@ For paid-tier verification, point the app at your backend:
 --dart-define=LICENSE_BACKEND_URL=https://vetviona.koshkikode.com
 ```
 
+Beta mode is opt-in and must only be used for clearly labeled test builds:
+
+```bash
+flutter run --dart-define=BETA=true
+```
+
+Never ship a release artifact with `BETA=true`. Paid artifact downloads require
+an authenticated account session; an email address alone is not authorization.
+
 | Doc | What it covers |
 |-----|----------------|
 | [`backend/README.md`](backend/README.md) | Backend overview and quick start |
@@ -210,6 +221,17 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
 | `build-all.yml` | push / pull request / `v*` tag | Platform packages and combined artifact ZIP |
 | `codeql.yml` | push / pull request / weekly | CodeQL analysis |
 
+Run the same checks locally from the repository root:
+
+```bash
+cd app && flutter analyze && flutter test
+cd ../backend && npm test
+```
+
+The GitHub Actions account must be billing-enabled before hosted checks can
+start. Local validation remains available while that account-level issue is
+resolved.
+
 ---
 
 ## Versioning
@@ -220,6 +242,10 @@ Components are versioned independently:
 |-----------|---------|
 | Vetviona App | 1.0.0 |
 | RootLoop™ | 1.0.0 |
+| Database schema | 7 |
+
+See [`wiki/Architecture-and-Technical-Reference.md`](wiki/Architecture-and-Technical-Reference.md)
+for compatibility and release-versioning guidance.
 
 ---
 
