@@ -107,6 +107,10 @@ vetviona/
 
 ## Building from Source
 
+Production builds keep license and purchase gates enabled. Use
+`--dart-define=BETA=true` only for an explicitly labeled beta build; beta mode
+must never be used for a release artifact.
+
 ### Prerequisites
 
 - [Flutter SDK](https://flutter.dev/docs/get-started/install) on the stable channel

@@ -212,7 +212,7 @@ async function handleWebhook(req, rawBody, db, writeDbFn) {
  * GET /download/:platform
  *
  * Generates a pre-signed S3 URL for a paid user to download the app binary.
- * Requires a valid license (checked via email in query string + license DB).
+ * Requires a valid license on the authenticated account.
  *
  * Query params:
  *   ?email=user@example.com&token=<session-token>
@@ -220,7 +220,7 @@ async function handleWebhook(req, rawBody, db, writeDbFn) {
  * In production, this should use the Bearer token auth from the license server.
  * For the initial launch, we accept email + check the license DB directly.
  */
-async function handleDownload(platform, db, email) {
+async function handleDownload(platform, db, account) {
   if (!S3_DOWNLOADS_BUCKET) {
     return { status: 503, body: { error: 'Download service not configured.' } };
   }
@@ -234,14 +234,8 @@ async function handleDownload(platform, db, email) {
     };
   }
 
-  const normalizedEmail = (email || '').trim().toLowerCase();
-  if (!normalizedEmail) {
-    return { status: 401, body: { error: 'Email required.' } };
-  }
-
-  const account = db.accounts.find((a) => a.email === normalizedEmail);
-  if (!account) {
-    return { status: 403, body: { error: 'No license found for this email.' } };
+  if (!account || typeof account !== 'object' || typeof account.id !== 'string') {
+    return { status: 401, body: { error: 'Authentication required.' } };
   }
 
   // Check if the user's license covers this platform.

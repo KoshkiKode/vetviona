@@ -3,10 +3,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 // ── Beta mode ─────────────────────────────────────────────────────────────────
-// TODO: set to false before the production release.
-// While true, all license / paywall gates are bypassed so the app can be
-// sideloaded on iOS/Android and used freely on desktop without a license key.
-const bool betaMode = true;
+// Beta builds must opt in explicitly. Leaving this disabled by default keeps
+// release artifacts subject to their configured license and purchase gates.
+const bool betaMode = bool.fromEnvironment('BETA', defaultValue: false);
 
 /// Compile-time flag set to `true` when building the paid desktop version.
 /// Pass with `--dart-define=PAID=true`.

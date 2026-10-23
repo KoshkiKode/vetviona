@@ -1521,12 +1521,22 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, result.status, result.body);
   }
 
-  // ── Download endpoint — GET with query params ─────────────────────────────
+  // ── Download endpoint — authenticated bearer token required ───────────────
   if (req.method === 'GET' && url.pathname.startsWith('/download/')) {
     const platform = url.pathname.replace('/download/', '');
-    const email = url.searchParams.get('email') || '';
     const db = await readDb();
-    const result = await stripeCheckout.handleDownload(platform, db, email);
+    const auth = requireBearer(db, req);
+    if (auth.error) {
+      return sendJson(res, auth.status || 401, {
+        ok: false,
+        message: auth.error,
+      });
+    }
+    const result = await stripeCheckout.handleDownload(
+      platform,
+      db,
+      auth.account,
+    );
     if (result.status === 200 && result.body.url) {
       // Redirect to the pre-signed S3 URL.
       res.writeHead(302, { Location: result.body.url });
