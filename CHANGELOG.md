@@ -5,6 +5,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- Consolidated the remaining unique project branch into the main product line.
+- Made beta mode opt-in with `--dart-define=BETA=true` instead of enabled by
+  default.
+- Required authenticated bearer sessions for paid artifact downloads.
+- Refreshed project, contributor, backend, architecture, and deployment
+  documentation.
+
+### Validated
+- Flutter analysis passes.
+- 1,162 Flutter tests pass locally.
+- 123 backend tests pass locally.
+- Hosted GitHub Actions still require the repository billing lock to be
+  resolved before jobs can start.
+
+---
+
 ## [1.0.0] — 2026-04-12
 
 ### Added

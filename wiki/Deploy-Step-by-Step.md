@@ -32,7 +32,7 @@ Have these ready before you start:
 |------|---------------|
 | AWS account with admin access | [aws.amazon.com](https://aws.amazon.com) |
 | AWS CLI ≥ 2.x configured with admin credentials | `aws configure` |
-| Node.js 18+ on your dev machine | [nodejs.org](https://nodejs.org) |
+| Node.js 20+ on your dev machine | [nodejs.org](https://nodejs.org) |
 | Flutter SDK ≥ 3.0 (stable) | [flutter.dev](https://flutter.dev/docs/get-started/install) |
 | Git | `git --version` |
 | A domain name (already in Route 53 or pointing to AWS) | Your domain registrar |

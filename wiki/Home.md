@@ -20,6 +20,7 @@
 | Themes, home person, date format | [Settings and Customization](Settings-and-Customization) |
 | Free vs. Paid tiers | [App Tiers and Pricing](App-Tiers-and-Pricing) |
 | Data models, DB schema, services | [Architecture and Technical Reference](Architecture-and-Technical-Reference) |
+| Current capabilities, risks, and roadmap | [Project Status](https://github.com/KoshkiKode/vetviona/blob/main/PROJECT_STATUS.md) |
 | Build the app from source | [Building and Development](Building-and-Development) |
 | Deploy the backend and database search services | [Deployment](Deploy) |
 | Step-by-step deployment walkthrough | [Deploy Step by Step](Deploy-Step-by-Step) |
@@ -63,3 +64,15 @@ New to Vetviona? Start here → **[Getting Started](Getting-Started)**
 | **Database schema** | v7 |
 | **Dart SDK** | ≥ 3.10.0 |
 | **Flutter** | ≥ 3.0.0 |
+
+## Current project status
+
+The current product baseline is documented in
+[`PROJECT_STATUS.md`](https://github.com/KoshkiKode/vetviona/blob/main/PROJECT_STATUS.md). It includes the verified local
+test baseline, release/security posture, deployment decisions still requiring
+alignment, and the prioritized P0–P3 roadmap.
+
+The step-by-step AWS deployment page is retained as a historical reference and
+is not the current KoshkiKode production deployment path. Use
+[Deployment](Deploy) for the active S3-compatible/Google Cloud Storage
+guidance.

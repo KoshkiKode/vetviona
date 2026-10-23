@@ -2,6 +2,9 @@
 
 This page documents the internal structure of Vetviona for contributors and developers.
 
+For the product-level inventory, current risks, and prioritized work, see
+[`PROJECT_STATUS.md`](https://github.com/KoshkiKode/vetviona/blob/main/PROJECT_STATUS.md).
+
 ---
 
 ## High-Level Architecture
@@ -109,6 +112,21 @@ All models live in `app/lib/models/`. Each implements `toMap()` / `fromMap()` fo
 **Engine:** SQLite via `sqflite` (mobile) and `sqflite_common_ffi` (desktop)  
 **File:** `{ApplicationDocumentsDirectory}/vetviona.db`  
 **Current schema version:** 7
+
+### Version boundaries
+
+Vetviona has four versioned compatibility surfaces:
+
+| Surface | Source of truth | Compatibility rule |
+|---------|-----------------|--------------------|
+| App | `app/pubspec.yaml` and `BuildMetadata` | User-facing release version |
+| RootLoop | `BuildMetadata.syncTechVersion` | Sync peers must negotiate compatible protocol behavior |
+| Backend API | Endpoint contract in `backend/` | Additive changes preferred; breaking changes require an API version |
+| SQLite schema | `TreeProvider` migrations | Every schema change needs an upgrade path and backup/restore coverage |
+
+Do not treat an app version bump as proof that the sync protocol, backend API,
+or database schema changed. Release notes should identify each surface
+independently.
 
 ### Tables
 

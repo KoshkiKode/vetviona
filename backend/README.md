@@ -1,6 +1,8 @@
 # Vetviona License Backend
 
-A lightweight, self-hostable Node.js license server for Vetviona. Handles account registration, email verification, paid-license verification, license gifting, re-entry license codes, MFA, and voucher creation.
+A lightweight, self-hostable Node.js license server for Vetviona. Handles account registration, email verification, paid-license verification,
+license gifting, re-entry license codes, MFA, voucher creation, encrypted tree
+storage, Stripe fulfillment, and authenticated paid-artifact downloads.
 
 ---
 
@@ -16,6 +18,7 @@ No dependencies are required to run in dev mode. Optional deps unlock real email
 ```bash
 npm install nodemailer@^10.2.1   # real SMTP email
 npm install @aws-sdk/client-s3   # S3-compatible object storage (production)
+npm install stripe @aws-sdk/s3-request-presigner # paid checkout/downloads
 ```
 
 See [`DEPLOY.md`](./DEPLOY.md) for the full self-hosting guide (reverse proxy, TLS, systemd, object storage).
@@ -43,6 +46,9 @@ See [`DEPLOY.md`](./DEPLOY.md) for the full self-hosting guide (reverse proxy, T
 | `S3_ENDPOINT` | *(unset)* | Custom endpoint — required for MinIO, Backblaze B2, Cloudflare R2, etc. |
 | `AWS_ACCESS_KEY_ID` | *(unset)* | Access key for your object storage provider |
 | `AWS_SECRET_ACCESS_KEY` | *(unset)* | Secret key for your object storage provider |
+| `STRIPE_SECRET_KEY` | *(unset)* | Stripe secret key for checkout webhook fulfillment |
+| `STRIPE_WEBHOOK_SECRET` | *(unset)* | Stripe signing secret for `/stripe-webhook` |
+| `AWS_S3_DOWNLOADS_BUCKET` | *(unset)* | Private bucket containing paid release artifacts |
 
 Copy `.env.example` to `.env` to get started.
 
@@ -99,3 +105,18 @@ When `SMTP_HOST` is not set the server runs in dev mode:
 | `POST` | `/v1/tree/upload` | Upload a tree snapshot |
 | `GET`  | `/v1/tree/latest` | Download the latest tree snapshot |
 | `GET`  | `/health` | Health check |
+| `POST` | `/stripe-webhook` | Verify Stripe events and grant licenses |
+| `GET`  | `/download/:platform` | Redirect to a short-lived artifact URL; requires `Authorization: Bearer <session-token>` |
+
+The download route never treats an email query parameter as authorization. The
+caller must first authenticate through the account/session endpoints and send
+the resulting bearer token.
+
+## Production checklist
+
+- Set stable `LICENSE_KEY_SECRET` and `ADMIN_SECRET` values.
+- Configure SMTP rather than dev-mode token output.
+- Use a private S3-compatible bucket for the license database and release
+  artifacts.
+- Configure and test Stripe webhook signature verification.
+- Run `npm test` after every backend or deployment change.
