@@ -101,6 +101,62 @@ class GEDCOMParser {
       final tag = parts.length > 1 ? parts[1] : '';
       final value = parts.length > 2 ? parts.sublist(2).join(' ') : '';
 
+      // ── CONC / CONT: multi-line text continuation ──────────────────────
+      // GEDCOM uses CONC (concatenate without space) and CONT (continue on
+      // new line) to split long text values across multiple lines.  We
+      // append to the last field that was set at the parent level.
+      if (tag == 'CONC' || tag == 'CONT') {
+        final sep = tag == 'CONT' ? '\n' : '';
+        if (currentPerson != null) {
+          if (currentTag == 'NOTE' && currentPerson.notes != null) {
+            currentPerson.notes = '${currentPerson.notes}$sep$value';
+          } else if (currentTag == 'OCCU' &&
+              currentPerson.occupation != null) {
+            currentPerson.occupation =
+                '${currentPerson.occupation}$sep$value';
+          } else if (currentTag == 'BIRT' && level == 3) {
+            // PLAC continuation under BIRT
+            if (currentPerson.birthPlace != null) {
+              currentPerson.birthPlace =
+                  '${currentPerson.birthPlace}$sep$value';
+            }
+          } else if (currentTag == 'DEAT' && level == 3) {
+            if (currentPerson.deathPlace != null) {
+              currentPerson.deathPlace =
+                  '${currentPerson.deathPlace}$sep$value';
+            }
+          } else if (currentTag == 'BURI' && level == 3) {
+            if (currentPerson.burialPlace != null) {
+              currentPerson.burialPlace =
+                  '${currentPerson.burialPlace}$sep$value';
+            }
+          }
+          // Also handle continuation inside pending life-event notes/places.
+          if (pendingEvent != null) {
+            if (pendingEvent!['notes'] != null) {
+              pendingEvent!['notes'] = '${pendingEvent!['notes']}$sep$value';
+            } else if (pendingEvent!['place'] != null && level == 3) {
+              pendingEvent!['place'] = '${pendingEvent!['place']}$sep$value';
+            }
+          }
+        } else if (currentSourceDef != null) {
+          // Append to the most recent source definition field.
+          if (currentTag == 'TITL' && currentSourceDef.containsKey('title')) {
+            currentSourceDef['title'] =
+                '${currentSourceDef['title']}$sep$value';
+          } else if (currentTag == 'AUTH' &&
+              currentSourceDef.containsKey('auth')) {
+            currentSourceDef['auth'] =
+                '${currentSourceDef['auth']}$sep$value';
+          } else if (currentTag == 'PUBL' &&
+              currentSourceDef.containsKey('publ')) {
+            currentSourceDef['publ'] =
+                '${currentSourceDef['publ']}$sep$value';
+          }
+        }
+        continue; // CONC/CONT lines are always consumed here.
+      }
+
       if (level == 0) {
         if (currentPerson != null && currentId != null) {
           final id = currentId;
@@ -139,7 +195,16 @@ class GEDCOMParser {
         if (tag == 'NAME') {
           currentPerson.name = value.replaceAll('/', '').trim();
         } else if (tag == 'SEX') {
-          currentPerson.gender = value;
+          // Normalise GEDCOM SEX values (M/F) to the app's convention
+          // (Male/Female) so gender-based colouring and filtering work.
+          final raw = value.trim().toUpperCase();
+          if (raw == 'M' || raw == 'MALE') {
+            currentPerson.gender = 'Male';
+          } else if (raw == 'F' || raw == 'FEMALE') {
+            currentPerson.gender = 'Female';
+          } else if (raw.isNotEmpty) {
+            currentPerson.gender = value;
+          }
         } else if (tag == 'OCCU') {
           currentPerson.occupation = value;
         } else if (tag == 'RELI') {
@@ -285,24 +350,25 @@ class GEDCOMParser {
         builtPartnerships.add(partnership);
       }
 
+      // Link children to whichever parents are present in this FAM record.
       for (final childId in children) {
         final child = persons[childId];
         if (child == null) continue;
-        if (husbId != null && !child.parentIds.contains(husbId)) {
-          child.parentIds.add(husbId);
-        }
-        if (wifeId != null && !child.parentIds.contains(wifeId)) {
-          child.parentIds.add(wifeId);
-        }
-        if (husbId != null) {
-          final husb = persons[husbId];
-          if (husb != null && !husb.childIds.contains(childId)) {
+        if (husbId != null && persons.containsKey(husbId)) {
+          if (!child.parentIds.contains(husbId)) {
+            child.parentIds.add(husbId);
+          }
+          final husb = persons[husbId]!;
+          if (!husb.childIds.contains(childId)) {
             husb.childIds.add(childId);
           }
         }
-        if (wifeId != null) {
-          final wife = persons[wifeId];
-          if (wife != null && !wife.childIds.contains(childId)) {
+        if (wifeId != null && persons.containsKey(wifeId)) {
+          if (!child.parentIds.contains(wifeId)) {
+            child.parentIds.add(wifeId);
+          }
+          final wife = persons[wifeId]!;
+          if (!wife.childIds.contains(childId)) {
             wife.childIds.add(childId);
           }
         }
@@ -440,6 +506,65 @@ class GEDCOMParser {
       eventsByPerson.putIfAbsent(e.personId, () => []).add(e);
     }
 
+    // ── Pre-compute FAM IDs so INDI records can reference them ────────────────
+    // Build a lookup: personId → their child IDs (from persons list)
+    final childMap = {for (final p in persons) p.id: p.childIds};
+    final personIdSet = {for (final p in persons) p.id};
+
+    // Assign stable FAM IDs to each partnership.
+    int famIdx = 0;
+    final partnershipFamId = <Partnership, String>{};
+    for (final pt in partnerships) {
+      partnershipFamId[pt] = 'F${famIdx++}';
+    }
+
+    // Assign FAM IDs to single-parent families (persons with children but no
+    // partnership record).
+    final coveredPersonIds =
+        partnerships.expand((pt) => [pt.person1Id, pt.person2Id]).toSet();
+    final singleParentFamId = <String, String>{};
+    for (final person in persons) {
+      if (coveredPersonIds.contains(person.id)) continue;
+      if (person.childIds.isEmpty) continue;
+      singleParentFamId[person.id] = 'F${famIdx++}';
+    }
+
+    // Build FAMS lookup: personId → list of FAM IDs where they are a spouse.
+    final famsOf = <String, List<String>>{};
+    for (final entry in partnershipFamId.entries) {
+      famsOf.putIfAbsent(entry.key.person1Id, () => []).add(entry.value);
+      famsOf.putIfAbsent(entry.key.person2Id, () => []).add(entry.value);
+    }
+    for (final entry in singleParentFamId.entries) {
+      famsOf.putIfAbsent(entry.key, () => []).add(entry.value);
+    }
+
+    // Build FAMC lookup: personId → list of FAM IDs where they are a child.
+    final famcOf = <String, List<String>>{};
+    for (final entry in partnershipFamId.entries) {
+      final pt = entry.key;
+      final fId = entry.value;
+      final p1Children = childMap[pt.person1Id] ?? [];
+      final p2Children = childMap[pt.person2Id] ?? [];
+      for (final childId in p1Children.where((id) => p2Children.contains(id))) {
+        if (personIdSet.contains(childId)) {
+          famcOf.putIfAbsent(childId, () => []).add(fId);
+        }
+      }
+    }
+    for (final entry in singleParentFamId.entries) {
+      final parentId = entry.key;
+      final fId = entry.value;
+      final parent = persons.where((p) => p.id == parentId).firstOrNull;
+      if (parent == null) continue;
+      for (final childId in parent.childIds) {
+        if (personIdSet.contains(childId)) {
+          famcOf.putIfAbsent(childId, () => []).add(fId);
+        }
+      }
+    }
+
+    // ── Write INDI records ────────────────────────────────────────────────────
     for (final person in persons) {
       // A person is considered living when they have no recorded death date.
       final isLiving = person.deathDate == null;
@@ -450,7 +575,16 @@ class GEDCOMParser {
 
       buf.writeln('0 @${person.id}@ INDI');
       if (exportName.isNotEmpty) {
-        buf.writeln('1 NAME $exportName');
+        // GEDCOM convention: surround the surname with slashes.
+        // Best-effort split: last word is treated as surname.
+        final nameParts = exportName.split(' ');
+        if (nameParts.length >= 2) {
+          final surname = nameParts.last;
+          final given = nameParts.sublist(0, nameParts.length - 1).join(' ');
+          buf.writeln('1 NAME $given /$surname/');
+        } else {
+          buf.writeln('1 NAME $exportName');
+        }
       }
       if (!includeLivingData && isLiving) {
         // Mark the record as restricted per GEDCOM 5.5.5 spec.
@@ -514,7 +648,7 @@ class GEDCOMParser {
           buf.writeln('1 _MARN ${person.maidenName}');
         }
         if (person.notes != null && person.notes!.isNotEmpty) {
-          buf.writeln('1 NOTE ${person.notes}');
+          _writeMultiLine(buf, 1, 'NOTE', person.notes!);
         }
         // External IDs — non-standard tags recognised by WikiTree / FTM / RootsMagic.
         if (person.wikitreeId != null && person.wikitreeId!.isNotEmpty) {
@@ -542,19 +676,24 @@ class GEDCOMParser {
             buf.writeln('2 PLAC ${event.place}');
           }
           if (event.notes != null && event.notes!.isNotEmpty) {
-            buf.writeln('2 NOTE ${event.notes}');
+            _writeMultiLine(buf, 2, 'NOTE', event.notes!);
           }
         }
       }
+      // FAMS — families where this person is a spouse / parent.
+      for (final fId in famsOf[person.id] ?? []) {
+        buf.writeln('1 FAMS @$fId@');
+      }
+      // FAMC — families where this person is a child.
+      for (final fId in famcOf[person.id] ?? []) {
+        buf.writeln('1 FAMC @$fId@');
+      }
     }
 
-    // Build a lookup: personId → their child IDs (from persons list)
-    final childMap = {for (final p in persons) p.id: p.childIds};
-
-    // Write FAM record for each partnership
-    int famIdx = 0;
-    for (final pt in partnerships) {
-      final famId = 'F${famIdx++}';
+    // ── Write FAM records ─────────────────────────────────────────────────────
+    for (final entry in partnershipFamId.entries) {
+      final pt = entry.key;
+      final famId = entry.value;
       buf.writeln('0 @$famId@ FAM');
       buf.writeln('1 HUSB @${pt.person1Id}@');
       buf.writeln('1 WIFE @${pt.person2Id}@');
@@ -585,15 +724,19 @@ class GEDCOMParser {
       }
     }
 
-    // Persons with children but no partnership record (single parents)
-    final coveredPersonIds =
-        partnerships.expand((pt) => [pt.person1Id, pt.person2Id]).toSet();
-    for (final person in persons) {
-      if (coveredPersonIds.contains(person.id)) continue;
-      if (person.childIds.isEmpty) continue;
-      final famId = 'F${famIdx++}';
+    // Single-parent FAM records
+    for (final entry in singleParentFamId.entries) {
+      final personId = entry.key;
+      final famId = entry.value;
+      final person = persons.where((p) => p.id == personId).firstOrNull;
+      if (person == null) continue;
       buf.writeln('0 @$famId@ FAM');
-      buf.writeln('1 HUSB @${person.id}@');
+      // Use gender to decide HUSB vs WIFE; default to HUSB for unknown.
+      if (person.gender?.toLowerCase() == 'female') {
+        buf.writeln('1 WIFE @${person.id}@');
+      } else {
+        buf.writeln('1 HUSB @${person.id}@');
+      }
       for (final childId in person.childIds) {
         buf.writeln('1 CHIL @$childId@');
       }
@@ -603,10 +746,33 @@ class GEDCOMParser {
     await File(filePath).writeAsString(buf.toString());
   }
 
+  /// Writes a GEDCOM text value that may contain newlines, using CONT
+  /// continuation lines so the output is valid GEDCOM.
+  static void _writeMultiLine(StringBuffer buf, int level, String tag, String text) {
+    final lines = text.split('\n');
+    buf.writeln('$level $tag ${lines.first}');
+    for (int i = 1; i < lines.length; i++) {
+      buf.writeln('${level + 1} CONT ${lines[i]}');
+    }
+  }
+
   DateTime? _parseDate(String dateStr) {
+    // Strip GEDCOM date qualifiers (ABT, BEF, AFT, EST, CAL, etc.) and
+    // range prefixes (BET … AND …, FROM … TO …) so the core date can be
+    // parsed.  For ranges we take the first date mentioned.
+    var cleaned = dateStr
+        .replaceAll(RegExp(r'\bAND\b.*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\bTO\b.*', caseSensitive: false), '')
+        .replaceAll(
+            RegExp(
+                r'\b(ABT|ABOUT|EST|CAL|BEF|BEFORE|AFT|AFTER|BET|BETWEEN|FROM|INT)\b',
+                caseSensitive: false),
+            '')
+        .trim();
+
     // GEDCOM uses all-caps month abbreviations (JAN, FEB, …).
     // intl's DateFormat expects title-case (Jan, Feb, …); normalise first.
-    final normalized = dateStr.replaceAllMapped(
+    final normalized = cleaned.replaceAllMapped(
       RegExp(r'\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b'),
       (m) => m.group(1)![0] + m.group(1)!.substring(1).toLowerCase(),
     );
@@ -619,6 +785,12 @@ class GEDCOMParser {
       try {
         return fmt.parse(normalized);
       } catch (_) {}
+    }
+    // Last resort: extract a bare 4-digit year from anywhere in the string.
+    final yearMatch = RegExp(r'\b(\d{4})\b').firstMatch(normalized);
+    if (yearMatch != null) {
+      final year = int.tryParse(yearMatch.group(1)!);
+      if (year != null && year > 0 && year < 3000) return DateTime(year);
     }
     return null;
   }
