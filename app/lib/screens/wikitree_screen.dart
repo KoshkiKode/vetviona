@@ -428,6 +428,17 @@ class _WikiTreeTabState extends State<_WikiTreeTab> {
       person.id,
     );
 
+    // Download profile photo if available and not already present.
+    if (profile.photoUrl != null && person.photoPaths.isEmpty) {
+      final localPath = await WikiTreeService.instance.downloadPhoto(
+        profile.photoUrl!,
+        person.id,
+      );
+      if (localPath != null) {
+        person.photoPaths.add(localPath);
+      }
+    }
+
     if (existing != null) {
       await provider.updatePerson(person);
     } else {
@@ -596,19 +607,40 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                   final messenger = ScaffoldMessenger.of(context);
                   final person =
                       provider.persons.firstWhere((p) => p.id == personId);
+
+                  // Download memorial photo if available.
+                  final photoPaths = List<String>.from(person.photoPaths);
+                  if (_memorial!.photoUrl != null && photoPaths.isEmpty) {
+                    final localPath =
+                        await FindAGraveService.instance.downloadPhoto(
+                      _memorial!.photoUrl!,
+                      personId,
+                    );
+                    if (localPath != null) photoPaths.add(localPath);
+                  }
+
+                  // Merge memorial data into the person — fill blanks only.
+                  final m = _memorial!;
                   final updated = Person(
                     id: person.id,
                     name: person.name,
-                    findAGraveId: _memorial!.memorialId,
-                    birthDate: person.birthDate,
-                    birthPlace: person.birthPlace,
-                    deathDate: person.deathDate,
-                    deathPlace: person.deathPlace,
+                    findAGraveId: m.memorialId,
+                    birthDate: person.birthDate ??
+                        (m.birthYear != null
+                            ? DateTime(int.tryParse(m.birthYear!) ?? 0)
+                            : null),
+                    birthPlace: person.birthPlace ?? m.birthPlace,
+                    deathDate: person.deathDate ??
+                        (m.deathYear != null
+                            ? DateTime(int.tryParse(m.deathYear!) ?? 0)
+                            : null),
+                    deathPlace: person.deathPlace ?? m.deathPlace,
+                    burialPlace: person.burialPlace ?? m.burialPlace,
                     gender: person.gender,
                     parentIds: person.parentIds,
                     childIds: person.childIds,
                     parentRelTypes: person.parentRelTypes,
-                    photoPaths: person.photoPaths,
+                    photoPaths: photoPaths,
                     sourceIds: person.sourceIds,
                     notes: person.notes,
                     treeId: person.treeId,
@@ -616,7 +648,6 @@ class _FindAGraveTabState extends State<_FindAGraveTab> {
                     nationality: person.nationality,
                     maidenName: person.maidenName,
                     burialDate: person.burialDate,
-                    burialPlace: person.burialPlace,
                     birthCoord: person.birthCoord,
                     deathCoord: person.deathCoord,
                     burialCoord: person.burialCoord,

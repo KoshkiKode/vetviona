@@ -14,8 +14,8 @@ void main() {
     test('newly constructed settings have sensible defaults', () {
       final s = TreeViewSettings();
       expect(s.preset, TreePresetType.classic);
-      expect(s.ancestorGenerations, 1);
-      expect(s.descendantGenerations, 1);
+      expect(s.ancestorGenerations, 2);
+      expect(s.descendantGenerations, 2);
       expect(s.showEmptyAddSlots, isTrue);
       expect(s.emptyAddSlotTiers, 1);
     });
