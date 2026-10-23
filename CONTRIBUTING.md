@@ -25,6 +25,7 @@ Thanks for your interest in Vetviona. This guide covers how to set up a local de
 ```bash
 git clone https://github.com/KoshkiKode/vetviona.git
 cd vetviona
+cd app
 flutter pub get
 ```
 
@@ -33,6 +34,9 @@ flutter pub get
 ## Running the App
 
 ```bash
+# Run from the repository root:
+cd app
+
 # List available devices
 flutter devices
 

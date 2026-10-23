@@ -14,7 +14,7 @@ node license_server.js
 No dependencies are required to run in dev mode. Optional deps unlock real email and object storage:
 
 ```bash
-npm install nodemailer@^10.1.7   # real SMTP email
+npm install nodemailer@^10.2.1   # real SMTP email
 npm install @aws-sdk/client-s3   # S3-compatible object storage (production)
 ```
 

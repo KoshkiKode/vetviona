@@ -5,7 +5,7 @@
 > historical reference only.
 >
 > Current deployment paths:
-> - **Self-hosted:** [`SERVER_SETUP.md`](../SERVER_SETUP.md) (Debian + Docker +
+> - **Self-hosted:** [`Deploy.md`](Deploy.md) (Debian + Docker +
 >   Caddy + GoDaddy DDNS) — no cloud account needed.
 > - **Planned managed platform:** Google Cloud (Cloud Run + Cloud Storage with
 >   S3 interoperability for the license DB). A Google Cloud version of this
@@ -228,7 +228,7 @@ npm  --version
 git clone https://github.com/KoshkiKode/vetviona.git /opt/vetviona
 cd /opt/vetviona/backend
 npm install @aws-sdk/client-s3
-npm install nodemailer@^7.0.11
+npm install nodemailer@^10.2.1
 ```
 
 ---
