@@ -34,7 +34,7 @@ In dev mode (no `S3_BUCKET`, no `SMTP_HOST` set):
 
 ```bash
 cd backend
-npm install nodemailer@^10.1.7   # real email delivery
+npm install nodemailer@^10.2.1   # real email delivery
 npm install @aws-sdk/client-s3   # S3-compatible object storage
 ```
 

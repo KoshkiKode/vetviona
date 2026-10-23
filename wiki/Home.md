@@ -61,5 +61,5 @@ New to Vetviona? Start here → **[Getting Started](Getting-Started)**
 | **App version** | 1.0.0 |
 | **RootLoop™ version** | 1.0.0 |
 | **Database schema** | v7 |
-| **Dart SDK** | ≥ 3.0.0 |
+| **Dart SDK** | ≥ 3.10.0 |
 | **Flutter** | ≥ 3.0.0 |

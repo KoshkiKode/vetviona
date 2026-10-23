@@ -109,8 +109,8 @@ vetviona/
 
 ### Prerequisites
 
-- [Flutter SDK](https://flutter.dev/docs/get-started/install) ≥ 3.0.0
-- Dart SDK ≥ 3.0.0 (bundled with Flutter)
+- [Flutter SDK](https://flutter.dev/docs/get-started/install) on the stable channel
+- Dart SDK ≥ 3.10.0 (bundled with Flutter)
 - Platform-specific toolchains (Xcode for iOS/macOS, Visual Studio for Windows, etc.)
 
 ### Clone & setup
@@ -202,12 +202,9 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
 
 | Workflow | Trigger | Output |
 |----------|---------|--------|
-| `build-android.yml` | push / tag | APK + AAB |
-| `build-ios.yml` | push / tag | .ipa |
-| `build-windows.yml` | push / tag | .exe + .msi |
-| `build-macos.yml` | push / tag | .dmg |
-| `build-linux.yml` | push / tag | .deb + .snap + .flatpak |
-| `release.yml` | `v*` tag | All platforms → GitHub Release |
+| `test.yml` | push / pull request | Flutter and backend tests |
+| `build-all.yml` | push / pull request / `v*` tag | Platform packages and combined artifact ZIP |
+| `codeql.yml` | push / pull request / weekly | CodeQL analysis |
 
 ---
 

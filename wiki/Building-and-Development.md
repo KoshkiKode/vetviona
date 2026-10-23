@@ -6,8 +6,8 @@ This page covers building Vetviona from source, running tests, and understanding
 
 ## Prerequisites
 
-- [Flutter SDK](https://flutter.dev/docs/get-started/install) ≥ 3.0.0 (stable channel)
-- Dart ≥ 3.0.0 (included with Flutter)
+- [Flutter SDK](https://flutter.dev/docs/get-started/install) (stable channel)
+- Dart ≥ 3.10.0 (included with Flutter)
 - **Android:** Android SDK, JDK 17+
 - **iOS / macOS:** Xcode 15+, CocoaPods
 - **Windows:** Visual Studio 2022 with "Desktop development with C++"
