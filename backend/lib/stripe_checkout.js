@@ -136,6 +136,16 @@ function recordPurchase(db, email, licenseType, sessionId) {
     db.accounts.push(account);
   }
 
+  // An unverified account may be a squatter who pre-registered this email.
+  // Strip its credentials and sessions so only the real owner can claim it.
+  if (account.emailVerified !== true && account.passwordHash) {
+    account.passwordSalt = '';
+    account.passwordHash = '';
+    account.tokenVersion = (account.tokenVersion || 0) + 1;
+    account.mfa = { enabled: false, secret: null, recoveryHashes: [] };
+    account.devices = [];
+  }
+
   // Grant the license(s).
   if (licenseType === 'bundle') {
     account.licenses.apple = true;
