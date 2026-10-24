@@ -50,7 +50,10 @@ const SCRYPT_KEYLEN = 64;
 // to send real emails.  When SMTP_HOST is absent the server runs in dev mode:
 // tokens are printed to the console AND returned in API responses.
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Vetviona <noreply@vetviona.local>';
-const EMAIL_DEV_MODE = !process.env.SMTP_HOST;
+// Secrets are only echoed in API responses when explicitly opted in via
+// ALLOW_INSECURE_DEV=true AND no SMTP is configured.  Never set in production.
+const INSECURE_DEV = process.env.ALLOW_INSECURE_DEV === 'true';
+const EMAIL_DEV_MODE = !process.env.SMTP_HOST && INSECURE_DEV;
 
 let _mailTransport = null;
 function getMailTransport() {
@@ -115,7 +118,12 @@ const _devAdminSecret = crypto.randomBytes(8).toString('hex');
 // ── Utilities ────────────────────────────────────────────────────────────────
 function nowIso() { return new Date().toISOString(); }
 function addHours(hours) { return new Date(Date.now() + hours * 3_600_000).toISOString(); }
-function generateToken() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+function safeEqual(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+function generateToken() { return crypto.randomBytes(10).toString('hex').toUpperCase(); }
 function normalizeLicenseCode(value) {
   return String(value || '')
     .toUpperCase()
@@ -514,7 +522,7 @@ function requireAccountAndPassword(db, email, password) {
     });
     return { error: 'Invalid email or password.', status: 401 };
   }
-  rateLimit.recordSuccess(normalizedEmail);
+  // The lockout counter is cleared by callers only after MFA (if any) passes.
   return { account };
 }
 
@@ -574,6 +582,7 @@ function requireAuth(db, req, payload, opts = {}) {
       return { error: 'MFA code required.', status: 403, code: 'mfa_required' };
     }
     if (!totp.verifyCode(r.account.mfa.secret, code)) {
+      rateLimit.recordFailure(r.account.email);
       auditLog.append(db, {
         email: r.account.email,
         event: 'mfa.verify',
@@ -582,6 +591,7 @@ function requireAuth(db, req, payload, opts = {}) {
       return { error: 'Invalid MFA code.', status: 401 };
     }
   }
+  rateLimit.recordSuccess(r.account.email);
   return { account: r.account, viaToken: false };
 }
 
@@ -606,9 +616,11 @@ function applyPendingGifts(db, account) {
 async function handleRegister(db, payload, res) {
   const email = sanitizeEmail(payload.email);
   const password = String(payload.password || '');
-  const apple = payload.appleLicense === true;
-  const android = payload.androidLicense === true;
-  const desktop = payload.desktopLicense === true;
+  // Entitlements are granted only by payment fulfilment or voucher/gift claim.
+  // Client-supplied flags are honoured solely in explicit insecure-dev mode.
+  const apple = INSECURE_DEV && payload.appleLicense === true;
+  const android = INSECURE_DEV && payload.androidLicense === true;
+  const desktop = INSECURE_DEV && payload.desktopLicense === true;
 
   if (!email.includes('@')) {
     return sendJson(res, 400, { ok: false, message: 'A valid email is required.' });
@@ -616,12 +628,6 @@ async function handleRegister(db, payload, res) {
   const policy = passwordPolicy.validatePassword(password, { email });
   if (!policy.ok) {
     return sendJson(res, 400, { ok: false, message: policy.message });
-  }
-  if (!apple && !android && !desktop) {
-    return sendJson(res, 400, {
-      ok: false,
-      message: 'At least one paid entitlement (appleLicense, androidLicense, or desktopLicense) is required.',
-    });
   }
   if (db.accounts.some((a) => a.email === email)) {
     return sendJson(res, 409, { ok: false, message: 'Account already exists.' });
@@ -685,7 +691,7 @@ async function handleVerifyEmail(db, payload, res) {
   if (account.emailVerified) {
     return sendJson(res, 200, { ok: true, message: 'Email already verified.' });
   }
-  if (!account.emailVerificationToken || account.emailVerificationToken !== token) {
+  if (!account.emailVerificationToken || !safeEqual(account.emailVerificationToken, token)) {
     return sendJson(res, 400, { ok: false, message: 'Invalid or expired verification code.' });
   }
   if (new Date(account.emailVerificationExpiry) < new Date()) {
@@ -792,7 +798,7 @@ async function handlePasswordResetRequest(db, payload, res) {
   const account = db.accounts.find((a) => a.email === email);
   let devToken = null;
   if (account) {
-    const token = generateToken() + generateToken(); // 16 hex chars
+    const token = generateToken() + generateToken();
     account.passwordResetToken = token;
     account.passwordResetExpiry = addHours(PASSWORD_RESET_EXPIRY_HOURS);
     account.updatedAt = nowIso();
@@ -830,7 +836,7 @@ async function handlePasswordReset(db, payload, res) {
   }
   const account = db.accounts.find((a) => a.email === email);
   if (!account || !account.passwordResetToken ||
-      account.passwordResetToken !== token) {
+      !safeEqual(account.passwordResetToken, token)) {
     auditLog.append(db, { email, event: 'password.reset', ok: false,
       detail: { reason: 'bad_token' } });
     return sendJson(res, 400, { ok: false, message: 'Invalid or expired reset code.' });
@@ -987,6 +993,7 @@ async function handleVerify(db, payload, res) {
       const recoveryHash = totp.hashRecoveryCode(mfaCode);
       const recoveryIdx = (account.mfa.recoveryHashes || []).indexOf(recoveryHash);
       if (!codeOk && recoveryIdx < 0) {
+        rateLimit.recordFailure(account.email);
         auditLog.append(db, { email: account.email, event: 'mfa.verify', ok: false });
         return sendJson(res, 401, { ok: false, message: 'Invalid MFA code.' });
       }
@@ -997,6 +1004,7 @@ async function handleVerify(db, payload, res) {
       auditLog.append(db, { email: account.email, event: 'mfa.verify', ok: true });
       mfaPassed = true;
     }
+    rateLimit.recordSuccess(account.email);
   } else {
     account = db.accounts.find((a) => a.email === email);
     if (!account) return sendJson(res, 401, { ok: false, message: 'Account not found.' });
@@ -1477,6 +1485,7 @@ async function handleTreeDeleteAll(db, payload, res, ctx) {
 const RATE_LIMITED_ROUTES = new Set([
   '/v1/account/register',
   '/v1/account/resend-verification',
+  '/v1/account/verify-email',
   '/v1/account/change-password',
   '/v1/account/password-reset/request',
   '/v1/account/password-reset',

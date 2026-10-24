@@ -16,6 +16,7 @@ const path = require('path');
 // Use a fresh temporary db file per run so we don't pollute the local dev DB.
 const tmpDb = path.join(os.tmpdir(), `vetviona-test-${Date.now()}-${process.pid}.json`);
 process.env.LICENSE_DB_PATH = tmpDb;
+process.env.ALLOW_INSECURE_DEV = 'true';
 process.env.LICENSE_KEY_SECRET = 'a'.repeat(64);
 process.env.RATE_LIMIT_IP_PER_MIN = '1000';
 process.env.RATE_LIMIT_ACCOUNT_PER_MIN = '1000';
@@ -1384,12 +1385,12 @@ async function httpTests() {
     assert.strictEqual(r2.body.ok, false);
   });
 
-  await test('register: rejects missing license type', async () => {
+  await test('register: grants no license without payment/voucher', async () => {
     const r = await request('POST', port, '/v1/account/register', {
       json: { email: 'nolic@example.com', password: 'Tr0ub4dor&3xpand' },
     });
-    assert.strictEqual(r.status, 400);
-    assert.strictEqual(r.body.ok, false);
+    assert.strictEqual(r.status, 201);
+    assert.ok(!r.body.account.licenses || !Object.values(r.body.account.licenses).some((v) => v === true));
   });
 
   await test('register: rejects missing email', async () => {

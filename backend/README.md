@@ -74,7 +74,7 @@ See [`DEPLOY.md`](./DEPLOY.md) for step-by-step setup for each provider.
 
 When `SMTP_HOST` is not set the server runs in dev mode:
 - All email tokens (verification codes, gift tokens, voucher codes) are **printed to stdout**.
-- They are also **returned in API responses** as `_devToken` / `_devTokens`.
+- They are returned in API responses as `_devToken` / `_devTokens` **only** if `ALLOW_INSECURE_DEV=true` (never in production).
 - A random `ADMIN_SECRET` is generated and printed at startup.
 
 ---

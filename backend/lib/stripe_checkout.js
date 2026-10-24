@@ -180,10 +180,16 @@ async function handleWebhook(req, rawBody, db, writeDbFn) {
     const email = session.customer_details?.email || session.customer_email || '';
     const sessionId = session.id;
 
+    // Async payment methods fire this event before funds settle.
+    if (session.payment_status !== 'paid') {
+      console.warn(`[stripe-webhook] Session ${sessionId} not paid yet; skipping.`);
+      return { status: 200, body: { received: true } };
+    }
+
     // Determine which license was purchased from the line items.
     // Payment links embed the price in the session's line_items, but the
     // webhook payload only includes the session — we need to expand.
-    let licenseType = 'desktop'; // fallback
+    let licenseType = null;
     try {
       const fullSession = await stripe.checkout.sessions.retrieve(sessionId, {
         expand: ['line_items'],
@@ -194,6 +200,11 @@ async function handleWebhook(req, rawBody, db, writeDbFn) {
       }
     } catch (e) {
       console.warn(`[stripe-webhook] Could not expand line_items: ${e.message}`);
+    }
+
+    if (!licenseType) {
+      console.error(`[stripe-webhook] Unmapped price for session ${sessionId}; no license granted.`);
+      return { status: 500, body: { error: 'Unmapped price.' } };
     }
 
     if (email) {
