@@ -191,7 +191,23 @@ function isValidReentryLicenseCode(db, account, licenseType, providedCode) {
   return timingSafeEqualStrings(normalizedExpected, normalizedProvided);
 }
 
-// ── S3 Client ─────────────────────────────────────────────────────────────────
+// ── S3-Compatible Object Storage Client ─────────────────────────────────────
+// Talks to MinIO (self-hosted, our documented default — see SERVER_SETUP.md),
+// Google Cloud Storage, Backblaze B2, Cloudflare R2, or any other provider
+// that speaks the S3 protocol. This deployment does not use Amazon AWS.
+//
+// Credentials, in priority order:
+//   1. S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY (+ S3_SESSION_TOKEN) env vars
+//   2. The storage client library's own default provider chain (e.g. a local
+//      credentials file or an instance role), used only if the above are unset
+function s3Credentials() {
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) return undefined;
+  const sessionToken = process.env.S3_SESSION_TOKEN;
+  return sessionToken ? { accessKeyId, secretAccessKey, sessionToken } : { accessKeyId, secretAccessKey };
+}
+
 let _s3 = null;
 function getS3() {
   if (!S3_BUCKET) return null;
@@ -199,14 +215,12 @@ function getS3() {
   try {
     // @aws-sdk/client-s3 is an optional peer dep; install with:
     //   npm install @aws-sdk/client-s3
-    // Credentials are resolved automatically from:
-    //   1. Env vars: AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN)
-    //      (standard env names used by all S3-compatible SDKs — on Google Cloud
-    //      Storage these hold the service-account HMAC key pair)
-    //   2. ~/.aws/credentials / config file
-    //   3. EC2/ECS/Lambda instance IAM role (recommended in production)
+    // (The package name is Amazon's upstream naming for the S3-protocol
+    // client library — it works against any S3-compatible endpoint.)
     const { S3Client } = require('@aws-sdk/client-s3');
     const clientConfig = { region: S3_REGION };
+    const credentials = s3Credentials();
+    if (credentials) clientConfig.credentials = credentials;
     if (S3_ENDPOINT) {
       clientConfig.endpoint = S3_ENDPOINT;
       // Path-style is required for MinIO/most self-hosted providers and works
