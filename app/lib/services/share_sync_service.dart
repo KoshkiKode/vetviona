@@ -34,7 +34,7 @@ class ShareSyncService {
     }
 
     try {
-      final json = await tree.exportBackupJson();
+      final json = await tree.exportShareJson();
       final dir = await getTemporaryDirectory();
       final treeName = sanitizeFileName(tree.currentTreeName);
       final file = File('${dir.path}/$treeName.vetviona');

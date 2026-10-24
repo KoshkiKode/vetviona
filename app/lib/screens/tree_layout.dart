@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../models/partnership.dart';
 import '../models/person.dart';
+import '../tree_core/tree_graph.dart';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -138,14 +139,17 @@ class TreeLayout {
         return a.person2Id.compareTo(b.person2Id);
       });
     final personMap = {for (final p in sortedPersons) p.id: p};
+    // Cycle-safe links: corrupt data (A -> B -> A) must never make the layout
+    // loop forever, so every pass below reads these acyclic parent/child lists.
+    final links = TreeGraph.fromPersons(sortedPersons).sanitize();
     final generation = <String, int>{};
 
     // ── BFS from roots to assign generation depths ───────────────────────────
     final roots = sortedPersons
         .where(
           (p) =>
-              p.parentIds.isEmpty ||
-              !p.parentIds.any((id) => personMap.containsKey(id)),
+              links.parents[p.id]!.isEmpty ||
+              !links.parents[p.id]!.any((id) => personMap.containsKey(id)),
         )
         .toList();
     final queue = <String>[];
@@ -166,7 +170,7 @@ class TreeLayout {
       final person = personMap[current];
       if (person == null) continue;
       final g = generation[current]!;
-      for (final childId in person.childIds) {
+      for (final childId in links.children[current] ?? const <String>[]) {
         if (!personMap.containsKey(childId)) continue;
         if (!generation.containsKey(childId) || generation[childId]! < g + 1) {
           generation[childId] = g + 1;
@@ -216,7 +220,7 @@ class TreeLayout {
           final person = personMap[cur];
           if (person == null) continue;
           final g = generation[cur]!;
-          for (final childId in person.childIds) {
+          for (final childId in links.children[cur] ?? const <String>[]) {
             if (!personMap.containsKey(childId)) continue;
             if ((generation[childId] ?? 0) < g + 1) {
               generation[childId] = g + 1;
@@ -258,14 +262,13 @@ class TreeLayout {
 
     // ── Build parent-child edges (routed through knots when possible) ────────
     for (final p in sortedPersons) {
-      for (final childId in p.childIds) {
+      for (final childId in links.children[p.id] ?? const <String>[]) {
         if (!personMap.containsKey(childId)) continue;
-        final childPerson = personMap[childId]!;
         Partnership? matchingPart;
         for (final part in sortedPartnerships) {
           if ((part.person1Id == p.id || part.person2Id == p.id) &&
-              childPerson.parentIds.contains(part.person1Id) &&
-              childPerson.parentIds.contains(part.person2Id)) {
+              links.parents[childId]!.contains(part.person1Id) &&
+              links.parents[childId]!.contains(part.person2Id)) {
             matchingPart = part;
             break;
           }

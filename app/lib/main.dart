@@ -3,21 +3,44 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'app.dart';
 import 'config/app_config.dart';
 import 'config/build_metadata.dart';
 import 'providers/theme_provider.dart';
+import 'services/diagnostics_service.dart';
 import 'services/sound_service.dart';
 import 'services/wikitree_service.dart';
 import 'utils/platform_utils.dart';
 
 // ignore_for_file: unawaited_futures
 
-void main() async {
+/// Errors are recorded in the local diagnostics log (never sent anywhere) and
+/// the app keeps running.
+void main() {
+  runZonedGuarded(_start, (error, stack) {
+    DiagnosticsService.instance.error('uncaught', error, stack);
+  });
+}
+
+Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (details) {
+    DiagnosticsService.instance
+        .error('flutter', details.exception, details.stack);
+    FlutterError.presentError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    DiagnosticsService.instance.error('platform', error, stack);
+    return true;
+  };
+  unawaited(_attachDiagnostics());
+
   final packageInfo = await PackageInfo.fromPlatform();
   BuildMetadata.appVersion = packageInfo.version;
   // Android: draw behind the system navigation bar so the app is truly
@@ -36,6 +59,14 @@ void main() async {
   // any screen opens.
   unawaited(WikiTreeService.instance.loadCredentials());
   runApp(const _RootWidget());
+}
+
+Future<void> _attachDiagnostics() async {
+  try {
+    final dir = await getApplicationSupportDirectory();
+    await DiagnosticsService.instance
+        .attachFile(Directory('${dir.path}/logs'));
+  } catch (_) {}
 }
 
 class _RootWidget extends StatelessWidget {

@@ -6,6 +6,7 @@ import '../models/partnership.dart';
 import '../models/person.dart';
 import '../models/source.dart';
 import '../utils/input_sanitizer.dart';
+import 'gedcom_text.dart';
 
 /// Return value from [GEDCOMParser.parse].
 class GedcomResult {
@@ -53,9 +54,18 @@ const _titleToGedcomTag = {
 class GEDCOMParser {
   static final _uuid = Uuid();
 
+  /// Character set used for the last parsed file (see [GedcomDecoder]).
+  String? encoding;
+
+  /// Non-fatal decoding problems from the last parsed file, for the import report.
+  List<String> decodeWarnings = const [];
+
   Future<GedcomResult> parse(String filePath) async {
     final file = File(filePath);
-    final lines = await file.readAsLines();
+    final decoded = GedcomDecoder.decode(await file.readAsBytes());
+    encoding = decoded.encoding;
+    decodeWarnings = decoded.warnings;
+    final lines = decoded.text.split(RegExp(r'\r\n|\r|\n'));
     final persons = <String, Person>{};
     final families = <String, Map<String, dynamic>>{};
     final builtLifeEvents = <LifeEvent>[];
@@ -495,7 +505,8 @@ class GEDCOMParser {
 
     buf.writeln('0 HEAD');
     buf.writeln('1 GEDC');
-    buf.writeln('2 VERS 5.5.5');
+    buf.writeln('2 VERS 5.5.1');
+    buf.writeln('2 FORM LINEAGE-LINKED');
     buf.writeln('1 CHAR UTF-8');
     buf.writeln('1 SOUR Vetviona');
     buf.writeln('2 VERS 1.0');
@@ -743,7 +754,8 @@ class GEDCOMParser {
     }
 
     buf.writeln('0 TRLR');
-    await File(filePath).writeAsString(buf.toString());
+    await File(filePath)
+        .writeAsString(GedcomLineWrapper.wrap(buf.toString()));
   }
 
   /// Writes a GEDCOM text value that may contain newlines, using CONT

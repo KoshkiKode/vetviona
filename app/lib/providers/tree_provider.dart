@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,10 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
+import '../config/versions.dart';
+import '../services/database_maintenance.dart';
+import '../services/diagnostics_service.dart';
+import '../tree_core/tree_graph.dart';
 import '../models/device.dart';
 import '../models/life_event.dart';
 import '../models/dna_kit.dart';
@@ -185,7 +190,35 @@ class TreeProvider extends ChangeNotifier {
   Future<Database> get _database async {
     if (_db != null) return _db!;
     _db = await _initDb();
+    await _runQuickCheck(_db!);
     return _db!;
+  }
+
+  /// Result of the last `PRAGMA quick_check`; null until the database opens.
+  bool? _integrityOk;
+  bool? get databaseIntegrityOk => _integrityOk;
+
+  @visibleForTesting
+  Future<Database> get debugDatabase => _database;
+
+  Future<void> _runQuickCheck(Database db) async {
+    try {
+      _integrityOk = await quickCheckPasses(db);
+    } catch (e, st) {
+      _integrityOk = false;
+      DiagnosticsService.instance.error('db-integrity', e, st);
+    }
+    if (_integrityOk == false) {
+      DiagnosticsService.instance
+          .info('db-integrity', 'quick_check reported problems');
+    }
+  }
+
+  static Future<void> _configureDatabase(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON');
+    try {
+      await db.rawQuery('PRAGMA journal_mode = WAL');
+    } catch (_) {}
   }
 
   static bool _ffiInitialized = false;
@@ -205,9 +238,19 @@ class TreeProvider extends ChangeNotifier {
 
     final dir = await getApplicationDocumentsDirectory();
     final path = p.join(dir.path, _dbName);
+    try {
+      await backupDatabaseBeforeUpgrade(
+        dbPath: path,
+        backupDir: Directory(p.join(dir.path, 'backups')),
+        currentSchema: AppVersions.schema,
+      );
+    } catch (e, st) {
+      DiagnosticsService.instance.error('db-backup', e, st);
+    }
     return openDatabase(
       path,
-      version: 14,
+      version: AppVersions.schema,
+      onConfigure: _configureDatabase,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE trees (
@@ -834,13 +877,20 @@ class TreeProvider extends ChangeNotifier {
     person.parentIds.remove(person.id);
     person.childIds.remove(person.id);
     person.parentRelTypes.remove(person.id);
-    // Prevent direct circular references: if A is a parent of B, B cannot
-    // also be a parent of A.
+    // Prevent circular references of any length (A -> B -> C -> A): drop any
+    // link that would make this person an ancestor or descendant of themself.
+    final others = [for (final p in persons) if (p.id != person.id) p];
     for (final parentId in List<String>.from(person.parentIds)) {
-      final parent = persons.where((p) => p.id == parentId).firstOrNull;
-      if (parent != null && parent.parentIds.contains(person.id)) {
+      final graph = TreeGraph.fromPersons([...others, person]);
+      if (graph.wouldCreateCycle(parentId: parentId, childId: person.id)) {
         person.parentIds.remove(parentId);
         person.parentRelTypes.remove(parentId);
+      }
+    }
+    for (final childId in List<String>.from(person.childIds)) {
+      final graph = TreeGraph.fromPersons([...others, person]);
+      if (graph.wouldCreateCycle(parentId: person.id, childId: childId)) {
+        person.childIds.remove(childId);
       }
     }
     person.treeId ??= currentTreeId;
@@ -854,37 +904,56 @@ class TreeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Deletes a person and everything attached to them. The database changes
+  /// run in one transaction; in-memory state is only updated once it commits.
   Future<void> deletePerson(String id) async {
     final db = await _database;
-    await db.delete('persons', where: 'id = ?', whereArgs: [id]);
-    // Cascade-delete all data associated with this person.
-    await db.delete('partnerships',
-        where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
-    partnerships.removeWhere(
-        (pt) => pt.person1Id == id || pt.person2Id == id);
-    await db.delete('sources', where: 'personId = ?', whereArgs: [id]);
-    sources.removeWhere((s) => s.personId == id);
-    await db.delete('life_events', where: 'personId = ?', whereArgs: [id]);
-    lifeEvents.removeWhere((e) => e.personId == id);
-    await db.delete('medical_conditions',
-        where: 'personId = ?', whereArgs: [id]);
-    medicalConditions.removeWhere((mc) => mc.personId == id);
-    await db.delete('research_tasks',
-        where: 'personId = ?', whereArgs: [id]);
-    researchTasks.removeWhere((t) => t.personId == id);
-    // Remove this person's ID from other persons' parentIds / childIds
-    final crossRefBatch = db.batch();
+    final relinked = <Person, Person>{};
     for (final p in persons) {
-      final hadParent = p.parentIds.remove(id);
-      final hadChild = p.childIds.remove(id);
-      if (hadParent || hadChild) {
-        p.parentRelTypes.remove(id);
-        crossRefBatch.update('persons', p.toMap(),
-            where: 'id = ?', whereArgs: [p.id]);
-      }
+      if (!p.parentIds.contains(id) && !p.childIds.contains(id)) continue;
+      relinked[p] = Person.fromMap(p.toMap())
+        ..parentIds.remove(id)
+        ..childIds.remove(id)
+        ..parentRelTypes.remove(id);
     }
-    await crossRefBatch.commit(noResult: true);
+
+    await db.transaction((txn) async {
+      await txn.delete('persons', where: 'id = ?', whereArgs: [id]);
+      await txn.delete('partnerships',
+          where: 'person1Id = ? OR person2Id = ?', whereArgs: [id, id]);
+      for (final table in const [
+        'sources',
+        'life_events',
+        'medical_conditions',
+        'research_tasks',
+        'heritages',
+        'memories',
+        'record_hints',
+        'dna_kits',
+      ]) {
+        await txn.delete(table, where: 'personId = ?', whereArgs: [id]);
+      }
+      for (final updated in relinked.values) {
+        await txn.update('persons', updated.toMap(),
+            where: 'id = ?', whereArgs: [updated.id]);
+      }
+    });
+
+    for (final original in relinked.keys) {
+      original.parentIds.remove(id);
+      original.childIds.remove(id);
+      original.parentRelTypes.remove(id);
+    }
     persons.removeWhere((p) => p.id == id);
+    partnerships.removeWhere((pt) => pt.person1Id == id || pt.person2Id == id);
+    sources.removeWhere((s) => s.personId == id);
+    lifeEvents.removeWhere((e) => e.personId == id);
+    medicalConditions.removeWhere((mc) => mc.personId == id);
+    researchTasks.removeWhere((t) => t.personId == id);
+    heritages.removeWhere((h) => h.personId == id);
+    memories.removeWhere((m) => m.personId == id);
+    recordHints.removeWhere((h) => h.personId == id);
+    dnaKits.removeWhere((k) => k.personId == id);
     // Clear home person if the deleted person was the focal point.
     if (_homePersonId == id) {
       await setHomePersonId(null);
@@ -1920,11 +1989,55 @@ class TreeProvider extends ChangeNotifier {
     return jsonEncode(data);
   }
 
-  /// Imports from a JSON backup string, replacing current tree data.
+  /// Privacy-filtered JSON for sharing with another person or device. Private
+  /// people and everything attached to them are left out, and medical history
+  /// is only included when [includeMedical] is true.
+  Future<String> exportShareJson({bool includeMedical = false}) async {
+    final shareable = [for (final p in persons) if (!p.isPrivate) p];
+    final ids = {for (final p in shareable) p.id};
+    final data = <String, dynamic>{
+      'version': AppVersions.backupFormat,
+      'exportDate': DateTime.now().toIso8601String(),
+      'persons': shareable.map((p) => p.toMap()).toList(),
+      'partnerships': partnerships
+          .where((pt) => ids.contains(pt.person1Id) && ids.contains(pt.person2Id))
+          .map((pt) => pt.toMap())
+          .toList(),
+      'sources': sources
+          .where((s) => ids.contains(s.personId))
+          .map((s) => s.toMap())
+          .toList(),
+      'lifeEvents': lifeEvents
+          .where((e) => ids.contains(e.personId))
+          .map((e) => e.toMap())
+          .toList(),
+      'medicalConditions': includeMedical
+          ? medicalConditions
+              .where((mc) => ids.contains(mc.personId))
+              .map((mc) => mc.toMap())
+              .toList()
+          : <Map<String, dynamic>>[],
+      'researchTasks': researchTasks
+          .where((t) => t.personId == null || ids.contains(t.personId))
+          .map((t) => t.toMap())
+          .toList(),
+    };
+    return jsonEncode(data);
+  }
+
+  /// Imports from a JSON backup string, replacing current tree data. All rows
+  /// are written in one transaction, so a failure leaves the tree unchanged.
   Future<void> importBackupJson(String json) async {
     final data = jsonDecode(json) as Map<String, dynamic>;
     final db = await _database;
+    await db.transaction((txn) => _replaceTreeRows(txn, data));
+    await loadPersons();
+  }
 
+  Future<void> _replaceTreeRows(
+    DatabaseExecutor db,
+    Map<String, dynamic> data,
+  ) async {
     // Gather existing person IDs for this tree to delete related records.
     final personMaps = await db.query('persons',
         columns: ['id'], where: 'treeId = ?', whereArgs: [currentTreeId]);
@@ -2027,7 +2140,6 @@ class TreeProvider extends ChangeNotifier {
       await batch.commit(noResult: true);
     }
 
-    await loadPersons();
   }
 
   // ── Batch Import ─────────────────────────────────────────────────────────────
