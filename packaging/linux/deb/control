@@ -1,9 +1,13 @@
 Package: vetviona
 Version: 1.0.0
-Section: utils
+Section: misc
 Priority: optional
 Architecture: amd64
 Maintainer: Dylan Moore (KoshkiKode LLC) <support@koshkikode.com>
-Description: Vetviona — Private, local-first genealogy desktop application
- Vetviona is a full-featured, private, offline-first ancestry and family tree management software.
- Designed for cross-platform desktop native environments.
+Homepage: https://vetviona.koshkikode.com
+Depends: libc6, libstdc++6, libgtk-3-0, libglib2.0-0, libsecret-1-0, libblkid1, liblzma5, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0
+Recommends: xdg-desktop-portal, gnome-keyring | kwalletmanager, avahi-daemon, bluez
+Description: Vetviona - private, local-first genealogy app
+ Vetviona is a private, offline-first family tree builder and research
+ workspace with GEDCOM import/export and RootLoop device-to-device sync.
+ Your tree stays on your own devices.

@@ -32,5 +32,11 @@
 	<string>Vetviona uses Bluetooth to discover nearby devices for family tree sync.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Vetviona uses the local network to discover and sync with nearby devices on the same Wi-Fi network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_vetviona._tcp</string>
+	</array>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.lifestyle</string>
 </dict>
 </plist>

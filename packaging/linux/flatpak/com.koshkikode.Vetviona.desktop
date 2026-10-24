@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Vetviona
+GenericName=Family Tree
+Comment=Private, local-first genealogy and family tree builder
+Exec=vetviona %f
+Icon=com.koshkikode.Vetviona
+Terminal=false
+Categories=Education;Utility;
+Keywords=genealogy;family tree;ancestry;gedcom;pedigree;
+MimeType=application/x-gedcom;application/x-vetviona;
+StartupWMClass=com.koshkikode.Vetviona

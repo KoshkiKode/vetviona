@@ -1,13 +1,16 @@
 name: vetviona
 version: '1.0.0'
-summary: Vetviona — private, local-first genealogy app
+summary: Private, local-first genealogy app
 description: |
   Build interactive family trees, attach sources, and sync across
   devices without a server you need to maintain. Features include
-  GEDCOM import/export, historical place matching, RootLoop™ WiFi
+  GEDCOM import/export, historical place matching, RootLoop(TM) WiFi
   and Bluetooth sync, source citations, and life timelines.
+icon: snap/gui/vetviona.png
 
-grade: stable
+# `devel` until the strict-confinement interfaces below have been reviewed on a
+# real desktop; the store only accepts `stable` for fully verified snaps.
+grade: devel
 confinement: strict
 base: core22
 
@@ -16,20 +19,19 @@ architectures:
 
 apps:
   vetviona:
-    command: vetviona_app
+    command: vetviona
     extensions: [gnome]
     plugs:
       - network
       - network-bind
-      - bluetooth
       - bluez
       - home
       - removable-media
-      - desktop
-      - desktop-legacy
-      - wayland
-      - x11
-      - opengl
+      # Secret Service (libsecret) for the stored session token
+      - password-manager-service
+      # RootLoop mDNS: browse (observe) and publish (control) _vetviona._tcp
+      - avahi-observe
+      - avahi-control
 
 parts:
   vetviona:
@@ -39,6 +41,6 @@ parts:
       mkdir -p "$SNAPCRAFT_PART_INSTALL"
       cp -r * "$SNAPCRAFT_PART_INSTALL/"
     stage-packages:
-      - libgtk-3-0
+      - libsecret-1-0
       - libblkid1
       - liblzma5

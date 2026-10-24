@@ -1,30 +1,50 @@
 app-id: com.koshkikode.Vetviona
-runtime: org.freedesktop.Platform
-runtime-version: '23.08'
-sdk: org.freedesktop.Sdk
-
-command: vetviona_app
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+command: vetviona
 
 finish-args:
-  # Display
+  # Display / GPU
   - --share=ipc
   - --socket=fallback-x11
   - --socket=wayland
-  # Network (RootLoop™ Auto WiFi sync)
-  - --share=network
-  # Bluetooth (RootLoop™ Manual sync)
-  - --allow=bluetooth
-  # Local file access (GEDCOM import/export, local database)
-  - --filesystem=home
-  # OpenGL
   - --device=dri
+  # Sound effects (GStreamer)
+  - --socket=pulseaudio
+  # RootLoop sync listener + outbound requests and optional online record searches
+  - --share=network
+  # RootLoop Bluetooth LE discovery
+  - --system-talk-name=org.bluez
+  # RootLoop mDNS peer discovery (Avahi over D-Bus)
+  - --system-talk-name=org.freedesktop.Avahi
+  # Secure storage for session tokens (libsecret / Secret Service)
+  - --talk-name=org.freedesktop.secrets
+  # No filesystem access on purpose: GEDCOM and backup import/export go
+  # through the XDG file chooser portal.
 
 modules:
   - name: vetviona
     buildsystem: simple
     build-commands:
-      - mkdir -p /app/bin
-      - cp -r * /app/bin/
+      - install -d /app/lib/vetviona /app/bin
+      - cp -r bundle/. /app/lib/vetviona/
+      - ln -s /app/lib/vetviona/vetviona /app/bin/vetviona
+      - install -Dm644 com.koshkikode.Vetviona.desktop /app/share/applications/com.koshkikode.Vetviona.desktop
+      - install -Dm644 com.koshkikode.Vetviona.metainfo.xml /app/share/metainfo/com.koshkikode.Vetviona.metainfo.xml
+      - install -Dm644 com.koshkikode.Vetviona.mime.xml /app/share/mime/packages/com.koshkikode.Vetviona.xml
+      - install -Dm644 icon.png /app/share/icons/hicolor/256x256/apps/com.koshkikode.Vetviona.png
     sources:
+      # The Flutter release bundle produced by `flutter build linux --release`.
       - type: dir
-        path: bundle
+        path: ../../../app/build/linux/x64/release/bundle
+        dest: bundle
+      - type: file
+        path: com.koshkikode.Vetviona.desktop
+      - type: file
+        path: com.koshkikode.Vetviona.metainfo.xml
+      - type: file
+        path: com.koshkikode.Vetviona.mime.xml
+      - type: file
+        path: ../../../app/assets/icon/app_icon.png
+        dest-filename: icon.png

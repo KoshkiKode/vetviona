@@ -15,14 +15,20 @@ flutter build macos --release --dart-define=PAID=true
 
 The built `.app` bundle will be at:
 ```
-app/build/macos/Build/Products/Release/vetviona.app
+app/build/macos/Build/Products/Release/Vetviona.app
 ```
+
+The sandbox entitlements live in `app/macos/Runner/Release.entitlements`
+(and `DebugProfile.entitlements`) — they are the single source of truth; edit
+them there. They grant network client/server (RootLoop), Bluetooth, user-selected
+file access and keychain access (secure storage). `Info.plist` declares the
+`_vetviona._tcp` Bonjour service required for local-network discovery.
 
 ## Creating a DMG
 
 ```bash
 hdiutil create -volname "Vetviona" \
-  -srcfolder app/build/macos/Build/Products/Release/vetviona.app \
+  -srcfolder app/build/macos/Build/Products/Release/Vetviona.app \
   -ov -format UDZO \
   vetviona-macos.dmg
 ```
@@ -32,8 +38,8 @@ hdiutil create -volname "Vetviona" \
 ```bash
 codesign --deep --force --verify --verbose \
   --sign "Developer ID Application: KoshkiKode (TEAMID)" \
-  --entitlements packaging/macos/entitlements.plist \
-  app/build/macos/Build/Products/Release/vetviona.app
+  --entitlements app/macos/Runner/Release.entitlements \
+  app/build/macos/Build/Products/Release/Vetviona.app
 ```
 
 ## Notarization

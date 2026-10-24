@@ -7,6 +7,7 @@ This directory contains the WiX v5 installer source (`vetviona.wxs`) used to pro
 - [.NET SDK](https://dotnet.microsoft.com/download) ≥ 6
 - WiX v5 dotnet tool: `dotnet tool install --global wix --version 5.0.2`
 - WiX UI extension: `wix extension add -g WixToolset.UI.wixext/5.0.2`
+- WiX Firewall extension: `wix extension add -g WixToolset.Firewall.wixext/5.0.2`
 - A Windows Developer certificate (optional, for signing)
 
 ## Building the MSI locally
@@ -27,7 +28,7 @@ This directory contains the WiX v5 installer source (`vetviona.wxs`) used to pro
    ```powershell
    cd app\build\windows\x64\runner\Release
    wix harvest dir . -gg -srd -dr INSTALLFOLDER -cg AppFiles -o harvest.wxs
-   wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -o vetviona-setup.msi
+   wix build vetviona.wxs harvest.wxs -ext WixToolset.UI.wixext/5.0.2 -ext WixToolset.Firewall.wixext/5.0.2 -o vetviona-setup.msi
    ```
 
 ## Signing the installer (optional)

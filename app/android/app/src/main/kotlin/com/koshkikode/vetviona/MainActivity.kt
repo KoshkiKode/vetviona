@@ -1,4 +1,4 @@
-package com.example.vetviona_app
+package com.koshkikode.vetviona
 
 import io.flutter.embedding.android.FlutterActivity
 

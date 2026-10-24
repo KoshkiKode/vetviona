@@ -93,3 +93,10 @@ Cargo.lock
 
 # Packages
 node_modules/
+
+# Linux packaging build output
+packaging/linux/deb/staging/
+packaging/linux/*.deb
+packaging/linux/flatpak/.flatpak-builder/
+app/snap-bundle/
+app/snap/

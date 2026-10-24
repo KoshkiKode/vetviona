@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Core NFC tag reading for RootLoop tap-to-pair. The App ID must also have
+	     the "NFC Tag Reading" capability enabled in the Apple Developer portal. -->
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>NDEF</string>
+		<string>TAG</string>
+	</array>
+	<!-- Required by flutter_secure_storage (see the plugin README); an empty
+	     list uses the app's own default keychain group. -->
+	<key>keychain-access-groups</key>
+	<array/>
+</dict>
+</plist>

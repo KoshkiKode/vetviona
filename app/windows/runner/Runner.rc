@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.koshkikode" "\0"
-            VALUE "FileDescription", "vetviona_app" "\0"
+            VALUE "CompanyName", "KoshkiKode LLC" "\0"
+            VALUE "FileDescription", "Vetviona" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "vetviona_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.koshkikode. All rights reserved." "\0"
-            VALUE "OriginalFilename", "vetviona_app.exe" "\0"
-            VALUE "ProductName", "vetviona_app" "\0"
+            VALUE "InternalName", "Vetviona" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 KoshkiKode LLC. All rights reserved." "\0"
+            VALUE "OriginalFilename", "vetviona.exe" "\0"
+            VALUE "ProductName", "Vetviona" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -26,7 +26,9 @@ android {
 
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Pinned (not flutter.minSdkVersion): the secure-storage, QR-scanner and
+        // NFC plugins require API 24+, and CI must not have to patch this file.
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -52,12 +54,36 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keyPropsFile.exists()) signingConfigs.getByName("release")
-                            else signingConfigs.getByName("debug")
+            signingConfig = if (keyPropsFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "WARNING: android/key.properties not found - signing the " +
+                        "release build with the DEBUG key. Never distribute this build."
+                )
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+// Tagged CI releases set REQUIRE_RELEASE_SIGNING=true so a debug-signed
+// APK/AAB can never be produced by accident.
+gradle.taskGraph.whenReady {
+    val buildingRelease = allTasks.any { task ->
+        val name = task.name
+        (name.startsWith("assemble") || name.startsWith("bundle") || name.startsWith("package")) &&
+            name.endsWith("Release")
+    }
+    val requireSigning = System.getenv("REQUIRE_RELEASE_SIGNING") == "true"
+    if (buildingRelease && requireSigning && !rootProject.file("key.properties").exists()) {
+        throw GradleException(
+            "REQUIRE_RELEASE_SIGNING=true but android/key.properties is missing; " +
+                "refusing to sign a release build with the debug key."
+        )
+    }
 }

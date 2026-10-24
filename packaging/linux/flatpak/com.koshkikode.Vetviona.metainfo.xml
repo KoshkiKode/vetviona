@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.koshkikode.Vetviona</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Vetviona</name>
+  <summary>Private, local-first genealogy and family tree builder</summary>
+  <developer id="com.koshkikode">
+    <name>KoshkiKode LLC</name>
+  </developer>
+  <description>
+    <p>
+      Vetviona is a private, offline-first family tree builder and research
+      workspace. Your tree lives on your own devices, never on a server you
+      do not control.
+    </p>
+    <ul>
+      <li>Interactive family tree, pedigree, descendant and fan charts</li>
+      <li>GEDCOM import and export</li>
+      <li>Sources, life events, places, medical history and research tasks</li>
+      <li>RootLoop device-to-device sync over your local network, with end-to-end encryption</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">com.koshkikode.Vetviona.desktop</launchable>
+  <provides>
+    <binary>vetviona</binary>
+    <mediatype>application/x-gedcom</mediatype>
+    <mediatype>application/x-vetviona</mediatype>
+  </provides>
+  <url type="homepage">https://vetviona.koshkikode.com</url>
+  <url type="bugtracker">https://github.com/KoshkiKode/vetviona/issues</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="1.0.0" date="2026-10-24" />
+  </releases>
+</component>

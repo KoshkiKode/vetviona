@@ -5,7 +5,8 @@
   Build (CI): wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall">
 
   <Package
     Name="Vetviona"
@@ -30,6 +31,7 @@
       <ComponentGroupRef Id="AppFiles" />
       <ComponentRef Id="ApplicationShortcut" />
       <ComponentRef Id="ApplicationShortcutDesktop" />
+      <ComponentRef Id="FirewallRule" />
     </Feature>
 
     <!-- ── UI ──────────────────────────────────────────────────────── -->
@@ -78,6 +80,28 @@
         Root="HKCU"
         Key="Software\KoshkiKode\Vetviona"
         Name="desktopShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <!-- ── Windows Firewall (RootLoop sync listener) ───────────────────
+         Allows inbound RootLoop connections for this program on PRIVATE
+         networks from the local subnet only, so Windows does not need to
+         prompt on first sync. Tailscale / public-network peers still go
+         through the normal Windows prompt. -->
+    <Component Id="FirewallRule" Directory="INSTALLFOLDER">
+      <fw:FirewallException
+        Id="VetvionaRootLoopFirewall"
+        Name="Vetviona RootLoop sync (private networks)"
+        Program="[INSTALLFOLDER]vetviona.exe"
+        Profile="private"
+        Scope="localSubnet"
+        IgnoreFailure="yes" />
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\KoshkiKode\Vetviona"
+        Name="firewallRule"
         Type="integer"
         Value="1"
         KeyPath="yes" />
