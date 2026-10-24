@@ -76,10 +76,9 @@ AES key = SHA-256(sharedSecret)   → 32-byte key
 ### Encryption
 
 ```
-AES-256-CBC
-IV:         16 random bytes, per message
-Ciphertext: AES-CBC(plaintext, key, IV)
-Wire format: base64(IV) :: base64(ciphertext)
+AES-256-GCM         12 random bytes, per message
+Ciphertext: AES-GCM(plaintext, key, IV), with a 16-byte authentication tag appended
+Wire format: base64(IV) :: base64(ciphertext + 16-byte tag)
 ```
 
 The entire JSON payload (persons + sources + partnerships + ...) is encrypted as a **single string** before transmission.
@@ -161,7 +160,7 @@ When a **free mobile device** syncs with a Desktop Pro device:
 
 ## File-Based Sync (AirDrop / Nearby Share)
 
-On platforms where the above methods are unavailable, you can export an encrypted tree file via **Share** (AirDrop on iOS/macOS, Nearby Share on Android) and import it on the other device. This uses the same AES-256 encryption as network sync.
+On platforms where the above methods are unavailable, you can export a tree file via **Share** (AirDrop on iOS/macOS, Nearby Share on Android) and import it on the other device. The file is **not encrypted yet**. Private people and medical history are left out, but treat it like any other personal document until encrypted sharing ships.
 
 ---
 

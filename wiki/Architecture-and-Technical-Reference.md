@@ -332,7 +332,7 @@ independently.
 | `PurchaseService` | `purchase_service.dart` | In-app purchase (Mobile Paid) |
 | `PdfReportService` | `pdf_report_service.dart` | PDF generation for family book and medical history |
 | `SoundService` | `sound_service.dart` | UI sound effects for sync events |
-| `ShareSyncService` | `share_sync_service.dart` | File-based encrypted tree export/import |
+| `ShareSyncService` | `share_sync_service.dart` | File-based tree export/import (privacy-filtered JSON; encryption not yet implemented) |
 | `NominatimService` | `nominatim_service.dart` | Reverse geocoding (lat/lng → address) |
 
 ---
@@ -343,7 +343,7 @@ independently.
 |---------|---------|-----|
 | `sqflite` + `sqflite_common_ffi` | ^2.0 | SQLite (mobile + desktop) |
 | `provider` | ^6.0 | State management |
-| `encrypt` | ^5.0 | AES-256-CBC encryption |
+| `encrypt` | ^5.0 | AES-256-GCM encryption |
 | `crypto` | ^3.0 | SHA-256 hashing |
 | `bonsoir` | ^6.0 | mDNS discovery |
 | `shelf` + `shelf_router` | ^1.4 | HTTP server |

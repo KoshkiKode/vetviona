@@ -28,7 +28,7 @@ The shared secret is a UUID generated locally during pairing. It is never transm
 
 | Detail | Value |
 |--------|-------|
-| Algorithm | AES-256-CBC |
+| Algorithm | AES-256-GCM (authenticated encryption) |
 | IV length | 16 bytes (random, per message) |
 | Key length | 32 bytes (SHA-256 of shared secret) |
 | Wire format | `base64(IV) :: base64(ciphertext)` |
@@ -155,7 +155,7 @@ Found a security vulnerability? Please report it responsibly by emailing the add
 | Threat | Mitigation |
 |--------|-----------|
 | Data theft from device | OS-level app sandbox; no cloud storage |
-| Interception during sync | AES-256-CBC end-to-end encryption |
+| Interception during sync | AES-256-GCM end-to-end encryption |
 | Weak passwords | SHA-256 with random salt |
 | Leaking living relatives' data | `isPrivate` flag excludes from all exports and sync |
 | Backup file exposure | User responsibility; plaintext warning in docs |
