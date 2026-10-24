@@ -14,8 +14,9 @@
 	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
-	<!-- Required by flutter_secure_storage (see the plugin README). -->
-	<key>keychain-access-groups</key>
-	<array/>
+	<!-- NOTE: `keychain-access-groups` (needed by flutter_secure_storage) is in
+	     Release.entitlements only. Adding it here would force every debug build
+	     to be signed with a development certificate; debug builds fall back to
+	     "no saved session" instead. -->
 </dict>
 </plist>

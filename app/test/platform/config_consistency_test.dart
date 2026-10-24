@@ -261,8 +261,12 @@ void main() {
               'com.apple.security.network.server',
               'com.apple.security.device.bluetooth',
               'com.apple.security.files.user-selected.read-write',
-              'keychain-access-groups',
             ]));
+        // Keychain access requires signing; it is mandatory for release but
+        // omitted from debug so unsigned local debug builds still work.
+        if (name == 'Release') {
+          expect(keys, contains('keychain-access-groups'));
+        }
         // The QR scanner is mobile-only and nothing records audio.
         expect(keys, isNot(contains('com.apple.security.device.camera')));
         expect(keys, isNot(contains('com.apple.security.device.audio-input')));
