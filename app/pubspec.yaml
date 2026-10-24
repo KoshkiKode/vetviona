@@ -30,7 +30,7 @@ dependencies:
   encrypt: ^5.0.0
   uuid: ^4.5.3
   image_picker: ^1.0.0
-  bonsoir: ^6.0.0
+  bonsoir: ^7.1.0
   shelf: ^1.4.0
   shelf_router: ^1.1.0
   crypto: ^3.0.0

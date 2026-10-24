@@ -396,7 +396,9 @@ class SyncService extends ChangeNotifier {
       }
     } else if (event is BonsoirDiscoveryServiceResolvedEvent) {
       final svc = event.service;
-      final host = svc.host ?? '';
+      final host = svc.hostAddresses.isNotEmpty
+          ? svc.hostAddresses.first
+          : (svc.hostname ?? '');
       if (host.isEmpty) return;
 
       final attrs = svc.attributes;
