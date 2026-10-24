@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -11,6 +10,8 @@ import 'package:vetviona_app/models/person.dart';
 import 'package:vetviona_app/models/source.dart';
 import 'package:vetviona_app/providers/tree_provider.dart';
 
+import '../support/test_documents.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
@@ -19,9 +20,7 @@ void main() {
   late String docsDir;
 
   setUpAll(() {
-    const channel = MethodChannel('plugins.flutter.io/path_provider');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async => docsDir);
+    redirectDocumentsDirectory(() => docsDir);
   });
 
   late TreeProvider provider;

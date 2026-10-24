@@ -1,5 +1,6 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/services.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vetviona_app/models/person.dart';
@@ -14,17 +15,23 @@ import 'package:vetviona_app/models/record_hint.dart';
 import 'package:vetviona_app/models/dna_kit.dart';
 import 'package:vetviona_app/providers/tree_provider.dart';
 
+import '../support/test_documents.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
+  // A real temporary folder: `inMemoryDatabasePath` would create a persistent
+  // file that keeps rows and triggers between runs.
+  late Directory documents;
   setUpAll(() {
-    const channel = MethodChannel('plugins.flutter.io/path_provider');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
-      return inMemoryDatabasePath;
-    });
+    documents = Directory.systemTemp.createTempSync('vetviona_db_test_');
+    redirectDocumentsDirectory(() => documents.path);
+  });
+
+  tearDownAll(() {
+    documents.deleteSync(recursive: true);
   });
 
   group('TreeProvider Database Operations', () {
