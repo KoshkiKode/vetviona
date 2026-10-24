@@ -4,7 +4,8 @@
   WiX v5 / dotnet tool "wix" v5.0.2
   Build (CI): wix build vetviona.wxs -ext WixToolset.UI.wixext -o vetviona-setup.msi
 -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <Package
     Name="Vetviona"
@@ -32,7 +33,7 @@
     </Feature>
 
     <!-- ── UI ──────────────────────────────────────────────────────── -->
-    <UIRef Id="WixUI_InstallDir" />
+    <ui:WixUI Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
 
