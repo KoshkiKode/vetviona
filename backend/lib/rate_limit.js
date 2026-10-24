@@ -2,11 +2,10 @@
 
 // Per-IP and per-account rate limiting + exponential account lockout.
 //
-// In-memory token-bucket implementation — fine for a single Fargate task or
-// a single Lambda warm container.  For multi-instance HA, swap the buckets
-// for a Redis-backed implementation that exposes the same `consume()` /
-// `recordFailure()` / `recordSuccess()` shape.  See `backend/DEPLOY-AWS.md`
-// "Multi-instance HA" section.
+// In-memory token-bucket implementation — fine for the single systemd-managed
+// Node.js process documented in `SERVER_SETUP.md`. For multi-instance HA,
+// swap the buckets for a Redis-backed implementation that exposes the same
+// `consume()` / `recordFailure()` / `recordSuccess()` shape.
 
 const crypto = require('crypto');
 

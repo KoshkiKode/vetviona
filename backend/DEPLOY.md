@@ -58,13 +58,13 @@ Copy `.env.example` to `.env` and fill in your values, or export them directly.
 | `S3_BUCKET` | *(unset)* | Bucket name — set to enable object storage |
 | `S3_KEY` | `vetviona/license-db.json` | Object key within the bucket |
 | `S3_REGION` | `us-east-1` | Region (any value works for providers that don't require one) |
-| `S3_ENDPOINT` | *(unset)* | Custom endpoint URL — **required for non-AWS providers** |
-| `AWS_ACCESS_KEY_ID` | *(unset)* | Access key for your object storage provider |
-| `AWS_SECRET_ACCESS_KEY` | *(unset)* | Secret key for your object storage provider |
+| `S3_ENDPOINT` | *(unset)* | Custom endpoint URL — e.g. MinIO, Backblaze B2, Cloudflare R2, Google Cloud Storage |
+| `S3_ACCESS_KEY_ID` | *(unset)* | Access key for your object storage provider |
+| `S3_SECRET_ACCESS_KEY` | *(unset)* | Secret key for your object storage provider |
 
 ### 3. Set up object storage (production)
 
-The license database must live in durable object storage in production — local disk is lost on redeploys. The backend speaks standard S3 protocol and works with any compatible provider. KoshkiKode's canonical provider is **Google Cloud Storage** (enable S3 interoperability on the bucket and use an HMAC key pair; set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_REGION=auto`). KoshkiKode no longer uses AWS.
+The license database must live in durable object storage in production — local disk is lost on redeploys. The backend speaks standard S3 protocol and works with any compatible provider, and does not use or depend on Amazon AWS. KoshkiKode's canonical choice is **self-hosted MinIO** (see `SERVER_SETUP.md`); Google Cloud Storage is a managed alternative (enable S3 interoperability on the bucket and use an HMAC key pair; set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_REGION=auto`).
 
 #### MinIO (self-hosted, free)
 
@@ -89,8 +89,8 @@ Env vars:
 export S3_BUCKET=vetviona-licenses
 export S3_ENDPOINT=http://localhost:9000
 export S3_REGION=us-east-1
-export AWS_ACCESS_KEY_ID=admin
-export AWS_SECRET_ACCESS_KEY=changeme
+export S3_ACCESS_KEY_ID=admin
+export S3_SECRET_ACCESS_KEY=changeme
 ```
 
 #### Backblaze B2
@@ -103,8 +103,8 @@ export AWS_SECRET_ACCESS_KEY=changeme
 export S3_BUCKET=vetviona-licenses
 export S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
 export S3_REGION=us-west-004
-export AWS_ACCESS_KEY_ID=<b2-key-id>
-export AWS_SECRET_ACCESS_KEY=<b2-application-key>
+export S3_ACCESS_KEY_ID=<b2-key-id>
+export S3_SECRET_ACCESS_KEY=<b2-application-key>
 ```
 
 #### Cloudflare R2
@@ -117,8 +117,8 @@ export AWS_SECRET_ACCESS_KEY=<b2-application-key>
 export S3_BUCKET=vetviona-licenses
 export S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
 export S3_REGION=auto
-export AWS_ACCESS_KEY_ID=<r2-access-key-id>
-export AWS_SECRET_ACCESS_KEY=<r2-secret-access-key>
+export S3_ACCESS_KEY_ID=<r2-access-key-id>
+export S3_SECRET_ACCESS_KEY=<r2-secret-access-key>
 ```
 
 ### 4. Set up a reverse proxy with TLS

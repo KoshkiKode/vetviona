@@ -2,7 +2,10 @@
 
 This page covers everything needed to run a production Vetviona deployment: the license backend server, the app itself, all embedded or online database/search services, and the legal/EULA requirements.
 
-> **First time deploying?** Start with the **[Step-by-Step Deployment Guide](Deploy-Step-by-Step)** — it walks through every step in order, from a fresh server to a fully live backend.
+> **First time deploying?** See
+> [`SERVER_SETUP.md`](https://github.com/KoshkiKode/vetviona/blob/main/SERVER_SETUP.md) —
+> a self-hosted Debian + MinIO walkthrough from a fresh server to a fully live
+> backend. No AWS, no cloud hosting fees.
 
 ---
 
@@ -86,7 +89,7 @@ Install optional dependencies:
 
 ```bash
 npm install nodemailer@^10.2.1   # real email delivery
-npm install @aws-sdk/client-s3   # S3-compatible object storage (production)
+npm install @aws-sdk/client-s3   # S3-protocol client — works with MinIO, GCS, B2, R2 (production)
 ```
 
 ### Environment Variables
@@ -107,9 +110,9 @@ npm install @aws-sdk/client-s3   # S3-compatible object storage (production)
 | **`S3_BUCKET`** | *(unset)* | **Object storage bucket name** — set this to use S3-compatible storage instead of the local file |
 | `S3_KEY` | `vetviona/license-db.json` | Object key (path within the bucket) |
 | `S3_REGION` | `us-east-1` | Region (use any value if your provider doesn't require one) |
-| `S3_ENDPOINT` | *(unset)* | Custom endpoint URL — **required for non-AWS providers** (e.g. MinIO, Backblaze B2, Cloudflare R2) |
-| `AWS_ACCESS_KEY_ID` | *(unset)* | Access key ID for your object storage provider |
-| `AWS_SECRET_ACCESS_KEY` | *(unset)* | Secret access key for your object storage provider |
+| `S3_ENDPOINT` | *(unset)* | Custom endpoint URL (e.g. MinIO, Backblaze B2, Cloudflare R2, Google Cloud Storage) |
+| `S3_ACCESS_KEY_ID` | *(unset)* | Access key ID for your object storage provider |
+| `S3_SECRET_ACCESS_KEY` | *(unset)* | Secret access key for your object storage provider |
 
 > **Dev mode:** When `SMTP_HOST` is unset, all email tokens (verification codes, gift claim tokens, voucher codes, re-entry license codes) are printed to the console **and** returned in API responses as `_devToken` / `_devTokens`.
 
@@ -119,14 +122,16 @@ npm install @aws-sdk/client-s3   # S3-compatible object storage (production)
 
 In production the license database **must** live in durable object storage, not on the server's local disk — local disk is lost on server restarts or re-deployments.
 
-The backend uses the `@aws-sdk/client-s3` package, which speaks standard S3 protocol and works with any S3-compatible provider.
+The backend uses the `@aws-sdk/client-s3` package, which speaks standard S3
+protocol and works with any S3-compatible provider — this deployment does not
+use, and has no dependency on, Amazon AWS.
 
 ### Recommended providers
 
 | Provider | Notes |
 |----------|-------|
-| **Google Cloud Storage** | KoshkiKode's canonical choice — S3 interoperability via HMAC keys; set `S3_ENDPOINT=https://storage.googleapis.com` and `S3_REGION=auto` |
-| **MinIO** | Self-hosted, completely free, runs on your own VPS or LAN |
+| **MinIO (self-hosted)** | KoshkiKode's canonical choice — see [`SERVER_SETUP.md`](https://github.com/KoshkiKode/vetviona/blob/main/SERVER_SETUP.md); completely free, runs on your own VPS or LAN |
+| **Google Cloud Storage** | Managed alternative — S3 interoperability via HMAC keys; set `S3_ENDPOINT=https://storage.googleapis.com` and `S3_REGION=auto` |
 | **Backblaze B2** | Cheap hosted option ($0.006/GB/mo), S3-compatible API |
 | **Cloudflare R2** | Zero egress fees, S3-compatible, generous free tier |
 | **Hetzner Object Storage** | EU-based, affordable, S3-compatible |
@@ -155,8 +160,8 @@ Then start the license backend pointing at MinIO:
 export S3_BUCKET=vetviona-licenses
 export S3_ENDPOINT=http://localhost:9000
 export S3_REGION=us-east-1          # MinIO ignores this; any value works
-export AWS_ACCESS_KEY_ID=admin
-export AWS_SECRET_ACCESS_KEY=changeme
+export S3_ACCESS_KEY_ID=admin
+export S3_SECRET_ACCESS_KEY=changeme
 export LICENSE_KEY_SECRET=<stable-random-32+-chars>
 export ADMIN_SECRET=<your-admin-secret>
 export SMTP_HOST=your-smtp-host
@@ -175,8 +180,8 @@ node license_server.js
 export S3_BUCKET=vetviona-licenses
 export S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
 export S3_REGION=us-west-004
-export AWS_ACCESS_KEY_ID=<b2-key-id>
-export AWS_SECRET_ACCESS_KEY=<b2-application-key>
+export S3_ACCESS_KEY_ID=<b2-key-id>
+export S3_SECRET_ACCESS_KEY=<b2-application-key>
 export LICENSE_KEY_SECRET=<stable-random-32+-chars>
 export ADMIN_SECRET=<your-admin-secret>
 
@@ -193,8 +198,8 @@ node license_server.js
 export S3_BUCKET=vetviona-licenses
 export S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
 export S3_REGION=auto
-export AWS_ACCESS_KEY_ID=<r2-access-key-id>
-export AWS_SECRET_ACCESS_KEY=<r2-secret-access-key>
+export S3_ACCESS_KEY_ID=<r2-access-key-id>
+export S3_SECRET_ACCESS_KEY=<r2-secret-access-key>
 export LICENSE_KEY_SECRET=<stable-random-32+-chars>
 export ADMIN_SECRET=<your-admin-secret>
 

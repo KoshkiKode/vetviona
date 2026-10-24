@@ -1,17 +1,21 @@
 'use strict';
 
-// ── Stripe Checkout + S3 Download Distribution ──────────────────────────────
+// ── Stripe Checkout + S3-Compatible Download Distribution ──────────────────
+//
+// NOTE: Payment/download fulfillment is on the backburner — see
+// backend/PAYMENTS_TODO.md for what remains before this path is production
+// ready. The app and backend both work fully without it.
 //
 // Handles:
 //   POST /checkout/session   — creates a Stripe Checkout Session
 //   POST /stripe-webhook     — receives payment confirmation from Stripe
-//   GET  /download/:platform — generates a pre-signed S3 download URL
+//   GET  /download/:platform — generates a pre-signed S3-compatible download URL
 //
 // Environment variables:
-//   STRIPE_SECRET_KEY        — sk_live_... or sk_test_...
-//   STRIPE_WEBHOOK_SECRET    — whsec_... (from Stripe Dashboard → Webhooks)
-//   AWS_S3_DOWNLOADS_BUCKET  — bucket holding the app binaries
-//   AWS_REGION               — defaults to us-east-1
+//   STRIPE_SECRET_KEY     — sk_live_... or sk_test_...
+//   STRIPE_WEBHOOK_SECRET — whsec_... (from Stripe Dashboard → Webhooks)
+//   S3_DOWNLOADS_BUCKET   — bucket holding the app binaries (MinIO, GCS, etc.)
+//   S3_REGION             — defaults to us-east-1 (MinIO ignores this)
 //
 // The download bucket is expected to have keys like:
 //   vetviona/latest/vetviona-windows.msix
@@ -26,8 +30,9 @@ const crypto = require('crypto');
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
-const S3_DOWNLOADS_BUCKET = process.env.AWS_S3_DOWNLOADS_BUCKET || '';
-const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
+const S3_DOWNLOADS_BUCKET = process.env.S3_DOWNLOADS_BUCKET || '';
+const S3_REGION = process.env.S3_REGION || 'us-east-1';
+const S3_ENDPOINT = process.env.S3_ENDPOINT || ''; // e.g. http://localhost:9000 (MinIO)
 
 // Price ID → license type mapping.  Updated when prices change in Stripe.
 const PRICE_TO_LICENSE = {
@@ -72,7 +77,16 @@ function getStripe() {
   }
 }
 
-// ── S3 pre-signed URL helper ────────────────────────────────────────────────
+// ── S3-compatible pre-signed URL helper ─────────────────────────────────────
+// Credentials: S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY, same as license_server.js.
+
+function s3Credentials() {
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) return undefined;
+  const sessionToken = process.env.S3_SESSION_TOKEN;
+  return sessionToken ? { accessKeyId, secretAccessKey, sessionToken } : { accessKeyId, secretAccessKey };
+}
 
 async function generateDownloadUrl(platform) {
   const key = PLATFORM_KEYS[platform];
@@ -80,7 +94,14 @@ async function generateDownloadUrl(platform) {
   try {
     const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
     const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-    const s3 = new S3Client({ region: AWS_REGION });
+    const clientConfig = { region: S3_REGION };
+    const credentials = s3Credentials();
+    if (credentials) clientConfig.credentials = credentials;
+    if (S3_ENDPOINT) {
+      clientConfig.endpoint = S3_ENDPOINT;
+      clientConfig.forcePathStyle = true;
+    }
+    const s3 = new S3Client(clientConfig);
     const command = new GetObjectCommand({
       Bucket: S3_DOWNLOADS_BUCKET,
       Key: key,

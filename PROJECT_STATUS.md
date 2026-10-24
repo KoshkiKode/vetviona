@@ -39,10 +39,7 @@ available:
 - Documentation link checks — passed.
 - `git diff --check` — passed.
 
-GitHub Actions for PR #101 are not reaching any job step. GitHub reports that
-the repository account is locked because of a billing issue. This is an
-account/org administration blocker, not an application or workflow assertion
-failure; CI must be rerun after billing is restored.
+GitHub Actions billing is restored and CI runs normally on `main` again.
 
 ## Release and security posture
 
@@ -50,11 +47,24 @@ failure; CI must be rerun after billing is restored.
   explicitly opt in with `--dart-define=BETA=true`.
 - Paid binary downloads require a verified bearer session token. Email query
   parameters are not accepted as authorization.
+- Free-license registration can no longer be granted by a client-supplied
+  flag; MFA attempts count toward account lockout; dev/debug tokens require
+  an explicit `ALLOW_INSECURE_DEV` opt-in and never leak in production
+  responses; Stripe fulfillment checks `payment_status` before granting a
+  license.
+- Android release builds sign with a real release key when
+  `app/android/key.properties` is present, and refuse to fall back to the
+  debug key silently in CI release artifacts.
+- The repository has been swept for stale AWS branding and bloat: committed
+  build artifacts, one-off AI patch scripts, a stale root-level `pubspec.*`,
+  and a superseded AWS-specific deploy guide were removed. Object storage
+  env vars are now generic `S3_*` names (MinIO-compatible); no code or docs
+  depend on Amazon AWS specifically.
 - The app remains offline-first: backend reachability is optional for local
   editing and local sync.
-- The current deployment materials still need one canonical object-storage
-  choice. The code supports S3-compatible APIs while parts of the documentation
-  describe Google Cloud Storage.
+- The canonical object-storage choice is now resolved: self-hosted MinIO per
+  `SERVER_SETUP.md`, with Google Cloud Storage as a documented managed
+  alternative. No part of the deployment path uses or depends on AWS.
 - Versioning is not yet fully separated between the app, RootLoop protocol,
   backend API, and persisted data schema; this is a release-management risk.
 
@@ -62,8 +72,9 @@ failure; CI must be rerun after billing is restored.
 
 ### P0 — release safety and data integrity
 
-1. Restore GitHub Actions billing and make PR #101 green on Flutter tests,
-   backend tests, build exports, and CodeQL.
+1. Keep Flutter tests, backend tests, build exports, and CodeQL green on
+   every `main` push (GitHub Actions billing is restored; this is ongoing
+   maintenance, not a one-time unblock).
 2. Add release smoke tests for every artifact type and verify that paid,
    mobile-free, mobile-paid, and explicit beta builds have the intended gates.
 3. Define and test SQLite migrations, backup/restore, crash recovery, and
@@ -73,7 +84,9 @@ failure; CI must be rerun after billing is restored.
    protection, partial-transfer recovery, peer authentication, and clear
    conflict reporting.
 5. Reconcile Stripe, account licenses, webhook retries, download authorization,
-   and object storage configuration in one deployment contract.
+   and object storage configuration in one deployment contract. Payments work
+   is intentionally deprioritized for now — see `backend/PAYMENTS_TODO.md`
+   for the open items to pick back up before relying on it for real revenue.
 
 ### P1 — researcher-grade correctness
 
@@ -113,11 +126,9 @@ failure; CI must be rerun after billing is restored.
 
 ## Immediate next steps
 
-1. Restore GitHub Actions billing and rerun PR #101.
-2. Choose either AWS/S3-compatible storage or Google Cloud Storage as the
-   documented production path, then align `.env.example`, deployment guides,
-   backend code, and the website.
-3. Add migration/backup/sync failure-injection tests before expanding feature
+1. Keep CI green on every push to `main` (Unit Tests, Code Quality, and the
+   Build — Matrix Exports workflow across Android/iOS/Windows/macOS/Linux).
+2. Add migration/backup/sync failure-injection tests before expanding feature
    scope.
-4. Introduce explicit app, protocol, API, and schema version fields and
+3. Introduce explicit app, protocol, API, and schema version fields and
    compatibility tests.

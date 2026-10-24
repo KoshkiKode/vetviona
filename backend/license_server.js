@@ -26,15 +26,14 @@ const PRINT_DEV_SECRET =
 // object store instead of a local file.  Objects are always encrypted at rest
 // (AES-256 SSE, supported by every S3-compatible provider).
 //
-// KoshkiKode's canonical provider is Google Cloud Storage (S3 interoperability
-// with HMAC keys):  S3_ENDPOINT=https://storage.googleapis.com, S3_REGION=auto.
-// MinIO / Backblaze B2 / Cloudflare R2 / Hetzner work the same way.
-// (KoshkiKode no longer uses AWS; the SDK default endpoint is kept only so
-// deployments without S3_ENDPOINT still function with any S3 API.)
+// Canonical deployment: self-hosted MinIO, per SERVER_SETUP.md
+// (S3_ENDPOINT=http://localhost:9000). Backblaze B2, Cloudflare R2, Hetzner,
+// and Google Cloud Storage (S3 interoperability with HMAC keys) also work.
+// This project does not use, and has no dependency on, Amazon AWS.
 const S3_BUCKET   = process.env.S3_BUCKET   || '';
 const S3_KEY      = process.env.S3_KEY      || 'vetviona/license-db.json';
 const S3_REGION   = process.env.S3_REGION   || (process.env.S3_ENDPOINT && process.env.S3_ENDPOINT.includes('googleapis.com') ? 'auto' : 'us-east-1');
-const S3_ENDPOINT = process.env.S3_ENDPOINT || ''; // e.g. https://storage.googleapis.com
+const S3_ENDPOINT = process.env.S3_ENDPOINT || ''; // e.g. http://localhost:9000 (MinIO)
 const PBKDF2_ITERATIONS = 120000;
 const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = 'sha256';
@@ -1327,7 +1326,7 @@ async function handleGiftCancel(db, payload, res, ctx) {
 // (no env var) a one-time secret is logged at startup.
 async function handleVoucherCreate(db, payload, res) {
   const configuredSecret = process.env.ADMIN_SECRET || _devAdminSecret;
-  if (!payload.adminSecret || payload.adminSecret !== configuredSecret) {
+  if (!payload.adminSecret || !safeEqual(payload.adminSecret, configuredSecret)) {
     return sendJson(res, 403, { ok: false, message: 'Invalid admin secret.' });
   }
 
@@ -1511,6 +1510,7 @@ const RATE_LIMITED_ROUTES = new Set([
   '/v1/license/gift/initiate',
   '/v1/license/gift/claim',
   '/v1/license/gift/cancel',
+  '/v1/license/voucher/create',
 ]);
 
 // ── HTTP Server ───────────────────────────────────────────────────────────────

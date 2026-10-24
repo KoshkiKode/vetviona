@@ -23,7 +23,7 @@
 | Current capabilities, risks, and roadmap | [Project Status](https://github.com/KoshkiKode/vetviona/blob/main/PROJECT_STATUS.md) |
 | Build the app from source | [Building and Development](Building-and-Development) |
 | Deploy the backend and database search services | [Deployment](Deploy) |
-| Step-by-step deployment walkthrough | [Deploy Step by Step](Deploy-Step-by-Step) |
+| Self-hosted server setup walkthrough | [`SERVER_SETUP.md`](https://github.com/KoshkiKode/vetviona/blob/main/SERVER_SETUP.md) |
 | Encryption, privacy, security | [Security and Privacy](Security-and-Privacy) |
 
 ---
@@ -72,7 +72,8 @@ The current product baseline is documented in
 test baseline, release/security posture, deployment decisions still requiring
 alignment, and the prioritized P0–P3 roadmap.
 
-The step-by-step AWS deployment page is retained as a historical reference and
-is not the current KoshkiKode production deployment path. Use
-[Deployment](Deploy) for the active S3-compatible/Google Cloud Storage
-guidance.
+For a guided walkthrough of standing up the backend on your own server, see
+[`SERVER_SETUP.md`](https://github.com/KoshkiKode/vetviona/blob/main/SERVER_SETUP.md)
+(self-hosted Debian + MinIO, no cloud hosting fees, no AWS). Use
+[Deployment](Deploy) for the full environment-variable and object-storage
+reference.

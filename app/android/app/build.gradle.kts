@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -33,7 +35,7 @@ android {
     // Release signing: provide android/key.properties (gitignored) with
     // storeFile, storePassword, keyAlias, keyPassword. Without it the release
     // build falls back to debug keys, which must never be distributed.
-    val keyProps = java.util.Properties()
+    val keyProps = Properties()
     val keyPropsFile = rootProject.file("key.properties")
     if (keyPropsFile.exists()) keyPropsFile.inputStream().use { keyProps.load(it) }
 

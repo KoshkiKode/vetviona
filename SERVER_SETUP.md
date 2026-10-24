@@ -473,8 +473,8 @@ S3_BUCKET=vetviona-licenses
 S3_KEY=vetviona/license-db.json
 S3_REGION=us-east-1
 S3_ENDPOINT=http://localhost:9000
-AWS_ACCESS_KEY_ID=admin
-AWS_SECRET_ACCESS_KEY=change_this_strong_password
+S3_ACCESS_KEY_ID=admin
+S3_SECRET_ACCESS_KEY=change_this_strong_password
 ```
 
 Generate secrets:

@@ -1545,12 +1545,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       String quoteCsvField(String field) {
-        if (field.contains(',') ||
-            field.contains('"') ||
-            field.contains('\n')) {
-          return '"${field.replaceAll('"', '""')}"';
+        // Neutralize spreadsheet formula injection: a field that starts with
+        // =, +, -, @, tab, or CR can be interpreted as a formula by Excel/
+        // LibreOffice/Sheets when this CSV is opened, including fields that
+        // originated from an untrusted imported GEDCOM file. Prefixing with
+        // a single quote forces it to be treated as plain text.
+        var safeField = field;
+        if (safeField.isNotEmpty &&
+            RegExp(r'^[=+\-@\t\r]').hasMatch(safeField)) {
+          safeField = "'$safeField";
         }
-        return field;
+        if (safeField.contains(',') ||
+            safeField.contains('"') ||
+            safeField.contains('\n')) {
+          return '"${safeField.replaceAll('"', '""')}"';
+        }
+        return safeField;
       }
 
       final buf = StringBuffer();

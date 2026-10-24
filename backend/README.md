@@ -44,11 +44,11 @@ See [`DEPLOY.md`](./DEPLOY.md) for the full self-hosting guide (reverse proxy, T
 | `S3_KEY` | `vetviona/license-db.json` | Object key within the bucket |
 | `S3_REGION` | `us-east-1` | Region (any value works for providers that don't require one) |
 | `S3_ENDPOINT` | *(unset)* | Custom endpoint — required for MinIO, Backblaze B2, Cloudflare R2, etc. |
-| `AWS_ACCESS_KEY_ID` | *(unset)* | Access key for your object storage provider |
-| `AWS_SECRET_ACCESS_KEY` | *(unset)* | Secret key for your object storage provider |
+| `S3_ACCESS_KEY_ID` | *(unset)* | Access key for your object storage provider |
+| `S3_SECRET_ACCESS_KEY` | *(unset)* | Secret key for your object storage provider |
 | `STRIPE_SECRET_KEY` | *(unset)* | Stripe secret key for checkout webhook fulfillment |
 | `STRIPE_WEBHOOK_SECRET` | *(unset)* | Stripe signing secret for `/stripe-webhook` |
-| `AWS_S3_DOWNLOADS_BUCKET` | *(unset)* | Private bucket containing paid release artifacts |
+| `S3_DOWNLOADS_BUCKET` | *(unset)* | Private bucket containing paid release artifacts |
 
 Copy `.env.example` to `.env` to get started.
 

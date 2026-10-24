@@ -26,9 +26,9 @@ class BackendConfig {
   /// platform (Android · iOS · Windows · macOS · Linux).
   ///
   /// This is intentionally a stable HTTPS hostname on the GoDaddy-managed
-  /// koshkikode.com domain. Hosting runs on KoshkiKode infrastructure — the
-  /// AWS deployment was retired Oct 2026; self-hosted per SERVER_SETUP.md
-  /// today, Google Cloud planned. See `backend/DEPLOY.md`.
+  /// koshkikode.com domain. Hosting runs on KoshkiKode's own infrastructure:
+  /// self-hosted (Debian + MinIO) per `SERVER_SETUP.md`, with Google Cloud
+  /// Storage as a documented managed alternative. See `backend/DEPLOY.md`.
   static const String productionBaseUrl =
       'https://license.koshkikode.com';
 
