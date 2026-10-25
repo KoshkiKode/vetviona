@@ -32,7 +32,21 @@ const PRINT_DEV_SECRET =
 // This project does not use, and has no dependency on, Amazon AWS.
 const S3_BUCKET   = process.env.S3_BUCKET   || '';
 const S3_KEY      = process.env.S3_KEY      || 'vetviona/license-db.json';
-const S3_REGION   = process.env.S3_REGION   || (process.env.S3_ENDPOINT && process.env.S3_ENDPOINT.includes('googleapis.com') ? 'auto' : 'us-east-1');
+// Default signing region for the configured S3-compatible endpoint. Google Cloud
+// Storage (storage.googleapis.com) expects 'auto'; everything else defaults to
+// 'us-east-1'. The endpoint is parsed and its hostname compared exactly, so a
+// look-alike such as https://googleapis.com.example.net does not match.
+function defaultS3Region(endpoint) {
+  if (!endpoint) return 'us-east-1';
+  try {
+    const host = new URL(endpoint).hostname.toLowerCase();
+    if (host === 'googleapis.com' || host.endsWith('.googleapis.com')) return 'auto';
+  } catch (_) {
+    // Not a valid URL: fall through to the default region.
+  }
+  return 'us-east-1';
+}
+const S3_REGION   = process.env.S3_REGION   || defaultS3Region(process.env.S3_ENDPOINT);
 const S3_ENDPOINT = process.env.S3_ENDPOINT || ''; // e.g. http://localhost:9000 (MinIO)
 const PBKDF2_ITERATIONS = 120000;
 const PBKDF2_KEYLEN = 32;
@@ -1745,6 +1759,6 @@ module.exports = {
   // Re-exports of lib modules so tests can reset state easily.
   _internal: {
     rateLimit, sessionToken, totp, passwordPolicy, treeStorage, auditLog,
-    appVersion,
+    appVersion, defaultS3Region,
   },
 };

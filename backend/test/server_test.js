@@ -27,7 +27,7 @@ process.env.ADMIN_SECRET = 'test-admin-secret-veryverylong-999';
 // Make absolutely sure the http server inside license_server.js does not
 // actually bind a port — main entrypoint is gated on require.main === module.
 const mod = require('../license_server');
-const { rateLimit, sessionToken, totp, passwordPolicy, treeStorage, auditLog, appVersion } =
+const { rateLimit, sessionToken, totp, passwordPolicy, treeStorage, auditLog, appVersion, defaultS3Region } =
   mod._internal;
 
 const http = require('http');
@@ -113,6 +113,20 @@ function currentTotpCode(secret) {
 
 
 async function libraryTests() {
+  await test('defaultS3Region: Google Cloud Storage endpoints use auto', () => {
+    assert.strictEqual(defaultS3Region('https://storage.googleapis.com'), 'auto');
+    assert.strictEqual(defaultS3Region('https://STORAGE.GOOGLEAPIS.COM/bucket'), 'auto');
+    assert.strictEqual(defaultS3Region('https://googleapis.com'), 'auto');
+  });
+  await test('defaultS3Region: other endpoints and look-alike hosts use us-east-1', () => {
+    assert.strictEqual(defaultS3Region(''), 'us-east-1');
+    assert.strictEqual(defaultS3Region(undefined), 'us-east-1');
+    assert.strictEqual(defaultS3Region('http://localhost:9000'), 'us-east-1');
+    assert.strictEqual(defaultS3Region('https://s3.us-west-004.backblazeb2.com'), 'us-east-1');
+    assert.strictEqual(defaultS3Region('https://googleapis.com.example.net'), 'us-east-1');
+    assert.strictEqual(defaultS3Region('https://example.net/?x=googleapis.com'), 'us-east-1');
+    assert.strictEqual(defaultS3Region('not a url googleapis.com'), 'us-east-1');
+  });
   console.log('Library tests');
 
   await test('passwordPolicy: rejects too-short password', () => {
