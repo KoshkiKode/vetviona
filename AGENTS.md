@@ -35,7 +35,6 @@ These tool-neutral instructions apply to coding agents working in this repositor
 - Preserve RootLoop's device-to-device encryption and tier/transport rules. Do not weaken cryptography or add telemetry, remote sync, or data collection without explicit approval.
 - Preserve account, license, purchase, and paid-download verification. Do not bypass license checks, turn off production gates, or ship release artifacts with beta-only flags.
 - When hosted account/license services or object storage are needed, Google Cloud is the owner's preferred provider; keep editing and encrypted device sync local-first.
-- Use synthetic family data in tests and examples; never put real genealogical records in fixtures, prompts, logs, or screenshots.
 
 ## Validation
 
