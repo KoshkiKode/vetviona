@@ -76,12 +76,18 @@ use it to validate production licensing behavior.
 cd app
 flutter test
 
+# A specific test file
+flutter test test/some_test.dart
+
+# Flutter coverage (writes app/coverage/lcov.info)
+flutter test --coverage
+
 # Backend tests
 cd ../backend
 npm test
 
-# A specific test file
-flutter test test/some_test.dart
+# Backend coverage (writes backend/coverage/cobertura-coverage.xml)
+npm run test:coverage
 ```
 
 Please add or update tests for any behaviour you change.
