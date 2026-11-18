@@ -111,6 +111,31 @@ function currentTotpCode(secret) {
   return hotp(secret, Math.floor(Date.now() / 1000 / 30));
 }
 
+async function registerAndLogin(port, email, deviceId) {
+  rateLimit._resetForTests();
+  await request('POST', port, '/v1/account/register', {
+    json: { email, password: 'Tr0ub4dor&3xpand', desktopLicense: true },
+  });
+  const login = await request('POST', port, '/v1/license/verify', {
+    json: { email, password: 'Tr0ub4dor&3xpand', appType: 'desktop', os: 'linux', deviceId },
+  });
+  assert.strictEqual(login.status, 200, `login failed: ${login.raw}`);
+  return { Authorization: `Bearer ${login.body.session.token}` };
+}
+
+async function putManifestOk(port, auth, treeId, revision, chunks) {
+  const r = await request('POST', port, '/v1/tree/manifest/put', {
+    json: { treeId, manifest: { revision, chunks } }, headers: auth,
+  });
+  assert.strictEqual(r.status, 200, `manifest put failed: ${r.raw}`);
+}
+
+function putChunk(port, auth, treeId, chunkId, data) {
+  return request('PUT', port, `/v1/tree/${treeId}/chunk/${chunkId}`, {
+    raw: data, headers: { ...auth, 'Content-Type': 'application/octet-stream' },
+  });
+}
+
 
 async function libraryTests() {
   await test('defaultS3Region: Google Cloud Storage endpoints use auto', () => {
@@ -268,35 +293,45 @@ async function libraryTests() {
     assert.ok(t.jti && t.jti.length > 0);
   });
 
+  await test('sessionToken: token is rejected exactly at expiresAt', () => {
+    const account = { id: 'acct-exp', email: 'exp@e.com', tokenVersion: 0 };
+    const secret = 'b'.repeat(64);
+    const t = sessionToken.issueSessionToken(account, secret);
+    const realNow = Date.now;
+    try {
+      Date.now = () => (t.expiresAt - 1) * 1000;
+      assert.strictEqual(sessionToken.verifySessionToken(t.token, secret, account).ok, true);
+      Date.now = () => t.expiresAt * 1000;
+      const v = sessionToken.verifySessionToken(t.token, secret, account);
+      assert.strictEqual(v.ok, false);
+      assert.ok(v.message.includes('expired'));
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
   await test('totp: code matches generator', () => {
     const secret = totp.generateSecret();
-    // Manufacture the current code by re-running the algorithm.
-    // Easiest: just feed the secret back to the verifier.
-    const counter = Math.floor(Date.now() / 1000 / 30);
-    // Re-derive expected code via the internal algorithm by calling _hotp via a
-    // small re-implementation here mirrors what authenticator apps do.
-    const crypto = require('crypto');
-    function hotp(s, c) {
-      // Use the same base32 decode the library uses.
-      const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-      let bits = 0, val = 0; const out = [];
-      for (const ch of s) {
-        const i = alpha.indexOf(ch); if (i < 0) continue;
-        val = (val << 5) | i; bits += 5;
-        if (bits >= 8) { bits -= 8; out.push((val >>> bits) & 0xff); }
-      }
-      const key = Buffer.from(out);
-      const buf = Buffer.alloc(8);
-      let cc = c; for (let i = 7; i >= 0; i--) { buf[i] = cc & 0xff; cc = Math.floor(cc / 256); }
-      const h = crypto.createHmac('sha1', key).update(buf).digest();
-      const offset = h[h.length - 1] & 0xf;
-      const code = ((h[offset] & 0x7f) << 24) | ((h[offset+1] & 0xff) << 16)
-                 | ((h[offset+2] & 0xff) << 8) | (h[offset+3] & 0xff);
-      return String(code % 1_000_000).padStart(6, '0');
-    }
-    const code = hotp(secret, counter);
-    assert.strictEqual(totp.verifyCode(secret, code), true);
+    assert.strictEqual(totp.verifyCode(secret, currentTotpCode(secret)), true);
     assert.strictEqual(totp.verifyCode(secret, '000000'), false);
+  });
+
+  await test('totp: accepts one step either side of now and rejects two', () => {
+    const secret = 'JBSWY3DPEHPK3PXP';
+    const nowMs = 1_700_000_000_000;
+    const center = Math.floor(nowMs / 1000 / totp.STEP_SECONDS);
+    const realNow = Date.now;
+    try {
+      Date.now = () => nowMs;
+      for (const offset of [-1, 0, 1]) {
+        assert.strictEqual(totp.verifyCode(secret, hotp(secret, center + offset)), true, `offset ${offset}`);
+      }
+      for (const offset of [-2, 2]) {
+        assert.strictEqual(totp.verifyCode(secret, hotp(secret, center + offset)), false, `offset ${offset}`);
+      }
+    } finally {
+      Date.now = realNow;
+    }
   });
 
   await test('rateLimit: lockout after threshold', () => {
@@ -321,6 +356,18 @@ async function libraryTests() {
     });
     assert.strictEqual(r2.ok, false); // Older revision rejected
     assert.strictEqual(r2.status, 409);
+  });
+
+  await test('treeStorage: rejects revisions that are not non-negative integers', () => {
+    const db = {};
+    assert.strictEqual(treeStorage.putManifest(db, 'a1', 'tree-rev', { revision: 5, chunks: [] }).ok, true);
+    for (const revision of ['abc', {}, -1, 1.5]) {
+      const r = treeStorage.putManifest(db, 'a1', 'tree-rev', { revision, chunks: [] });
+      assert.strictEqual(r.ok, false, `revision ${JSON.stringify(revision)} should be rejected`);
+      assert.strictEqual(r.status, 400, `revision ${JSON.stringify(revision)} should be a 400`);
+    }
+    assert.strictEqual(treeStorage.getManifest(db, 'a1', 'tree-rev').manifest.revision, 5);
+    assert.strictEqual(treeStorage.putManifest(db, 'a1', 'tree-rev', { revision: 6, chunks: [] }).ok, true);
   });
 
   await test('appVersion: returns per-platform map', () => {
@@ -1561,6 +1608,59 @@ async function httpTests() {
     });
     const r = await request('GET', port, '/v1/tree/c404-tree/chunk/nosuch', { headers: auth });
     assert.strictEqual(r.status, 404);
+  });
+
+  await test('tree chunk: PUT rejects a body whose size differs from the manifest', async () => {
+    const auth = await registerAndLogin(port, 'chunklen@example.com', 'dev-chunklen-0001');
+    await putManifestOk(port, auth, 'len-tree', 1, [{ id: 'size-c1', bytes: 4 }]);
+    const put = await putChunk(port, auth, 'len-tree', 'size-c1', Buffer.alloc(25, 'x'));
+    assert.strictEqual(put.status, 400);
+    const get = await request('GET', port, '/v1/tree/len-tree/chunk/size-c1', { headers: auth });
+    assert.strictEqual(get.status, 404);
+  });
+
+  await test('tree manifest: replacing a manifest purges chunks it drops or resizes', async () => {
+    const auth = await registerAndLogin(port, 'purge@example.com', 'dev-purge-0001');
+    await putManifestOk(port, auth, 'purge-tree', 1, [
+      { id: 'p1', bytes: 9 }, { id: 'p2', bytes: 9 }, { id: 'p3', bytes: 18 },
+    ]);
+    for (const [id, bytes] of [['p1', 9], ['p2', 9], ['p3', 18]]) {
+      const up = await putChunk(port, auth, 'purge-tree', id, Buffer.alloc(bytes, 'x'));
+      assert.strictEqual(up.status, 200);
+    }
+    await putManifestOk(port, auth, 'purge-tree', 2, [{ id: 'p2', bytes: 9 }, { id: 'p3', bytes: 19 }]);
+    const statusOf = async (id) =>
+      (await request('GET', port, `/v1/tree/purge-tree/chunk/${id}`, { headers: auth })).status;
+    assert.strictEqual(await statusOf('p1'), 404, 'dropped chunk should be purged');
+    assert.strictEqual(await statusOf('p2'), 200, 'unchanged chunk should be kept');
+    assert.strictEqual(await statusOf('p3'), 404, 'resized chunk should be purged');
+  });
+
+  await test('tree storage: chunks are isolated per account', async () => {
+    const a = await registerAndLogin(port, 'iso-a@example.com', 'dev-iso-a-0001');
+    const b = await registerAndLogin(port, 'iso-b@example.com', 'dev-iso-b-0001');
+    const readA = () => request('GET', port, '/v1/tree/shared-tree/chunk/c1', { headers: a });
+    await putManifestOk(port, a, 'shared-tree', 1, [{ id: 'c1', bytes: 4 }]);
+    assert.strictEqual((await putChunk(port, a, 'shared-tree', 'c1', Buffer.from('aaaa'))).status, 200);
+
+    const bManifest = await request('POST', port, '/v1/tree/manifest/get', {
+      json: { treeId: 'shared-tree' }, headers: b,
+    });
+    assert.strictEqual(bManifest.status, 404);
+    const bChunk = await request('GET', port, '/v1/tree/shared-tree/chunk/c1', { headers: b });
+    assert.strictEqual(bChunk.status, 404);
+    const bList = await request('POST', port, '/v1/tree/list', { json: {}, headers: b });
+    assert.strictEqual(bList.body.trees.length, 0);
+
+    await putManifestOk(port, b, 'shared-tree', 1, [{ id: 'c1', bytes: 4 }]);
+    assert.strictEqual((await putChunk(port, b, 'shared-tree', 'c1', Buffer.from('bbbb'))).status, 200);
+    assert.strictEqual((await readA()).raw.toString('utf8'), 'aaaa');
+
+    const bDelete = await request('POST', port, '/v1/tree/delete', { json: { treeId: 'shared-tree' }, headers: b });
+    assert.strictEqual(bDelete.status, 200);
+    const aAfterDelete = await readA();
+    assert.strictEqual(aAfterDelete.status, 200);
+    assert.strictEqual(aAfterDelete.raw.toString('utf8'), 'aaaa');
   });
 
   await test('app version: env var overrides are reflected', async () => {

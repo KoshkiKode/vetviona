@@ -314,7 +314,4 @@ async function handleDownload(platform, db, account) {
 module.exports = {
   handleWebhook,
   handleDownload,
-  recordPurchase,
-  PLATFORM_KEYS,
-  PRICE_TO_LICENSE,
 };

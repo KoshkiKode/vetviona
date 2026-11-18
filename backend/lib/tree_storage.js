@@ -2,20 +2,21 @@
 
 // Phase 3 — opt-in encrypted cloud tree backup & sync.
 //
-// IMPORTANT: the server only ever sees ciphertext.  The Flutter client
-// derives a key from the user's password (PBKDF2-SHA256) and AES-256-GCM
-// encrypts each tree chunk before upload; the server has no way to read
-// trees and cannot decrypt them even with full database access.
+// IMPORTANT: the server only ever sees ciphertext.  Clients derive a key from
+// the user's password (PBKDF2-SHA256) and AES-256-GCM encrypt each tree chunk
+// before upload; the server has no way to read trees and cannot decrypt them
+// even with full database access.
 //
 // Storage layout (when S3_BUCKET is set — any S3-compatible provider; KoshkiKode uses Google Cloud Storage):
 //
-//   s3://<bucket>/<prefix>/users/<accountId>/trees/<treeId>/manifest.json
 //   s3://<bucket>/<prefix>/users/<accountId>/trees/<treeId>/chunks/<chunkId>.bin
 //
-// Each manifest is small JSON tracking revision, chunk list, ciphertext
-// byte counts, and a salt for password-key derivation.  Manifests are also
-// mirrored into the license database so we can enforce quotas without an
-// extra S3 round-trip on every list/quota check.
+// Manifests (revision, chunk list, ciphertext byte counts, and the salt for
+// password-key derivation) live only in the license database under
+// db.userTrees, so quota checks and listings need no S3 round-trip.  A chunk
+// upload must match its declared bytes exactly.  Replacing a manifest does not
+// yet delete chunk objects it drops or resizes, so stored bytes can exceed the
+// declared total.
 
 const crypto = require('crypto');
 
@@ -101,6 +102,10 @@ function putManifest(db, accountId, treeId, manifest) {
   if (!manifest || typeof manifest !== 'object') {
     return { ok: false, status: 400, message: 'manifest object required.' };
   }
+  const revision = Number(manifest.revision || 0);
+  if (!Number.isSafeInteger(revision) || revision < 0) {
+    return { ok: false, status: 400, message: 'revision must be a non-negative integer.' };
+  }
   const chunks = Array.isArray(manifest.chunks) ? manifest.chunks : [];
   if (chunks.length > MAX_CHUNKS_PER_TREE) {
     return {
@@ -146,7 +151,7 @@ function putManifest(db, accountId, treeId, manifest) {
     ? String(manifest.kdfSalt).slice(0, 256)
     : (existing && existing.kdfSalt) || null;
   const next = {
-    revision: Number(manifest.revision || 0),
+    revision,
     updatedAt: new Date().toISOString(),
     bytes: totalBytes,
     kdfSalt,

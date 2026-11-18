@@ -1622,6 +1622,10 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 413, {
           ok: false, message: `Chunk too large (max ${treeStorage.MAX_CHUNK_BYTES} bytes).` });
       }
+      // Quota counts declared bytes, so the stored object must match them exactly.
+      if (body.length !== declared.bytes) {
+        return sendJson(res, 400, { ok: false, message: 'Chunk size does not match the manifest.' });
+      }
       if (declared.sha256) {
         const actual = treeStorage.sha256Hex(body);
         if (actual !== declared.sha256) {
