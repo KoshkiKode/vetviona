@@ -1641,10 +1641,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET') {
+      // Serve only chunks the current manifest declares, at their declared size.
+      // Objects a newer manifest dropped or resized stay in storage but are not returned.
+      const got = treeStorage.getManifest(db, accountId, treeId);
+      const declared = got.ok && (got.manifest.chunks || []).find((c) => c.id === chunkId);
+      if (!declared) return sendJson(res, 404, { ok: false, message: 'Chunk not found.' });
       let buf;
       try { buf = await s3GetChunk(accountId, treeId, chunkId); }
       catch (err) { return sendJson(res, 500, { ok: false, message: `Storage error: ${err.message}` }); }
-      if (!buf) return sendJson(res, 404, { ok: false, message: 'Chunk not found.' });
+      if (!buf || buf.length !== declared.bytes) {
+        return sendJson(res, 404, { ok: false, message: 'Chunk not found.' });
+      }
       return sendBinary(res, 200, buf, 'application/octet-stream');
     }
 

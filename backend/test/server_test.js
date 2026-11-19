@@ -1619,7 +1619,7 @@ async function httpTests() {
     assert.strictEqual(get.status, 404);
   });
 
-  await test('tree manifest: replacing a manifest purges chunks it drops or resizes', async () => {
+  await test('tree manifest: chunks a new manifest drops or resizes are no longer served', async () => {
     const auth = await registerAndLogin(port, 'purge@example.com', 'dev-purge-0001');
     await putManifestOk(port, auth, 'purge-tree', 1, [
       { id: 'p1', bytes: 9 }, { id: 'p2', bytes: 9 }, { id: 'p3', bytes: 18 },
@@ -1631,9 +1631,9 @@ async function httpTests() {
     await putManifestOk(port, auth, 'purge-tree', 2, [{ id: 'p2', bytes: 9 }, { id: 'p3', bytes: 19 }]);
     const statusOf = async (id) =>
       (await request('GET', port, `/v1/tree/purge-tree/chunk/${id}`, { headers: auth })).status;
-    assert.strictEqual(await statusOf('p1'), 404, 'dropped chunk should be purged');
-    assert.strictEqual(await statusOf('p2'), 200, 'unchanged chunk should be kept');
-    assert.strictEqual(await statusOf('p3'), 404, 'resized chunk should be purged');
+    assert.strictEqual(await statusOf('p1'), 404, 'dropped chunk should not be served');
+    assert.strictEqual(await statusOf('p2'), 200, 'unchanged chunk should still be served');
+    assert.strictEqual(await statusOf('p3'), 404, 'resized chunk should not be served');
   });
 
   await test('tree storage: chunks are isolated per account', async () => {

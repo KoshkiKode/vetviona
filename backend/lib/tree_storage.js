@@ -15,8 +15,8 @@
 // password-key derivation) live only in the license database under
 // db.userTrees, so quota checks and listings need no S3 round-trip.  A chunk
 // upload must match its declared bytes exactly.  Replacing a manifest does not
-// yet delete chunk objects it drops or resizes, so stored bytes can exceed the
-// declared total.
+// delete the chunk objects it drops or resizes; chunk GET serves only what the
+// current manifest declares, so those objects stay stored but unreachable.
 
 const crypto = require('crypto');
 
