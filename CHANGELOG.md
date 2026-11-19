@@ -14,6 +14,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Required authenticated bearer sessions for paid artifact downloads.
 - Refreshed project, contributor, backend, architecture, and deployment
   documentation.
+- Tree chunk uploads must be declared in the tree manifest and match its size
+  and any SHA-256. Chunk downloads return 404 unless the current manifest still
+  declares the chunk and the stored bytes match its size.
+- Tree manifest revisions that are not non-negative integers are rejected with
+  400.
+- Relationship finder labels a partner's parent, a stepchild, and a child's
+  other parent as `Relative` instead of `Parent`, `Child`, or `Sibling`.
 
 ### Validated
 - Flutter analysis passes.
