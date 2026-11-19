@@ -186,11 +186,10 @@ class _RelationshipFinderScreenState
   }
 }
 
-/// Computes a human-readable relationship label between [from] and [to]
-/// by scanning consecutive pairs in [path]:
-///   - If B is in A's parentIds  → "up" step
-///   - If B is in A's childIds   → "down" step
-///   - Otherwise                 → lateral/partner step (ignored for counting)
+/// Labels the relationship along [path], a list of person ids from [from] to
+/// [to]. Named labels cover only blood lines: steps up to parents, then steps
+/// down to children. A direct partner link is 'Partner/Spouse'. Anything else
+/// (through a partner, a child's other parent, or an unknown id) is 'Relative'.
 String describeRelationship(
     Person from, Person to, List<Person> allPersons, List<String> path) {
   if (path.length < 2) return 'Same Person';
@@ -202,17 +201,18 @@ String describeRelationship(
   for (int i = 0; i < path.length - 1; i++) {
     final a = personMap[path[i]];
     final b = personMap[path[i + 1]];
-    if (a == null || b == null) continue;
+    if (a == null || b == null) return 'Relative';
     if (a.parentIds.contains(b.id)) {
+      // Up after down reaches a child's other parent, not a blood relative.
+      if (downs > 0) return 'Relative';
       ups++;
     } else if (a.childIds.contains(b.id)) {
       downs++;
+    } else {
+      // Partner step: only a direct partner link has a name.
+      return path.length == 2 ? 'Partner/Spouse' : 'Relative';
     }
-    // Lateral partner step — does not count as up or down
   }
-
-  // Direct partner link
-  if (ups == 0 && downs == 0 && path.length == 2) return 'Partner/Spouse';
 
   // Direct ancestor
   if (ups > 0 && downs == 0) {
