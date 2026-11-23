@@ -124,7 +124,6 @@ function extractBearer(req) {
 }
 
 module.exports = {
-  SESSION_TTL_SECONDS,
   issueSessionToken,
   verifySessionToken,
   extractBearer,

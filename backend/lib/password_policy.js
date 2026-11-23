@@ -101,4 +101,4 @@ function scorePassword(password) {
   return Math.min(s, 4);
 }
 
-module.exports = { MIN_LENGTH, validatePassword, scorePassword };
+module.exports = { validatePassword, scorePassword };

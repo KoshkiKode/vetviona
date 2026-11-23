@@ -102,11 +102,21 @@ When `SMTP_HOST` is not set the server runs in dev mode:
 | `POST` | `/v1/license/claim-gift` | Claim a pending gift |
 | `POST` | `/v1/admin/voucher` | Create a voucher code (admin only) |
 | `POST` | `/v1/voucher/redeem` | Redeem a voucher |
-| `POST` | `/v1/tree/upload` | Upload a tree snapshot |
-| `GET`  | `/v1/tree/latest` | Download the latest tree snapshot |
+| `POST` | `/v1/tree/list` | List the account's stored trees |
+| `POST` | `/v1/tree/manifest/put` | Store a tree manifest for `treeId`, declaring its chunks and their sizes |
+| `POST` | `/v1/tree/manifest/get` | Fetch a tree's current manifest |
+| `POST` | `/v1/tree/delete` | Delete one tree and its chunks |
+| `POST` | `/v1/tree/delete-all` | Delete all of the account's trees and their chunks |
+| `PUT`  | `/v1/tree/:treeId/chunk/:chunkId` | Upload raw chunk bytes (Bearer). The current manifest must declare the chunk; size and any declared SHA-256 must match |
+| `GET`  | `/v1/tree/:treeId/chunk/:chunkId` | Download a raw chunk (Bearer). Returns 404 unless the current manifest declares it and the stored bytes match the declared size |
+| `DELETE` | `/v1/tree/:treeId/chunk/:chunkId` | Delete a raw chunk (Bearer) |
 | `GET`  | `/health` | Health check |
 | `POST` | `/stripe-webhook` | Verify Stripe events and grant licenses |
 | `GET`  | `/download/:platform` | Redirect to a short-lived artifact URL; requires `Authorization: Bearer <session-token>` |
+
+Tree routes accept a Bearer token. Without one, the `POST` tree routes accept
+`email` and `password` in the JSON body and enforce MFA when it is enabled.
+Chunk routes require a Bearer token.
 
 The download route never treats an email query parameter as authorization. The
 caller must first authenticate through the account/session endpoints and send

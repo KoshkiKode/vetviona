@@ -1622,6 +1622,10 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 413, {
           ok: false, message: `Chunk too large (max ${treeStorage.MAX_CHUNK_BYTES} bytes).` });
       }
+      // Quota counts declared bytes, so the stored object must match them exactly.
+      if (body.length !== declared.bytes) {
+        return sendJson(res, 400, { ok: false, message: 'Chunk size does not match the manifest.' });
+      }
       if (declared.sha256) {
         const actual = treeStorage.sha256Hex(body);
         if (actual !== declared.sha256) {
@@ -1637,10 +1641,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET') {
+      // Serve only chunks the current manifest declares, at their declared size.
+      // Objects a newer manifest dropped or resized stay in storage but are not returned.
+      const got = treeStorage.getManifest(db, accountId, treeId);
+      const declared = got.ok && (got.manifest.chunks || []).find((c) => c.id === chunkId);
+      if (!declared) return sendJson(res, 404, { ok: false, message: 'Chunk not found.' });
       let buf;
       try { buf = await s3GetChunk(accountId, treeId, chunkId); }
       catch (err) { return sendJson(res, 500, { ok: false, message: `Storage error: ${err.message}` }); }
-      if (!buf) return sendJson(res, 404, { ok: false, message: 'Chunk not found.' });
+      if (!buf || buf.length !== declared.bytes) {
+        return sendJson(res, 404, { ok: false, message: 'Chunk not found.' });
+      }
       return sendBinary(res, 200, buf, 'application/octet-stream');
     }
 

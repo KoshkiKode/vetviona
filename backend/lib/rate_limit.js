@@ -7,8 +7,6 @@
 // swap the buckets for a Redis-backed implementation that exposes the same
 // `consume()` / `recordFailure()` / `recordSuccess()` shape.
 
-const crypto = require('crypto');
-
 // Default: 30 requests per minute per IP, 10 per minute per account, on
 // auth-sensitive endpoints.  Override via env for stress tests.
 const IP_BUCKET_CAPACITY = Number(process.env.RATE_LIMIT_IP_PER_MIN || 30);
@@ -138,10 +136,6 @@ function _resetForTests() {
   _failures.clear();
 }
 
-// Lightweight self-test marker so unit tests can verify they're hitting the
-// same module instance as the server.
-const _instanceId = crypto.randomBytes(4).toString('hex');
-
 module.exports = {
   consume,
   checkLockout,
@@ -149,7 +143,6 @@ module.exports = {
   recordSuccess,
   clientIp,
   _resetForTests,
-  _instanceId,
   IP_BUCKET_CAPACITY,
   ACCOUNT_BUCKET_CAPACITY,
   LOCKOUT_THRESHOLD,
